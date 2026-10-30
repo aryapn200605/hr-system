@@ -21,6 +21,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
 use LogicException;
+use SensitiveParameter;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -113,6 +114,43 @@ class User extends Authenticatable
     public function hasCompletedTwoFactorEnrollment(): bool
     {
         return $this->two_factor_enrolled_at !== null;
+    }
+
+    /**
+     * Determine whether the user may use anything behind login. Checked on every request.
+     */
+    public function canAccessApplication(): bool
+    {
+        return $this->status === UserStatus::Active && $this->hasCompletedTwoFactorEnrollment();
+    }
+
+    /**
+     * Store a confirmed 2FA secret and issue recovery codes. Null means the account
+     * is no longer eligible, such as when a parallel request finished enrollment first.
+     *
+     * @return list<string>|null
+     */
+    public function completeTwoFactorEnrollment(#[SensitiveParameter] string $secret, int $timestep): ?array
+    {
+        return DB::transaction(function () use ($secret, $timestep) {
+            $user = static::query()->lockForUpdate()->findOrFail($this->getKey());
+
+            if ($user->status !== UserStatus::Active || $user->hasCompletedTwoFactorEnrollment()) {
+                return null;
+            }
+
+            $user->forceFill([
+                'two_factor_secret' => $secret,
+                'two_factor_enrolled_at' => now(),
+                'two_factor_last_timestep' => $timestep,
+            ])->save();
+
+            $recoveryCodes = RecoveryCode::regenerateFor($user);
+
+            AuditLog::record(AuditEvent::TwoFactorEnrolled, $user, $user);
+
+            return $recoveryCodes;
+        });
     }
 
     /**

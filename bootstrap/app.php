@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsureFullyAuthenticated;
+use App\Http\Middleware\EnsurePendingLogin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,9 +14,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            'fully.authenticated' => EnsureFullyAuthenticated::class,
+            'pending.login' => EnsurePendingLogin::class,
+        ]);
+
+        $middleware->redirectUsersTo('/dashboard');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontFlash(['identifier', 'code', 'recovery_code']);
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

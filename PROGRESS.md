@@ -4,7 +4,8 @@
 - Phase 0: done and committed (4b6b06e, branch main).
 - Phase 0 follow-up (cleanup after Laragon changes): done, see "Phase 0 follow-up" below.
 - Phase 1 (Database, RBAC, admin bootstrap): done, see "Phase 1" below.
-- Next: Phase 2 (Login, TOTP, sessions, history). Not started.
+- Phase 2 (Login, TOTP, sessions, history): done, see "Phase 2" below. Manual test with a real phone still to do by the user.
+- Next: Phase 3 (Invitation, activation, password reset, emails). Not started.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -82,3 +83,41 @@ Recorded in README.md under "Project decisions".
 Recorded in README.md under "Project decisions".
 - `status` is a string column cast to a PHP enum, as the user suggested, instead of the MySQL enum in the approved plan.
 - Role changes require a `users.update` actor unless the actor is null, which means the system (bootstrap command only).
+## Phase 2: Login, TOTP, sessions, history (2026-10-30)
+
+### Done
+- Installed pragmarx/google2fa 9.1.0 and bacon/bacon-qr-code 3.1.1 after a Composer dry run on PHP 8.5.12, with user approval. No advisories.
+- Stage 1 (`LoginController`), stage 2 (`TwoFactorChallengeController`), forced enrollment (`TwoFactorEnrollmentController`), logout and cancel.
+- `App\Support\TwoFactor`, `PendingLogin`, `AuthThrottle`. Enum `LoginResult`, four new `AuditEvent` cases. `LoginHistory::recordSuccess()` and `recordFailure()`. `RecoveryCode::regenerateFor()` and `consume()`. `User::completeTwoFactorEnrollment()` and `canAccessApplication()`.
+- Middleware `EnsureFullyAuthenticated` (`fully.authenticated`) and `EnsurePendingLogin` (`pending.login`).
+- Livewire's update route replaced so every action passes the full-login check. A 401 on a Livewire request sends the browser to the login page.
+- Additive migration: unique index on `recovery_codes (user_id, code_hash)`.
+- Recovery code HMAC uses a key derived from APP_KEY with HKDF and its own label. Rotation consequences are in README.md.
+- `SESSION_ENCRYPT=true` in .env and .env.example, `SESSION_SECURE_COOKIE` added to .env.example. `identifier`, `code` and `recovery_code` are never flashed.
+- Functional Blade pages and a placeholder Livewire dashboard, with the `dashboard.view` permission on its route.
+
+### Verified
+- `php artisan test`: 176 passed, on `hr_system_test`. `npm run build`: succeeded. Pint: clean. Composer and npm audits report no vulnerabilities.
+- Migrations applied to `hr_system`, which is ready for `app:create-admin`.
+- Real races: `AuthConcurrencyTest` runs 8 separate PHP processes with separate connections on committed rows, for a recovery code and a TOTP code. Exactly one wins, and the test fails if a process misses the start barrier.
+- Mutation check: 11 safeguards removed one at a time, each with the file restored and confirmed by hash. 8 were caught at once. 3 survived, which exposed two weak tests: MySQL reports 0 changed rows for an update to the same value, so frozen time hid the bug. The tests now move time forward and a stale-model test was added. The third was one of two redundant replay layers, and removing both is caught.
+- Real HTTP run on `hr_system_test` (`php -S`, not the test client), 30 checks passed: real CSRF (419 without a token), HttpOnly and SameSite cookies, session cookie changes at both stages, replay refused, recovery login, suspension from another process cutting Livewire (401) and the dashboard at once. Session payloads were unreadable when base64-decoded, and no identifier appeared in cache keys.
+- In a real browser: the QR renders, enrollment and recovery pages work, and a suspended user clicking a Livewire button lands on the login page.
+- `hr_system` still has no users, ready for the manual test.
+
+### Known issues
+- The QR code has not been scanned by a real Google or Microsoft Authenticator. The otpauth URI format and RFC 6238 vectors (6 of 6) were checked, and the manual test covers the rest.
+- Password spraying across accounts from one IP, and guessing one account from many IPs, are limited only per identifier and IP pair, as specified. Account lockout is out of scope.
+- The first enrollment is protected by the password alone. This follows from forced enrollment at first login.
+- Used recovery codes are not replaced and there is no regeneration page yet. Phase 5 is the likely place, but it has not been read.
+- Rotating APP_KEY requires re-enrolling all users (README.md).
+- Livewire cannot serve guest pages, because its only update route requires a full login. Phase 3 pages must use controllers.
+- The 401 redirect in the layout covers pages using that layout only.
+- `resources/views/welcome.blade.php` is now unused.
+- Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH.
+
+### Decisions
+Recorded in README.md under "Project decisions" and "Recovery codes and APP_KEY".
+- HMAC-SHA256 with a derived key for recovery codes, approved by the user instead of bcrypt.
+- The typed identifier is not refilled after a failed login, because it can contain a mistyped password.
+- Tests use a separate `tests/Support/race.php` process and `AuthConcurrencyTest` does not use RefreshDatabase, whose open transaction would hide rows from other processes.

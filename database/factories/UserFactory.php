@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Models\User;
+use App\Support\TwoFactor;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -63,6 +64,7 @@ class UserFactory extends Factory
     public function twoFactorEnrolled(): static
     {
         return $this->state(fn (array $attributes) => [
+            'two_factor_secret' => TwoFactor::generateSecret(),
             'two_factor_enrolled_at' => now(),
         ]);
     }
