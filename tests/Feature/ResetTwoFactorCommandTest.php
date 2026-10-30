@@ -89,7 +89,27 @@ class ResetTwoFactorCommandTest extends TestCase
 
         $this->assertNull($entry->actor_id);
         $this->assertSame($this->user->id, $entry->subject_id);
-        $this->assertSame(['sessions_ended' => 1], $entry->metadata);
+        $this->assertSame(1, $entry->metadata['sessions_ended']);
+        $this->assertEqualsCanonicalizing(['sessions_ended', 'operator'], array_keys($entry->metadata));
+    }
+
+    public function test_the_audit_entry_names_the_operating_system_account_and_nothing_secret(): void
+    {
+        $saved = [getenv('USERNAME'), getenv('USER')];
+        putenv('USERNAME=ops.person');
+        putenv('USER');
+
+        try {
+            $this->confirmed()->assertSuccessful();
+        } finally {
+            putenv($saved[0] === false ? 'USERNAME' : 'USERNAME='.$saved[0]);
+            putenv($saved[1] === false ? 'USER' : 'USER='.$saved[1]);
+        }
+
+        $entry = AuditLog::where('event', AuditEvent::TwoFactorReset->value)->sole();
+
+        $this->assertSame('ops.person@'.gethostname(), $entry->metadata['operator']);
+        $this->assertStringNotContainsString((string) $this->user->getRawOriginal('two_factor_secret'), (string) json_encode($entry->metadata));
     }
 
     public function test_the_next_login_forces_enrollment(): void

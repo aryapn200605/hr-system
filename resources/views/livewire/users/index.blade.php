@@ -61,28 +61,28 @@
 
                     @foreach ($users as $row)
                         <tr wire:key="user-{{ $row->id }}">
-                            <td>{{ $row->id }}</td>
-                            <td class="font-medium text-slate-900">{{ $row->name }}</td>
-                            <td>{{ $row->username }}</td>
-                            <td>{{ $row->email }}</td>
-                            <td><x-ui.role-badge :user="$row" /></td>
-                            <td><x-ui.status-badge :status="$row->status" /></td>
-                            <td>
+                            <td data-label="ID">{{ $row->id }}</td>
+                            <td data-primary class="font-medium text-slate-900">{{ $row->name }}</td>
+                            <td data-label="Username">{{ $row->username }}</td>
+                            <td data-label="Email">{{ $row->email }}</td>
+                            <td data-label="Role"><x-ui.role-badge :user="$row" /></td>
+                            <td data-label="Status"><x-ui.status-badge :status="$row->status" /></td>
+                            <td data-label="2FA">
                                 @if ($row->hasCompletedTwoFactorEnrollment())
                                     <x-ui.badge tone="green">Enabled</x-ui.badge>
                                 @else
                                     <x-ui.badge>Not enabled</x-ui.badge>
                                 @endif
                             </td>
-                            <td>
+                            <td data-label="Last login">
                                 @if ($row->last_login_at)
-                                    <x-ui.datetime :value="$row->last_login_at" />
+                                    <x-ui.datetime :value="$row->last_login_at" compact />
                                 @else
                                     <span class="text-slate-600">Never</span>
                                 @endif
                             </td>
-                            <td><x-ui.datetime :value="$row->created_at" /></td>
-                            <td class="text-right">
+                            <td data-label="Created"><x-ui.datetime :value="$row->created_at" compact /></td>
+                            <td data-label="Actions" class="text-right">
                                 <x-ui.dropdown :id="'user-actions-'.$row->id" :label="'Actions for '.$row->name" anchored trigger-class="px-2.5 py-1.5" class="inline-block">
                                     <x-slot:trigger>
                                         <span>Actions</span>

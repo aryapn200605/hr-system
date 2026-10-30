@@ -69,6 +69,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Dates are stored in UTC and shown to users in this timezone. An unknown
+    | name falls back to UTC, because every page shows a date.
+    |
+    */
+
+    'display_timezone' => in_array(env('APP_TIMEZONE_DISPLAY'), DateTimeZone::listIdentifiers(), true)
+        ? env('APP_TIMEZONE_DISPLAY')
+        : 'UTC',
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

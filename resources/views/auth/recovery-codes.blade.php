@@ -7,6 +7,8 @@
         @endforeach
     </ul>
 
+    <p class="mb-6 text-sm text-slate-600">If you lose these codes, create a new set in Security Settings after logging in. That needs your password and your authenticator.</p>
+
     @isset($notice)
         <x-ui.alert class="mb-6">{{ $notice }}</x-ui.alert>
     @endisset

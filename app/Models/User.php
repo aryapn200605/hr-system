@@ -271,9 +271,9 @@ class User extends Authenticatable
      * Take 2FA away, for the reset command only. The next login forces a new enrollment.
      * False means the account has no 2FA to reset, such as when a parallel reset came first.
      */
-    public function resetTwoFactor(): bool
+    public function resetTwoFactor(?string $operator = null): bool
     {
-        return DB::transaction(function () {
+        return DB::transaction(function () use ($operator) {
             $user = static::query()->lockForUpdate()->findOrFail($this->getKey());
 
             if (! $user->hasCompletedTwoFactorEnrollment()) {
@@ -290,6 +290,7 @@ class User extends Authenticatable
 
             AuditLog::record(AuditEvent::TwoFactorReset, subject: $user, metadata: [
                 'sessions_ended' => DB::table('sessions')->where('user_id', $user->getKey())->delete(),
+                'operator' => $operator,
             ]);
 
             return true;

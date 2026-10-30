@@ -1,16 +1,58 @@
 @import 'tailwindcss';
+/* Self-hosted: the font files ship in the build, so nothing is fetched from another host. */
+@import '@fontsource-variable/ibm-plex-sans/wght.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
     :focus-visible {
         outline: 2px solid var(--color-blue-600);
         outline-offset: 2px;
+    }
+}
+
+/* One markup for both layouts, so a row's actions and their authorization are never written twice.
+   Outside any layer, so it wins over the table's utilities. */
+@media (width < 40rem) {
+    .table-stack,
+    .table-stack tbody,
+    .table-stack tr {
+        display: block;
+    }
+
+    .table-stack thead {
+        display: none;
+    }
+
+    .table-stack tr {
+        padding-block: 0.75rem;
+    }
+
+    .table-stack td {
+        display: grid;
+        grid-template-columns: 7rem minmax(0, 1fr);
+        gap: 0.75rem;
+        padding: 0.25rem 1.25rem;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        text-align: left;
+    }
+
+    .table-stack td::before {
+        content: attr(data-label);
+        color: var(--color-slate-600);
+    }
+
+    .table-stack td[data-primary] {
+        display: block;
+    }
+
+    .table-stack td[data-primary]::before {
+        content: none;
     }
 }

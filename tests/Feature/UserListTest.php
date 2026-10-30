@@ -310,6 +310,20 @@ class UserListTest extends TestCase
             ->assertSee($this->admin->username);
     }
 
+    public function test_the_phone_layout_labels_cells_from_one_markup_with_one_action_menu(): void
+    {
+        $employee = $this->employee();
+
+        $html = $this->userList()->html();
+
+        foreach (['ID', 'Username', 'Email', 'Role', 'Status', '2FA', 'Last login', 'Created', 'Actions'] as $label) {
+            $this->assertStringContainsString('data-label="'.$label.'"', $html);
+        }
+
+        $this->assertStringContainsString('table-stack', $html);
+        $this->assertSame(1, substr_count($html, 'id="user-actions-'.$employee->id.'"'));
+    }
+
     public function test_an_oversized_search_is_cut(): void
     {
         $this->assertSame(100, mb_strlen($this->userList(['search' => str_repeat('a', 500)])->get('search')));

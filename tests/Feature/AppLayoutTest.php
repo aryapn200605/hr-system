@@ -11,6 +11,7 @@ use App\Models\LoginHistory;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\MessageBag;
@@ -359,6 +360,49 @@ class AppLayoutTest extends TestCase
         $this->assertStringContainsString('role="dialog"', $html);
         $this->assertStringContainsString('aria-labelledby="confirm-title"', $html);
         $this->assertStringContainsString('id="confirm-title"', $html);
+    }
+
+    public function test_dates_show_in_the_display_timezone_and_keep_the_instant(): void
+    {
+        config(['app.display_timezone' => 'Asia/Jakarta']);
+
+        $html = Blade::render('<x-ui.datetime :value="$value" />', ['value' => Carbon::parse('2026-10-30 20:15:00', 'UTC')]);
+
+        $this->assertStringContainsString('31 Oct 2026, 03:15 WIB', $html);
+        $this->assertStringContainsString('datetime="2026-10-30T20:15:00+00:00"', $html);
+    }
+
+    public function test_a_compact_date_keeps_the_full_time_in_its_title(): void
+    {
+        config(['app.display_timezone' => 'Asia/Jakarta']);
+
+        $html = Blade::render('<x-ui.datetime :value="$value" compact />', ['value' => Carbon::parse('2026-10-30 20:15:00', 'UTC')]);
+
+        $this->assertStringContainsString('>31 Oct 2026</time>', $html);
+        $this->assertStringContainsString('title="31 Oct 2026, 03:15 WIB"', $html);
+    }
+
+    public function test_dates_default_to_utc(): void
+    {
+        $html = Blade::render('<x-ui.datetime :value="$value" />', ['value' => Carbon::parse('2026-10-30 20:15:00', 'UTC')]);
+
+        $this->assertStringContainsString('30 Oct 2026, 20:15 UTC', $html);
+    }
+
+    public function test_an_unknown_display_timezone_falls_back_to_utc(): void
+    {
+        $config = require base_path('config/app.php');
+        $this->assertSame('UTC', $config['display_timezone']);
+
+        putenv('APP_TIMEZONE_DISPLAY=Mars/Olympus');
+        $_ENV['APP_TIMEZONE_DISPLAY'] = $_SERVER['APP_TIMEZONE_DISPLAY'] = 'Mars/Olympus';
+
+        try {
+            $this->assertSame('UTC', (require base_path('config/app.php'))['display_timezone']);
+        } finally {
+            putenv('APP_TIMEZONE_DISPLAY');
+            unset($_ENV['APP_TIMEZONE_DISPLAY'], $_SERVER['APP_TIMEZONE_DISPLAY']);
+        }
     }
 
     public function test_a_table_and_empty_state_render_their_content(): void

@@ -49,7 +49,7 @@ class ActivationTest extends TestCase
     {
         [$user, $token] = $this->invitedUser();
 
-        $response = $this->activate($token)->assertOk()->assertSee('Save your recovery codes')->assertSee(route('login'));
+        $response = $this->activate($token)->assertOk()->assertSee('Save your recovery codes')->assertSee('create a new set in Security Settings')->assertSee(route('login'));
 
         $user = $user->fresh();
 

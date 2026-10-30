@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\UserStatus;
 use App\Exceptions\AccountProtectionException;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -103,6 +104,19 @@ class AccountInvitation extends Model
         $query->whereNull('accepted_at')
             ->whereNull('revoked_at')
             ->where('expires_at', '>', now());
+    }
+
+    /**
+     * Scope the query to invitations that were never accepted and stopped working before the cutoff.
+     * Accepted rows stay for good: they show who invited this person and when the account was activated.
+     */
+    #[Scope]
+    protected function prunable(Builder $query, DateTimeInterface $cutoff): void
+    {
+        $query->whereNull('accepted_at')
+            ->where(fn (Builder $dead) => $dead
+                ->where('expires_at', '<', $cutoff)
+                ->orWhere('revoked_at', '<', $cutoff));
     }
 
     /**

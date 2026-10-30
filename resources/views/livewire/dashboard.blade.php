@@ -91,9 +91,9 @@
                     @php($result = \App\Enums\LoginResult::from($login->result))
 
                     <tr wire:key="login-{{ $login->id }}">
-                        <td><x-ui.datetime :value="$login->occurred_at" /></td>
-                        <td><x-ui.badge :tone="$result->tone()">{{ $result->label() }}</x-ui.badge></td>
-                        <td>{{ $login->ip_address ?? 'Unknown' }}</td>
+                        <td data-primary><x-ui.datetime :value="$login->occurred_at" /></td>
+                        <td data-label="Result"><x-ui.badge :tone="$result->tone()">{{ $result->label() }}</x-ui.badge></td>
+                        <td data-label="IP address">{{ $login->ip_address ?? 'Unknown' }}</td>
                     </tr>
                 @endforeach
             </x-ui.table>

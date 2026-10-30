@@ -1,3 +1,5 @@
-@props(['value'])
+@props(['value', 'compact' => false])
 
-<time datetime="{{ $value->toIso8601String() }}" {{ $attributes }}>{{ $value->format('j M Y, H:i T') }}</time>
+@php($local = $value->copy()->setTimezone(config('app.display_timezone')))
+
+<time datetime="{{ $value->toIso8601String() }}" @if ($compact) title="{{ $local->format('j M Y, H:i T') }}" @endif {{ $attributes }}>{{ $local->format($compact ? 'j M Y' : 'j M Y, H:i T') }}</time>
