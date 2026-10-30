@@ -4,13 +4,10 @@
     ['label' => 'Confirm your identity'],
 ]">
     <div class="mx-auto w-full max-w-md space-y-6">
-        @include('security.partials.page-header', [
-            'title' => 'Confirm your identity',
-            'description' => 'Enter your password and a second factor to continue. This confirmation lasts for one action, for up to 10 minutes.',
-        ])
+        <x-ui.page-header title="Confirm your identity" description="Enter your password and a second factor to continue. This confirmation lasts for one action, for up to 10 minutes." />
 
-        <x-ui.card class="pt-4">
-            <form method="POST" action="{{ route('security.confirm.store') }}" class="space-y-4">
+        <x-ui.card>
+            <form method="POST" action="{{ route('security.confirm.store') }}" class="space-y-4 py-2">
                 @csrf
 
                 <x-ui.input label="Password" name="password" type="password" required autofocus autocomplete="current-password" />
@@ -26,7 +23,7 @@
                 />
 
                 <details class="border-t border-rule pt-4" @if ($errors->has('recovery_code')) open @endif>
-                    <summary class="cursor-pointer rounded text-sm font-medium text-ink">Use a recovery code instead</summary>
+                    <summary class="cursor-pointer rounded-sm text-sm font-medium text-ink">Use a recovery code instead</summary>
 
                     <div class="mt-4">
                         <x-ui.input label="Recovery code" name="recovery_code" autocomplete="off" hint="Leave the six-digit code empty. The recovery code works only once." />

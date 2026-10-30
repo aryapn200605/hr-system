@@ -1,11 +1,11 @@
-<div class="space-y-8" x-data="{ handle: null }">
-    @include('security.partials.page-header', ['title' => 'Security Settings'])
+<div class="space-y-6" x-data="{ handle: null }">
+    <x-ui.page-header title="Security Settings" />
     @include('security.partials.nav')
 
-    <x-ui.card title="Active sessions">
+    <x-ui.card title="Active sessions" flush>
         <ul class="divide-y divide-rule">
             @foreach ($sessions as $session)
-                <li class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between" wire:key="session-{{ $session['handle'] ?? 'current' }}">
+                <li class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5" wire:key="session-{{ $session['handle'] ?? 'current' }}">
                     <div class="min-w-0">
                         <p class="flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
                             {{ $session['device'] }}
@@ -13,7 +13,7 @@
                                 <x-ui.badge tone="green">This session</x-ui.badge>
                             @endif
                         </p>
-                        <p class="mt-1 text-sm wrap-anywhere text-muted">
+                        <p class="mt-0.5 text-sm wrap-anywhere text-muted tabular-nums">
                             {{ $session['ip_address'] ?? 'Unknown address' }}
                             · Last active <x-ui.datetime :value="$session['last_active']" />
                         </p>
@@ -31,19 +31,19 @@
             @endforeach
         </ul>
 
-        <div class="flex flex-col gap-2 border-t border-rule py-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <x-slot:footer>
             @if ($sessions->count() > 1)
                 <x-ui.button variant="danger" size="sm" x-on:click="handle = null; $dispatch('open-modal', { name: 'end-session' })">End all other sessions</x-ui.button>
             @else
                 <p class="text-sm text-muted">You have no other sessions.</p>
             @endif
 
-            <form method="POST" action="{{ route('logout') }}">
+            <form method="POST" action="{{ route('logout') }}" class="sm:ml-auto">
                 @csrf
 
                 <x-ui.button type="submit" variant="secondary" size="sm">Log out of this session</x-ui.button>
             </form>
-        </div>
+        </x-slot:footer>
     </x-ui.card>
 
     <x-ui.modal name="end-session" title="End session?">

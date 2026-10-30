@@ -1,4 +1,4 @@
-<div class="mb-4 w-fit border border-rule bg-white p-2">{!! $qrCode !!}</div>
+<div class="mb-4 w-fit rounded-sm border border-rule bg-white p-2">{!! $qrCode !!}</div>
 
 <p class="text-sm text-muted">Or enter this key manually:</p>
 <p class="mb-6 font-mono text-sm wrap-anywhere text-ink">{{ implode(' ', str_split($secret, 4)) }}</p>

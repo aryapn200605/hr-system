@@ -4,15 +4,12 @@
     ['label' => 'Change username or email'],
 ]">
     <div class="mx-auto w-full max-w-md space-y-6">
-        @include('security.partials.page-header', [
-            'title' => 'Change username or email',
-            'description' => 'You log in with either one, and password reset links go to your email.',
-        ])
+        <x-ui.page-header title="Change username or email" description="You log in with either one, and password reset links go to your email." />
 
         <x-ui.alert tone="warning">No email is sent to confirm a new address. Check it carefully: reset links will go only to this address.</x-ui.alert>
 
-        <x-ui.card class="pt-4">
-            <form method="POST" action="{{ route('profile.identity.update') }}" class="space-y-4">
+        <x-ui.card>
+            <form method="POST" action="{{ route('profile.identity.update') }}" class="space-y-4 py-2">
                 @csrf
 
                 <x-ui.input label="Username" name="username" required autocomplete="username" :value="old('username', $user->username)" />

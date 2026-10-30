@@ -1,8 +1,8 @@
-<div class="space-y-8">
-    @include('security.partials.page-header', ['title' => 'Security Settings'])
+<div class="space-y-6">
+    <x-ui.page-header title="Security Settings" />
     @include('security.partials.nav')
 
-    <x-ui.card title="Login history">
+    <x-ui.card title="Login history" flush>
         @if ($logins->isEmpty())
             <x-ui.empty-state title="No login activity yet" description="Your logins and failed attempts will be listed here." />
         @else
@@ -22,22 +22,13 @@
                     <tr wire:key="login-{{ $login->id }}">
                         <td data-primary><x-ui.datetime :value="$login->occurred_at" /></td>
                         <td data-label="IP address">{{ $login->ip_address ?? 'Unknown' }}</td>
-                        <td data-label="Device" title="{{ $login->user_agent }}">{{ \App\Support\UserAgentLabel::for($login->user_agent) }}</td>
+                        <td data-label="Device" title="{{ $login->user_agent }}" class="w-full max-w-0 truncate">{{ \App\Support\UserAgentLabel::for($login->user_agent) }}</td>
                         <td data-label="Result"><x-ui.badge :tone="$result->tone()">{{ $result->label() }}</x-ui.badge></td>
                     </tr>
                 @endforeach
             </x-ui.table>
 
-            <nav aria-label="Pagination" class="flex flex-col gap-3 border-t border-rule py-2.5 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-sm text-muted">Showing {{ $logins->firstItem() }} to {{ $logins->lastItem() }} of {{ $logins->total() }}</p>
-
-                @if ($logins->hasPages())
-                    <div class="flex gap-2">
-                        <x-ui.button variant="secondary" size="sm" wire:click="previousPage" loading="previousPage" :disabled="$logins->onFirstPage()">Previous</x-ui.button>
-                        <x-ui.button variant="secondary" size="sm" wire:click="nextPage" loading="nextPage" :disabled="! $logins->hasMorePages()">Next</x-ui.button>
-                    </div>
-                @endif
-            </nav>
+            <x-ui.pagination :paginator="$logins" />
         @endif
     </x-ui.card>
 </div>

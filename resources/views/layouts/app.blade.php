@@ -1,6 +1,6 @@
 @php($user = auth()->user())
 {{-- The top bar and the page share one centered column, so their edges line up on any screen. --}}
-@php($column = 'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8')
+@php($column = 'mx-auto w-full max-w-7xl px-4 sm:px-6 2xl:px-8')
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>

@@ -4,7 +4,7 @@
             href="{{ route($route) }}"
             @if (request()->routeIs($route)) aria-current="page" @endif
             @class([
-                '-mb-px border-b-2 py-2 text-sm',
+                '-mb-px border-b-2 py-2 text-sm transition-colors duration-100',
                 'border-accent font-semibold text-ink' => request()->routeIs($route),
                 'border-transparent text-ink-soft hover:border-rule-strong hover:text-ink' => ! request()->routeIs($route),
             ])
