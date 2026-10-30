@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-8">
     @include('security.partials.page-header', ['title' => 'Security Settings'])
     @include('security.partials.nav')
 
@@ -28,8 +28,8 @@
                 @endforeach
             </x-ui.table>
 
-            <nav aria-label="Pagination" class="flex flex-col gap-3 border-t border-slate-200 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-sm text-slate-600">Showing {{ $logins->firstItem() }} to {{ $logins->lastItem() }} of {{ $logins->total() }}</p>
+            <nav aria-label="Pagination" class="flex flex-col gap-3 border-t border-rule py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-muted">Showing {{ $logins->firstItem() }} to {{ $logins->lastItem() }} of {{ $logins->total() }}</p>
 
                 @if ($logins->hasPages())
                     <div class="flex gap-2">

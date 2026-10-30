@@ -9,18 +9,18 @@
 
 @php
     $classes = [
-        'inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm font-medium disabled:cursor-not-allowed disabled:opacity-60',
         match ($variant) {
-            'primary' => 'bg-blue-700 text-white hover:bg-blue-800',
-            'secondary' => 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50',
-            'danger' => 'bg-red-700 text-white hover:bg-red-800',
-            'ghost' => 'text-slate-700 hover:bg-slate-100',
-            'link' => 'text-blue-700 underline underline-offset-2 hover:text-blue-900',
+            'primary' => 'bg-accent text-white hover:bg-accent-strong',
+            'secondary' => 'border border-rule-strong bg-surface text-ink hover:bg-wash',
+            'danger' => 'bg-tone-red text-white hover:bg-ink',
+            'ghost' => 'text-ink-soft hover:bg-wash',
+            'link' => 'text-accent underline underline-offset-2 hover:text-accent-strong',
         },
         match (true) {
             $variant === 'link' => 'text-sm',
-            $size === 'sm' => 'px-3 py-1.5 text-sm',
-            default => 'px-4 py-2.5 text-sm',
+            $size === 'sm' => 'px-2.5 py-1 text-sm',
+            default => 'px-3.5 py-2 text-sm',
         },
         'w-full' => $block,
     ];

@@ -13,7 +13,7 @@
         <x-ui.button type="submit" block>Send reset link</x-ui.button>
     </form>
 
-    <div class="mt-6 text-center">
+    <div class="mt-6">
         <x-ui.button variant="link" :href="route('login')">Back to login</x-ui.button>
     </div>
 </x-layouts::auth>

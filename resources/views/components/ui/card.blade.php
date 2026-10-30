@@ -1,8 +1,9 @@
 @props(['title' => null])
 
-<section {{ $attributes->class('rounded-xl border border-slate-200 bg-white') }}>
+{{-- A section of the page, set off by a rule and not by a box. --}}
+<section {{ $attributes->class('border-t border-ink') }}>
     @if ($title)
-        <h2 class="border-b border-slate-200 px-5 py-3.5 text-sm font-semibold text-slate-900">{{ $title }}</h2>
+        <h2 class="border-b border-rule py-2 text-sm font-semibold text-ink">{{ $title }}</h2>
     @endif
 
     {{ $slot }}

@@ -3,13 +3,13 @@
     ['label' => 'Security Settings', 'href' => route('security.index')],
     ['label' => 'Change password'],
 ]">
-    <div class="mx-auto max-w-md space-y-6">
+    <div class="max-w-md space-y-6">
         @include('security.partials.page-header', [
             'title' => 'Change password',
             'description' => 'All your other sessions will end. This one stays logged in.',
         ])
 
-        <x-ui.card class="p-5">
+        <x-ui.card class="pt-4">
             <form method="POST" action="{{ route('security.password.update') }}" class="space-y-4">
                 @csrf
 
@@ -20,7 +20,7 @@
             </form>
         </x-ui.card>
 
-        <p class="text-center">
+        <p>
             <x-ui.button :href="route('security.index')" variant="link">Cancel</x-ui.button>
         </p>
     </div>

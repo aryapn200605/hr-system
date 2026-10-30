@@ -1,10 +1,9 @@
 <div class="flex h-full flex-col">
-    <div class="flex h-14 shrink-0 items-center gap-2 border-b border-slate-200 px-5">
-        <span class="flex size-7 items-center justify-center rounded-lg bg-blue-700 text-xs font-semibold text-white" aria-hidden="true">HR</span>
-        <span class="truncate text-sm font-semibold text-slate-900">{{ config('app.name') }}</span>
+    <div class="flex h-12 shrink-0 items-center border-b border-rule px-4">
+        <span class="truncate text-sm font-semibold text-ink">{{ config('app.name') }}</span>
     </div>
 
-    <nav aria-label="{{ $navLabel }}" class="flex-1 space-y-1 overflow-y-auto p-3">
+    <nav aria-label="{{ $navLabel }}" class="flex-1 overflow-y-auto py-3">
         <x-ui.nav-link :href="route('dashboard')" icon="home" :active="request()->routeIs('dashboard')">Home</x-ui.nav-link>
 
         {{-- Only a marker. Every page behind this menu checks the permission on the server itself. --}}
@@ -13,13 +12,9 @@
         @endcan
     </nav>
 
-    <div class="flex shrink-0 items-start gap-3 border-t border-slate-200 p-4">
-        <x-ui.avatar :name="$user->name" />
-
-        <div class="min-w-0">
-            <p class="truncate text-sm font-medium text-slate-900" title="{{ $user->name }}">{{ $user->name }}</p>
-            <p class="text-xs wrap-anywhere text-slate-600">{{ $user->email }}</p>
-            <x-ui.role-badge :user="$user" class="mt-2" />
-        </div>
+    <div class="shrink-0 border-t border-rule px-4 py-3">
+        <p class="truncate text-sm font-medium text-ink" title="{{ $user->name }}">{{ $user->name }}</p>
+        <p class="text-xs wrap-anywhere text-muted">{{ $user->email }}</p>
+        <x-ui.role-badge :user="$user" class="mt-1.5" />
     </div>
 </div>

@@ -14,7 +14,7 @@
         <x-ui.button type="submit" block>Continue</x-ui.button>
     </form>
 
-    <div class="mt-6 text-center">
+    <div class="mt-6">
         <x-ui.button variant="link" :href="route('password.request')">Forgot your password?</x-ui.button>
     </div>
 </x-layouts::auth>

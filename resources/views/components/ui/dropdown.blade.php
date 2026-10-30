@@ -12,7 +12,7 @@
     <button
         type="button"
         x-ref="trigger"
-        class="flex cursor-pointer items-center gap-2 rounded-lg {{ $triggerClass }} text-sm text-slate-800 hover:bg-slate-100"
+        class="flex cursor-pointer items-center gap-2 rounded-sm {{ $triggerClass }} text-sm text-ink hover:bg-wash"
         aria-label="{{ $label }}"
         aria-haspopup="menu"
         aria-controls="{{ $id }}"
@@ -31,11 +31,11 @@
         aria-label="{{ $label }}"
         @if ($anchored)
             x-anchor.bottom-end.offset.4="$refs.trigger"
-            x-on:click="open = false"
+            x-on:click="close()"
         @endif
         @class([
-            'z-40 hidden w-60 rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg',
-            'absolute right-0 mt-2' => ! $anchored,
+            'z-40 hidden w-56 rounded-sm border border-rule bg-surface py-1 shadow-overlay',
+            'absolute right-0 mt-1' => ! $anchored,
         ])
         x-on:keydown.arrow-down.prevent="$focus.within($refs.menu).wrap().next()"
         x-on:keydown.arrow-up.prevent="$focus.within($refs.menu).wrap().previous()"

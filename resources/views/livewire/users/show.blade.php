@@ -1,8 +1,8 @@
-<div class="space-y-6">
+<div class="space-y-8">
     <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight wrap-anywhere text-slate-900">{{ $user->name }}</h1>
-            <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            <h1 class="text-2xl font-semibold tracking-tight wrap-anywhere text-ink">{{ $user->name }}</h1>
+            <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
                 <x-ui.role-badge :user="$user" />
                 <x-ui.status-badge :status="$user->status" />
             </p>
@@ -11,9 +11,9 @@
         <x-ui.button variant="secondary" size="sm" class="self-start" :href="route('users.index')">Back to users</x-ui.button>
     </header>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2">
         <x-ui.card title="Account information">
-            <dl class="divide-y divide-slate-200 px-5 py-2">
+            <dl class="divide-y divide-rule py-1">
                 <x-ui.detail label="ID">{{ $user->id }}</x-ui.detail>
                 <x-ui.detail label="Full name">{{ $user->name }}</x-ui.detail>
                 <x-ui.detail label="Username">{{ $user->username }}</x-ui.detail>
@@ -25,7 +25,7 @@
         </x-ui.card>
 
         <x-ui.card title="Security">
-            <dl class="divide-y divide-slate-200 px-5 py-2">
+            <dl class="divide-y divide-rule py-1">
                 <x-ui.detail label="Two-factor authentication">
                     @if ($user->hasCompletedTwoFactorEnrollment())
                         <x-ui.badge tone="green">Enabled</x-ui.badge>

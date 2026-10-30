@@ -1,17 +1,17 @@
 @props(['items'])
 
 <nav aria-label="Breadcrumb" {{ $attributes->class('min-w-0') }}>
-    <ol class="flex items-center gap-1.5 text-sm text-slate-600">
+    <ol class="flex items-center gap-1 text-sm text-muted">
         @foreach ($items as $item)
-            <li class="flex min-w-0 items-center gap-1.5">
+            <li @class(['min-w-0 items-center gap-1', 'flex' => $loop->last, 'hidden sm:flex' => ! $loop->last])>
                 @if (! $loop->first)
-                    <x-ui.icon name="chevron-right" class="size-4 shrink-0 text-slate-500" />
+                    <x-ui.icon name="chevron-right" class="hidden size-3.5 shrink-0 text-muted sm:block" />
                 @endif
 
                 @if (! $loop->last && isset($item['href']))
-                    <a href="{{ $item['href'] }}" class="truncate hover:text-slate-900 hover:underline">{{ $item['label'] }}</a>
+                    <a href="{{ $item['href'] }}" class="truncate hover:text-ink hover:underline">{{ $item['label'] }}</a>
                 @else
-                    <span class="truncate font-medium text-slate-900" @if ($loop->last) aria-current="page" @endif>{{ $item['label'] }}</span>
+                    <span class="truncate font-medium text-ink" @if ($loop->last) aria-current="page" @endif>{{ $item['label'] }}</span>
                 @endif
             </li>
         @endforeach

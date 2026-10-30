@@ -5,14 +5,63 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* The design tokens. Tailwind's own palette, radii and shadows are switched off, so a page cannot
+   reach for a value outside this list. README.md, "Design direction", says what each one is for. */
 @theme {
     --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+
+    --color-*: initial;
+    --color-white: #fff;
+
+    /* Warm neutrals */
+    --color-paper: #faf8f4;
+    --color-surface: #fff;
+    --color-wash: #f1eee7;
+    --color-rule: #e2ddd3;
+    --color-rule-strong: #877f73;
+    --color-ink: #1f1c17;
+    --color-ink-soft: #413c34;
+    --color-muted: #5f594f;
+
+    /* The one accent */
+    --color-accent: #0f5e57;
+    --color-accent-strong: #0a4641;
+    --color-accent-wash: #e3eeea;
+
+    /* Tones: text and dots, with a wash behind role labels and alerts */
+    --color-tone-gray: #5f594f;
+    --color-tone-gray-wash: #eeebe4;
+    --color-tone-blue: #2f5278;
+    --color-tone-blue-wash: #e7edf3;
+    --color-tone-purple: #5a4480;
+    --color-tone-purple-wash: #ece8f3;
+    --color-tone-green: #2b6044;
+    --color-tone-green-wash: #e5efe8;
+    --color-tone-amber: #80530f;
+    --color-tone-amber-wash: #f6eedb;
+    --color-tone-red: #9b2e23;
+    --color-tone-red-wash: #f8e9e5;
+
+    --radius-*: initial;
+    --radius-sm: 3px;
+
+    --shadow-*: initial;
+    --shadow-overlay: 0 1px 2px rgb(31 28 23 / 0.08), 0 6px 16px rgb(31 28 23 / 0.08);
 }
 
 @layer base {
     :focus-visible {
-        outline: 2px solid var(--color-blue-600);
+        outline: 2px solid var(--color-accent);
         outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation: none !important;
+            transition: none !important;
+            scroll-behavior: auto !important;
+        }
     }
 }
 
@@ -30,14 +79,16 @@
     }
 
     .table-stack tr {
-        padding-block: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        padding-block: 0.625rem;
     }
 
     .table-stack td {
         display: grid;
-        grid-template-columns: 7rem minmax(0, 1fr);
+        grid-template-columns: 6.5rem minmax(0, 1fr);
         gap: 0.75rem;
-        padding: 0.25rem 1.25rem;
+        padding: 0.125rem 0;
         white-space: normal;
         overflow-wrap: anywhere;
         text-align: left;
@@ -45,11 +96,21 @@
 
     .table-stack td::before {
         content: attr(data-label);
-        color: var(--color-slate-600);
+        color: var(--color-muted);
+    }
+
+    .table-stack td > * {
+        justify-self: start;
+    }
+
+    .table-stack td[data-primary],
+    .table-stack td[data-actions] {
+        display: block;
+        padding-bottom: 0.25rem;
     }
 
     .table-stack td[data-primary] {
-        display: block;
+        order: -1;
     }
 
     .table-stack td[data-primary]::before {

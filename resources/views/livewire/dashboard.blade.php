@@ -1,17 +1,17 @@
-<div class="space-y-6">
+<div class="space-y-8">
     <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight wrap-anywhere text-slate-900">Welcome, {{ $user->name }}</h1>
-            <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            <h1 class="text-2xl font-semibold tracking-tight wrap-anywhere text-ink">Welcome, {{ $user->name }}</h1>
+            <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
                 <x-ui.role-badge :user="$user" />
-                <span>Here is the current state of your account.</span>
+                <span>Your account and login activity for the last {{ $summaryDays }} days.</span>
             </p>
         </div>
 
         <x-ui.button variant="secondary" size="sm" class="self-start" wire:click="refresh" loading="refresh">Refresh</x-ui.button>
     </header>
 
-    <section aria-label="Summary" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <section aria-label="Summary" class="grid grid-cols-1 divide-y divide-rule border-y border-ink sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <x-ui.stat label="Successful logins" :value="$successfulLogins" :hint="'Last '.$summaryDays.' days'" />
         <x-ui.stat label="Failed login attempts" :value="$failedLogins" :hint="'Last '.$summaryDays.' days'" />
         <x-ui.stat label="Recovery codes left" :value="$recoveryCodesLeft" hint="Each code works once" />
@@ -19,20 +19,20 @@
 
     @isset($accountCounts)
         <x-ui.card title="User accounts">
-            <dl class="grid divide-y divide-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <dl class="grid grid-cols-3 divide-x divide-rule">
                 @foreach (\App\Enums\UserStatus::cases() as $status)
-                    <div class="px-5 py-4">
+                    <div class="py-3 pr-3 pl-3 first:pl-0 sm:pr-5 sm:pl-5">
                         <dt><x-ui.status-badge :status="$status" /></dt>
-                        <dd class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{{ $accountCounts[$status->value] ?? 0 }}</dd>
+                        <dd class="mt-0.5 text-xl font-medium text-ink tabular-nums">{{ $accountCounts[$status->value] ?? 0 }}</dd>
                     </div>
                 @endforeach
             </dl>
         </x-ui.card>
     @endisset
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2">
         <x-ui.card title="Security status">
-            <div class="px-5 pt-4">
+            <div class="pt-3">
                 @if ($recoveryCodesLeft > 2)
                     <x-ui.alert tone="success">Two-factor authentication is protecting your account.</x-ui.alert>
                 @else
@@ -40,7 +40,7 @@
                 @endif
             </div>
 
-            <dl class="divide-y divide-slate-200 px-5 pt-2 pb-2">
+            <dl class="divide-y divide-rule pb-1">
                 <x-ui.detail label="Two-factor authentication">
                     @if ($user->hasCompletedTwoFactorEnrollment())
                         <x-ui.badge tone="green">Enabled</x-ui.badge>
@@ -63,7 +63,7 @@
         </x-ui.card>
 
         <x-ui.card title="Account information">
-            <dl class="divide-y divide-slate-200 px-5 py-2">
+            <dl class="divide-y divide-rule py-1">
                 <x-ui.detail label="Full name">{{ $user->name }}</x-ui.detail>
                 <x-ui.detail label="Username">{{ $user->username }}</x-ui.detail>
                 <x-ui.detail label="Email">{{ $user->email }}</x-ui.detail>

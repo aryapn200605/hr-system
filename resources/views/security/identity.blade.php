@@ -3,7 +3,7 @@
     ['label' => 'My Profile', 'href' => route('profile.show')],
     ['label' => 'Change username or email'],
 ]">
-    <div class="mx-auto max-w-md space-y-6">
+    <div class="max-w-md space-y-6">
         @include('security.partials.page-header', [
             'title' => 'Change username or email',
             'description' => 'You log in with either one, and password reset links go to your email.',
@@ -11,7 +11,7 @@
 
         <x-ui.alert tone="warning">No email is sent to confirm a new address. Check it carefully: reset links will go only to this address.</x-ui.alert>
 
-        <x-ui.card class="p-5">
+        <x-ui.card class="pt-4">
             <form method="POST" action="{{ route('profile.identity.update') }}" class="space-y-4">
                 @csrf
 
@@ -23,7 +23,7 @@
             </form>
         </x-ui.card>
 
-        <p class="text-center">
+        <p>
             <x-ui.button :href="route('profile.show')" variant="link">Cancel</x-ui.button>
         </p>
     </div>

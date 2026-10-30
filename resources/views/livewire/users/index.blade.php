@@ -1,12 +1,12 @@
-<div class="space-y-6">
+<div class="space-y-8">
     <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">User Management</h1>
-            <p class="mt-2 text-sm text-slate-600">Create accounts, change roles and control access.</p>
+            <h1 class="text-2xl font-semibold tracking-tight text-ink">User Management</h1>
+            <p class="mt-2 text-sm text-muted">Create accounts, change roles and control access.</p>
         </div>
 
         @can('create', \App\Models\User::class)
-            <x-ui.button size="sm" class="self-start" wire:click="openCreate" loading="openCreate">Create user</x-ui.button>
+            <x-ui.button size="sm" class="self-start" wire:click="openCreate">Create user</x-ui.button>
         @endcan
     </header>
 
@@ -15,8 +15,10 @@
     @endif
 
     <x-ui.card>
-        <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-2 lg:grid-cols-4">
-            <x-ui.input label="Search" id="filter-search" type="search" maxlength="100" placeholder="Name, username or email" wire:model.live.debounce.300ms="search" />
+        <div class="grid grid-cols-2 gap-3 border-b border-rule py-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+            <div class="col-span-2 lg:col-span-1">
+                <x-ui.input label="Search" id="filter-search" type="search" maxlength="100" placeholder="Name, username or email" wire:model.live.debounce.300ms="search" />
+            </div>
 
             <x-ui.select label="Role" id="filter-role" wire:model.live="roleFilter">
                 <option value="">All roles</option>
@@ -41,7 +43,7 @@
 
         <div wire:loading.class="opacity-60" wire:target="search,roleFilter,statusFilter,perPage,setPage,nextPage,previousPage">
             @if ($users->isEmpty())
-                <x-ui.empty-state title="No users found" description="Try a different search or filter." icon="users" />
+                <x-ui.empty-state title="No users found" description="No account matches this search. Clear the search box, or set Role and Status back to All." />
             @else
                 <x-ui.table caption="Users">
                     <x-slot:head>
@@ -55,16 +57,16 @@
                             <th scope="col">2FA</th>
                             <th scope="col">Last login</th>
                             <th scope="col">Created</th>
-                            <th scope="col">Actions</th>
+                            <th scope="col" class="sm:sticky sm:right-0 sm:border-l sm:border-rule sm:bg-paper sm:text-right">Actions</th>
                         </tr>
                     </x-slot:head>
 
                     @foreach ($users as $row)
                         <tr wire:key="user-{{ $row->id }}">
                             <td data-label="ID">{{ $row->id }}</td>
-                            <td data-primary class="font-medium text-slate-900">{{ $row->name }}</td>
+                            <td data-primary class="font-medium text-ink sm:max-w-40 sm:truncate" title="{{ $row->name }}">{{ $row->name }}</td>
                             <td data-label="Username">{{ $row->username }}</td>
-                            <td data-label="Email">{{ $row->email }}</td>
+                            <td data-label="Email" title="{{ $row->email }}" class="sm:max-w-32 sm:truncate 2xl:max-w-none">{{ $row->email }}</td>
                             <td data-label="Role"><x-ui.role-badge :user="$row" /></td>
                             <td data-label="Status"><x-ui.status-badge :status="$row->status" /></td>
                             <td data-label="2FA">
@@ -78,15 +80,15 @@
                                 @if ($row->last_login_at)
                                     <x-ui.datetime :value="$row->last_login_at" compact />
                                 @else
-                                    <span class="text-slate-600">Never</span>
+                                    <span class="text-muted">Never</span>
                                 @endif
                             </td>
                             <td data-label="Created"><x-ui.datetime :value="$row->created_at" compact /></td>
-                            <td data-label="Actions" class="text-right">
-                                <x-ui.dropdown :id="'user-actions-'.$row->id" :label="'Actions for '.$row->name" anchored trigger-class="px-2.5 py-1.5" class="inline-block">
+                            <td data-actions class="sm:sticky sm:right-0 sm:border-l sm:border-rule sm:bg-paper sm:text-right">
+                                <x-ui.dropdown :id="'user-actions-'.$row->id" :label="'Actions for '.$row->name" anchored trigger-class="px-2 py-1" class="inline-block">
                                     <x-slot:trigger>
                                         <span>Actions</span>
-                                        <x-ui.icon name="chevron-down" class="size-4" />
+                                        <x-ui.icon name="chevron-down" class="size-3.5" />
                                     </x-slot:trigger>
 
                                     <x-ui.dropdown-item :href="route('users.show', $row->id)" wire:navigate.off>View details</x-ui.dropdown-item>
@@ -111,7 +113,7 @@
                                         @endif
                                     @else
                                         @can('suspend', $row)
-                                            <x-ui.dropdown-item wire:click="openSuspend({{ $row->id }})" class="text-red-800!">Suspend</x-ui.dropdown-item>
+                                            <x-ui.dropdown-item wire:click="openSuspend({{ $row->id }})" class="text-tone-red!">Suspend</x-ui.dropdown-item>
                                         @endcan
                                     @endif
                                 </x-ui.dropdown>
@@ -123,8 +125,8 @@
         </div>
 
         @if ($users->total() > 0)
-            <nav aria-label="Pagination" class="flex flex-col gap-3 border-t border-slate-200 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-sm text-slate-600">Showing {{ $users->firstItem() }} to {{ $users->lastItem() }} of {{ $users->total() }}</p>
+            <nav aria-label="Pagination" class="flex flex-col gap-3 border-t border-rule py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-muted">Showing {{ $users->firstItem() }} to {{ $users->lastItem() }} of {{ $users->total() }}</p>
 
                 @if ($users->hasPages())
                     <div class="flex gap-2">
@@ -165,7 +167,7 @@
                     @endforeach
                 </x-ui.select>
 
-                <p class="text-sm text-slate-600">An invitation with an activation link is emailed to this address.</p>
+                <p class="text-sm text-muted">An invitation with an activation link is emailed to this address.</p>
             @endif
         </form>
 

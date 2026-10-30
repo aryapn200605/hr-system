@@ -1,13 +1,29 @@
-@props(['tone' => 'gray'])
+@props(['tone' => 'gray', 'filled' => false])
 
+{{-- A dot and plain text by default, so a table is not a wall of pills. Filled is for role labels. --}}
 <span data-tone="{{ $tone }}" {{ $attributes->class([
-    'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
-    match ($tone) {
-        'gray' => 'bg-slate-100 text-slate-700 ring-slate-300',
-        'blue' => 'bg-blue-50 text-blue-800 ring-blue-200',
-        'purple' => 'bg-purple-50 text-purple-800 ring-purple-200',
-        'green' => 'bg-green-50 text-green-800 ring-green-200',
-        'amber' => 'bg-amber-50 text-amber-900 ring-amber-200',
-        'red' => 'bg-red-50 text-red-800 ring-red-200',
-    },
-]) }}>{{ $slot }}</span>
+    'inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap',
+    'text-ink-soft' => ! $filled,
+    'rounded-sm px-1.5 py-0.5' => $filled,
+    'bg-tone-gray-wash text-tone-gray' => $filled && $tone === 'gray',
+    'bg-tone-blue-wash text-tone-blue' => $filled && $tone === 'blue',
+    'bg-tone-purple-wash text-tone-purple' => $filled && $tone === 'purple',
+    'bg-tone-green-wash text-tone-green' => $filled && $tone === 'green',
+    'bg-tone-amber-wash text-tone-amber' => $filled && $tone === 'amber',
+    'bg-tone-red-wash text-tone-red' => $filled && $tone === 'red',
+]) }}>
+    @unless ($filled)
+        <span @class([
+            'size-1.5 shrink-0',
+            match ($tone) {
+                'gray' => 'bg-tone-gray',
+                'blue' => 'bg-tone-blue',
+                'purple' => 'bg-tone-purple',
+                'green' => 'bg-tone-green',
+                'amber' => 'bg-tone-amber',
+                'red' => 'bg-tone-red',
+            },
+        ]) aria-hidden="true"></span>
+    @endunless
+    {{ $slot }}
+</span>

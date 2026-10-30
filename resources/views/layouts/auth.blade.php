@@ -9,18 +9,7 @@
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
-        <main class="flex min-h-screen flex-col items-center justify-center px-4 py-10">
-            <div class="w-full max-w-md">
-                <div class="mb-6 flex items-center justify-center gap-2">
-                    <span class="flex size-8 items-center justify-center rounded-lg bg-blue-700 text-xs font-semibold text-white" aria-hidden="true">HR</span>
-                    <span class="text-base font-semibold text-slate-900">{{ config('app.name') }}</span>
-                </div>
-
-                <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-                    {{ $slot }}
-                </div>
-            </div>
-        </main>
+    <body class="bg-paper text-ink antialiased">
+        <x-ui.public-page>{{ $slot }}</x-ui.public-page>
     </body>
 </html>

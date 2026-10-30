@@ -1,10 +1,10 @@
 @props(['label', 'value', 'hint' => null])
 
-<div {{ $attributes->class('rounded-xl border border-slate-200 bg-white px-5 py-4') }}>
-    <p class="text-sm text-slate-600">{{ $label }}</p>
-    <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{{ $value }}</p>
+<div {{ $attributes->class('py-3 sm:px-5 sm:first:pl-0') }}>
+    <p class="text-sm text-muted">{{ $label }}</p>
+    <p class="mt-0.5 text-3xl font-medium tracking-tight text-ink tabular-nums">{{ $value }}</p>
 
     @if ($hint)
-        <p class="mt-1 text-xs text-slate-600">{{ $hint }}</p>
+        <p class="mt-0.5 text-xs text-muted">{{ $hint }}</p>
     @endif
 </div>

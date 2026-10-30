@@ -316,7 +316,7 @@ class UserListTest extends TestCase
 
         $html = $this->userList()->html();
 
-        foreach (['ID', 'Username', 'Email', 'Role', 'Status', '2FA', 'Last login', 'Created', 'Actions'] as $label) {
+        foreach (['ID', 'Username', 'Email', 'Role', 'Status', '2FA', 'Last login', 'Created'] as $label) {
             $this->assertStringContainsString('data-label="'.$label.'"', $html);
         }
 

@@ -8,7 +8,6 @@
         'close' => 'M6 6l12 12M18 6 6 18',
         'chevron-down' => 'm6 9 6 6 6-6',
         'chevron-right' => 'm9 6 6 6-6 6',
-        'inbox' => 'M3 13h5l1.5 3h5L16 13h5M5.5 5h13L21 13v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5l2.5-8Z',
     };
 @endphp
 
