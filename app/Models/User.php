@@ -253,15 +253,75 @@ class User extends Authenticatable
     }
 
     /**
-     * Suspend the user. The last active HR Admin is refused by save().
+     * Suspend the user and end everything that could still let them in: sessions, password
+     * reset links and open invitations. The last active HR Admin is refused by save().
+     *
+     * Takes the HR Admin lock before the user row, in the order changeRole() uses, so the two
+     * cannot deadlock. A null actor means the system itself.
      */
     public function suspend(?self $actor = null): void
     {
-        DB::transaction(function () use ($actor) {
-            $this->status = UserStatus::Suspended;
-            $this->save();
+        if ($actor?->is($this)) {
+            throw AccountProtectionException::ownSuspension();
+        }
 
-            AuditLog::record(AuditEvent::UserSuspended, $actor, $this);
+        if ($actor && ! $actor->hasPermissionTo(PermissionName::UsersSuspend)) {
+            throw new AuthorizationException;
+        }
+
+        static::withinHrAdminLock(function () use ($actor) {
+            $locked = static::query()->lockForUpdate()->findOrFail($this->getKey());
+
+            if ($locked->status === UserStatus::Suspended) {
+                throw AccountProtectionException::alreadySuspended();
+            }
+
+            $locked->status = UserStatus::Suspended;
+            $locked->save();
+
+            $this->setRawAttributes($locked->getAttributes(), true);
+
+            AuditLog::record(AuditEvent::UserSuspended, $actor, $this, [
+                'sessions_ended' => DB::table('sessions')->where('user_id', $this->getKey())->delete(),
+                'invitations_revoked' => AccountInvitation::revokeOpenFor($this),
+            ]);
+
+            DB::table('password_reset_tokens')->where('email', $this->email)->delete();
+        });
+    }
+
+    /**
+     * Return a suspended account to ACTIVE. An account suspended before it finished activation
+     * has no password, so it can never become active this way.
+     *
+     * A request in flight during the suspension can write its session back, so sessions are
+     * ended again here and an old one does not revive with the account.
+     */
+    public function reactivate(self $actor): void
+    {
+        if (! $actor->hasPermissionTo(PermissionName::UsersSuspend)) {
+            throw new AuthorizationException;
+        }
+
+        static::withinHrAdminLock(function () use ($actor) {
+            $locked = static::query()->lockForUpdate()->findOrFail($this->getKey());
+
+            if ($locked->status !== UserStatus::Suspended) {
+                throw AccountProtectionException::notSuspended();
+            }
+
+            if ($locked->password === null) {
+                throw AccountProtectionException::neverActivated();
+            }
+
+            $locked->status = UserStatus::Active;
+            $locked->save();
+
+            $this->setRawAttributes($locked->getAttributes(), true);
+
+            DB::table('sessions')->where('user_id', $this->getKey())->delete();
+
+            AuditLog::record(AuditEvent::UserReactivated, $actor, $this);
         });
     }
 

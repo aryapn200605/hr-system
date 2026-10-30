@@ -35,11 +35,7 @@ class AccountInvitation extends Model
                 throw AccountProtectionException::accountNotPending();
             }
 
-            static::query()
-                ->where('user_id', $locked->getKey())
-                ->whereNull('accepted_at')
-                ->whereNull('revoked_at')
-                ->update(['revoked_at' => now()]);
+            static::revokeOpenFor($locked);
 
             $token = bin2hex(random_bytes(32));
 
@@ -52,6 +48,19 @@ class AccountInvitation extends Model
 
             return [$invitation, $token];
         });
+    }
+
+    /**
+     * Revoke the user's unused invitations and return how many were revoked.
+     * The caller holds the user row lock.
+     */
+    public static function revokeOpenFor(User $user): int
+    {
+        return static::query()
+            ->where('user_id', $user->getKey())
+            ->whereNull('accepted_at')
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
     }
 
     /**

@@ -9,10 +9,7 @@
 
         {{-- Only a marker. Every page behind this menu checks the permission on the server itself. --}}
         @can(\App\Enums\PermissionName::UsersView->value)
-            <x-ui.nav-link icon="users" disabled>
-                <span class="flex-1 whitespace-nowrap">User Management</span>
-                <x-ui.badge>Soon</x-ui.badge>
-            </x-ui.nav-link>
+            <x-ui.nav-link :href="route('users.index')" icon="users" :active="request()->routeIs('users.*')">User Management</x-ui.nav-link>
         @endcan
     </nav>
 

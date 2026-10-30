@@ -4,9 +4,11 @@
  * One competitor in AuthConcurrencyTest. It runs in its own PHP process with its own
  * database connection, waits for the agreed moment and prints the outcome.
  *
- * Usage: php race.php <recovery|totp|activation> <user id> <code or invitation id> <start time>
+ * Usage: php race.php <recovery|totp|activation|suspend|demote> <user id> <code, invitation id or actor id> <start time>
  */
 
+use App\Enums\RoleName;
+use App\Exceptions\AccountProtectionException;
 use App\Models\AccountInvitation;
 use App\Models\RecoveryCode;
 use App\Models\User;
@@ -36,16 +38,27 @@ if ($mode === 'activation') {
     $secret = TwoFactor::generateSecret();
 }
 
+if (in_array($mode, ['suspend', 'demote'], true)) {
+    $actor = User::findOrFail($code);
+    $actor->getAllPermissions();
+}
+
 $reachedBarrier = microtime(true) < (float) $startAt;
 
 while (microtime(true) < (float) $startAt) {
     // Spin instead of sleeping, to start as close together as the scheduler allows.
 }
 
-$won = match ($mode) {
-    'recovery' => RecoveryCode::consume($user, $code),
-    'totp' => TwoFactor::verify($user, $code),
-    'activation' => $user->completeActivation($invitation, $passwordHash, $secret, 1) !== null,
-};
+try {
+    $won = match ($mode) {
+        'recovery' => RecoveryCode::consume($user, $code),
+        'totp' => TwoFactor::verify($user, $code),
+        'activation' => $user->completeActivation($invitation, $passwordHash, $secret, 1) !== null,
+        'suspend' => (bool) $user->suspend($actor) || true,
+        'demote' => (bool) $user->changeRole(RoleName::Employee, $actor) || true,
+    };
+} catch (AccountProtectionException) {
+    $won = false;
+}
 
 echo json_encode(['won' => $won, 'reached_barrier' => $reachedBarrier]);

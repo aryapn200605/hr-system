@@ -185,10 +185,21 @@ class ActivationTest extends TestCase
     {
         [$user, $token] = $this->invitedUser();
 
-        $user->suspend();
+        // Directly, because suspend() also revokes the invitation and this covers the status check alone.
+        User::whereKey($user->id)->update(['status' => UserStatus::Suspended]);
 
         $this->openLink($token)->assertRedirect(route('activation.password'));
         $this->get(route('activation.password'))->assertStatus(410);
+    }
+
+    public function test_suspending_a_pending_account_kills_its_link_at_once(): void
+    {
+        [$user, $token] = $this->invitedUser();
+
+        $user->suspend();
+
+        $this->openLink($token)->assertStatus(410);
+        $this->assertNotNull($user->invitations()->sole()->revoked_at);
     }
 
     public function test_a_weak_password_is_refused_and_keeps_the_step(): void

@@ -48,6 +48,20 @@
 - Dropdowns, modals and the mobile drawer are shown with a class binding, not `x-show`, because `x-show` waits for an animation frame and focus moves before the element is visible.
 - Menu entries for pages that do not exist yet are disabled text, not links. The menu is only a marker: every page checks its permission on the server.
 - Badge colors are defined on the enums (`RoleName::tone()`, `UserStatus::tone()`), so views never test a role name.
+- User Management authorization lives in `App\Policies\UserPolicy`. Every Livewire action calls it on the server, `boot()` checks `users.view` on every request, and the views ask the same policy, so the screen cannot promise what the server refuses. A dialog stores its target in a `#[Locked]` property, and the action reloads that account from the database and checks again.
+- Nobody can give a role with permissions they lack, or act on an account holding permissions they lack. The comparison reads permissions from the database, so it needs no role names. HR Admin holds every permission, so this limits only roles granted part of User Management later.
+- An HR Admin cannot suspend their own account, even when another admin exists: `User::suspend()` refuses it, as `changeRole()` does for their own role.
+- In User Management an admin can change only their own name. Their own username and email are refused on the server and belong to My Profile.
+- `User::suspend()` also ends the user's sessions, password reset links and open invitations. It takes the HR Admin lock before the user row, the same order as `changeRole()`, so the two cannot deadlock. Requests of a suspended user are refused anyway by the status check on every request.
+- Changing the username or email of a PENDING account revokes its open invitation, and the admin is told to resend. There is no automatic resend, because it would spend the resend limit unseen. Changing only the name keeps the link. Changing an email deletes reset links for the old address.
+- `#[Url]` filters are strings and are whitelisted before use, and search text has its LIKE wildcards escaped. A forged update with anything but a plain string gets a 422.
+- Dropdowns inside a scrolling table use the `anchored` option, placed from the trigger. Elements with `position: absolute` escape `overflow` unless a parent is positioned, which is why the table's Actions header is plain text and not `sr-only`.
+
+### Addition outside SPEC.md: Reactivate
+
+SPEC.md has no way back from SUSPENDED. At the user's request, User Management has a minimal Reactivate action: permission `users.suspend`, a confirmation dialog, audit event `user.reactivated`, status back to ACTIVE, password, 2FA and role unchanged. It ends any session left over from the suspension.
+
+It never activates an account that has not finished activation. A PENDING account is refused because it is not suspended, and an account suspended before activation has no password, so it is refused too. **Such an account stays SUSPENDED for good: the invitation was revoked and nothing can restore it.** To invite that person again, create a new user with a different username and email, since accounts are never deleted.
 
 ## Mail
 

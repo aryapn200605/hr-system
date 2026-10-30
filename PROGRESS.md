@@ -8,7 +8,8 @@
 - `hr_system` reset after the Phase 2 manual test (2026-10-30), see "Local database reset" below. The user creates the admin with `app:create-admin`.
 - Phase 3 (Invitation, activation, password reset, emails): done, see "Phase 3" below.
 - Phase 4a (UI layout, components, dashboard, restyled public pages): done, see "Phase 4a" below.
-- Next: Phase 4b (User Management). Not started.
+- Phase 4b (User Management): done, see "Phase 4b" below.
+- Next: Phase 5 (Profile and security settings). Not started.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -200,3 +201,38 @@ Recorded in README.md under "Project decisions" and "Mail".
 Recorded in README.md under "Project decisions".
 - Dropdown, modal and drawer are shown with a class binding, not `x-show`.
 - Links to pages that do not exist yet are not links at all, so no route is invented ahead of its phase.
+
+## Phase 4b: User Management (2026-10-30)
+
+### Done
+- `App\Livewire\Users\Index` at `/users`: list, search, role and status filters, page size, pagination, and dialogs for create, edit, change role, suspend, reactivate and resend. `App\Livewire\Users\Show` at `/users/{user}`: read only.
+- `App\Policies\UserPolicy` is the single source of authorization. `App\Actions\UpdateUser` is new. `CreateUserWithInvitation` and `ResendInvitation` are called unchanged.
+- Rule added with the user: in User Management an admin changes only their own name. The role dropdowns list only roles the actor may give.
+- `User::suspend()` extended: refuses a self-suspension and an actor without `users.suspend`, locks the user row after the HR Admin lock, refuses an already suspended account, ends sessions, reset links and open invitations. The last HR Admin guard itself was not changed.
+- `User::reactivate()` and audit event `user.reactivated`, an addition outside SPEC.md requested by the user. Audit event `user.updated` stores field names only.
+- New component `x-ui.select`. `x-ui.dropdown` gained `anchored`. The sidebar entry is now a link. My Profile and Security Settings stay disabled.
+
+### Verified
+- `php artisan test`: 475 passed, on `hr_system_test`. `npm run build`: succeeded. Pint: clean. `npm audit`: no vulnerabilities. No new packages or migrations.
+- Real races with separate PHP processes (`UserManagementConcurrencyTest`): two admins suspending each other, 3 rounds, exactly one wins and one admin stays active. A ring of 4 admins, suspend against demote, and suspend against activation.
+- Mutation check: 61 safeguards removed one at a time, each file restored and confirmed by hash. 52 were caught. Of the 9 survivors:
+  - 3 exposed weak tests: `confirm` for suspend and reactivate had no case where the target gains power after the dialog opens, and the named columns test could not fail. Tests added, the same mutations are now caught.
+  - 3 were redundant code, now removed: an override of `setPage()` (the framework validates the page), a UTF-8 check (`mb_substr()` already scrubs) and a second authorize in `Show::render()`. Hostile input tests still pass.
+  - The route `can:` middleware stands behind `boot()`, so a test now asserts it directly. `createUser` authorize stands behind the action's own check: removing both first survived, which exposed a missing test, and that test now catches it. Without `abort_if` in `findUser()`, `findOrFail(false)` still gives a 404, so that mutant changes no behavior.
+- In a real browser with `php -S` on `hr_system_test`: login with a real TOTP code, list, filters, row menu, reactivate, suspend, create with validation errors and with success, own account edit, detail page, at 1024px and 375px, no console errors. Keyboard focus moved into a modal. The test database was reset afterwards. `hr_system` was not touched.
+- That check exposed one bug, fixed: the `sr-only` header of the Actions column escaped the table's overflow and made the whole page 2095px wide.
+
+### Known issues
+- An account suspended before activation stays SUSPENDED for good: it has no password, so Reactivate refuses it, and it cannot be deleted. Inviting that person again needs a different username and email. See README.md.
+- An admin's own username and email cannot change anywhere until Phase 5.
+- Editing the email of an ACTIVE user sends nothing to either address, because email verification is out of scope.
+- Refused attempts are not audited, only completed actions.
+- Mail was tested with the fake mailer and a refused connection, not a real SMTP server.
+- The last admin guard is reachable through the UI only in a race, because self-actions are refused first. Both paths are tested.
+- On a phone the table scrolls sideways to reach Actions. There is no card layout.
+- A real keyboard and a screen reader were not tried on the new pages. Screenshots of the open modals timed out, so modal layout was checked by DOM state and measured width, not by eye.
+- Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH. Dates show in UTC. Error pages keep Laravel's default look.
+
+### Decisions
+Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: Reactivate".
+- Two tests from earlier phases changed. `AppLayoutTest`: User Management is now a link, as approved. `ActivationTest`: not in the approved list. `suspend()` now revokes the invitation, so that test sets the status directly to keep covering the status check alone, and a new test covers the link dying on suspend.

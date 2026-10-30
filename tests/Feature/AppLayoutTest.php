@@ -143,15 +143,14 @@ class AppLayoutTest extends TestCase
         ];
     }
 
-    public function test_user_management_is_shown_for_hr_admin_and_stays_disabled(): void
+    public function test_user_management_links_to_the_user_list_for_hr_admin(): void
     {
         $html = $this->dashboardAs($this->userWithRole(RoleName::HrAdmin))
             ->assertSee('Home')
             ->assertSee('User Management')
-            ->assertSee('aria-disabled="true"', false)
             ->getContent();
 
-        $this->assertDoesNotMatchRegularExpression('/<a [^>]*>(?:(?!<\/a>).)*User Management/s', $html);
+        $this->assertMatchesRegularExpression('/<a[^>]*href="'.preg_quote(route('users.index'), '/').'"[^>]*>(?:(?!<\/a>).)*User Management/s', $html);
     }
 
     public function test_the_menu_follows_the_permission_and_not_the_role_name(): void

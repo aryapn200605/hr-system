@@ -7,7 +7,9 @@ enum AuditEvent: string
     case AdminBootstrapped = 'admin.bootstrapped';
     case UserCreated = 'user.created';
     case UserRoleChanged = 'user.role_changed';
+    case UserUpdated = 'user.updated';
     case UserSuspended = 'user.suspended';
+    case UserReactivated = 'user.reactivated';
     case LoginSucceeded = 'login.succeeded';
     case LoginFailed = 'login.failed';
     case TwoFactorEnrolled = 'two_factor.enrolled';

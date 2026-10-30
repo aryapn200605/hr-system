@@ -9,6 +9,8 @@ use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Auth\TwoFactorEnrollmentController;
 use App\Http\Middleware\EnsurePendingLogin;
 use App\Livewire\Dashboard;
+use App\Livewire\Users\Index as UserIndex;
+use App\Livewire\Users\Show as UserShow;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 
@@ -54,6 +56,11 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
     Route::livewire('/dashboard', Dashboard::class)
         ->middleware('can:'.PermissionName::DashboardView->value)
         ->name('dashboard');
+
+    Route::middleware('can:'.PermissionName::UsersView->value)->group(function () {
+        Route::livewire('/users', UserIndex::class)->name('users.index');
+        Route::livewire('/users/{user}', UserShow::class)->whereNumber('user')->name('users.show');
+    });
 
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
