@@ -7,7 +7,8 @@
 - Phase 2 (Login, TOTP, sessions, history): done, see "Phase 2" below. Manual test with a real phone still to do by the user.
 - `hr_system` reset after the Phase 2 manual test (2026-10-30), see "Local database reset" below. The user creates the admin with `app:create-admin`.
 - Phase 3 (Invitation, activation, password reset, emails): done, see "Phase 3" below.
-- Next: Phase 4 (UI layout, dashboard, user management). Not started.
+- Phase 4a (UI layout, components, dashboard, restyled public pages): done, see "Phase 4a" below.
+- Next: Phase 4b (User Management). Not started.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -167,3 +168,35 @@ Recorded in README.md under "Project decisions" and "Mail".
 - A logged-in browser is shown a message and not logged out, so a link cannot end someone's session.
 - Mail is sent synchronously, never queued. `defer()` is used for forgot password, as the user approved after measuring.
 - Reset links hold no email address, so the reset form asks for it.
+
+## Phase 4a: UI layout, components, dashboard, public pages (2026-10-30)
+
+### Done
+- Main layout `layouts/app.blade.php`: sidebar, sticky top bar, breadcrumbs, profile dropdown, skip link, toast area, mobile drawer. Public pages moved to a new `layouts/auth.blade.php`.
+- Sidebar profile block: name, email and role badge read from the database through `User::roleName()`. Colors come from `RoleName::tone()`. A role name that is not in the enum gets a gray badge.
+- Reusable components in `resources/views/components/ui`: button, input, error, alert, badge, role-badge, status-badge, table, modal, dropdown, dropdown-item, toast, spinner, loading, empty-state, card, stat, detail, datetime, breadcrumbs, nav-link, avatar, icon, auth-heading.
+- Dashboard for all roles: welcome, full name, role, security status, account information, login summary for the last 30 days, recent logins with an empty state. Holders of `users.view` also get account counts per status. Everything is read from real rows.
+- `Dashboard::boot()` now checks `dashboard.view`, because route middleware does not run for Livewire updates. `refresh()` reloads the whole page, because a Livewire update does not render the sidebar.
+- Login, TOTP, enrollment, activation, recovery codes, forgot and reset password restyled, still controller + Blade. Wording is unchanged.
+- User Management shows only with `users.view` and stays disabled. My Profile and Security Settings are visible but disabled until Phase 5. Neither has a route yet.
+
+### Verified
+- `php artisan test`: 300 passed, on `hr_system_test`, including every older test unchanged. `npm run build`: succeeded. Pint: clean.
+- Mutation check: 6 safeguards removed one at a time (menu gate, `boot()` authorization, account count gate, role read from the database, role color, toast `x-text`), each file restored. 5 were caught. The toast one survived, so its test was extended, and the same mutation is now caught.
+- In a real browser with `php -S` on `hr_system_test`: login with a real TOTP code, HR Admin and Employee dashboards, Refresh with its toast, Logout, a role change from Employee to Approver showing purple on reload, a failed login, reset, activation and enrollment through to recovery codes. Checked at 375px, 1024px and 1280px, with no horizontal scroll.
+- Keyboard: the profile menu moves focus in, arrow keys move, Escape returns focus to the trigger. The modal traps focus, locks scrolling and returns focus on close. The drawer moves focus in; closing it with Escape was not tried. The modal was checked with a temporary probe that was removed. The test database was reset afterwards. `hr_system` still has 0 users.
+- That browser check exposed two bugs, both fixed: a long email widened the page on mobile, and `x-show` delayed showing elements so moving focus failed. Dropdown, modal and drawer now use a class binding.
+
+### Known issues
+- Keyboard events in the browser pane were dispatched by script, because the pane was hidden. A pass with a real keyboard and a screen reader has not been done.
+- Color contrast was judged from Tailwind's palette values and not measured with a tool.
+- The recovery codes page was checked by structure (10 codes, 2 columns at 1024px, 1 column defined for mobile), because its screenshot timed out.
+- Dates show in UTC, the app timezone.
+- Error pages (403, 404, 419, 500) still use Laravel's default look.
+- The modal has no real use yet, Phase 4b will be the first. `resources/views/welcome.blade.php` is still unused.
+- Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH.
+
+### Decisions
+Recorded in README.md under "Project decisions".
+- Dropdown, modal and drawer are shown with a class binding, not `x-show`.
+- Links to pages that do not exist yet are not links at all, so no route is invented ahead of its phase.

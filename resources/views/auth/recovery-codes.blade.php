@@ -1,16 +1,15 @@
-<x-layouts::app title="Recovery codes">
-    <h1 class="mb-2 text-xl font-semibold">Save your recovery codes</h1>
-    <p class="mb-6 text-sm">Each code works once, for when your authenticator is unavailable. They are shown only now and cannot be displayed again.</p>
+<x-layouts::auth title="Recovery codes">
+    <x-ui.auth-heading title="Save your recovery codes">Each code works once, for when your authenticator is unavailable. They are shown only now and cannot be displayed again.</x-ui.auth-heading>
 
-    <ul class="mb-6 grid grid-cols-1 gap-1 rounded border border-gray-300 bg-white p-4 font-mono text-sm">
+    <ul class="mb-6 grid grid-cols-1 gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-4 font-mono text-sm text-slate-900 sm:grid-cols-2">
         @foreach ($recoveryCodes as $recoveryCode)
             <li>{{ $recoveryCode }}</li>
         @endforeach
     </ul>
 
     @isset($notice)
-        <p class="mb-6 text-sm">{{ $notice }}</p>
+        <x-ui.alert class="mb-6">{{ $notice }}</x-ui.alert>
     @endisset
 
-    <a href="{{ $continueUrl ?? route('dashboard') }}" class="block w-full rounded bg-gray-900 px-4 py-2 text-center font-medium text-white">{{ $continueLabel ?? 'I have saved them' }}</a>
-</x-layouts::app>
+    <x-ui.button :href="$continueUrl ?? route('dashboard')" block>{{ $continueLabel ?? 'I have saved them' }}</x-ui.button>
+</x-layouts::auth>

@@ -9,6 +9,18 @@ enum RoleName: string
     case Employee = 'Employee';
 
     /**
+     * Get the badge color of this role.
+     */
+    public function tone(): string
+    {
+        return match ($this) {
+            self::HrAdmin => 'blue',
+            self::Approver => 'purple',
+            self::Employee => 'green',
+        };
+    }
+
+    /**
      * Get the permissions granted to this role.
      *
      * @return list<PermissionName>

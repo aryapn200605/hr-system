@@ -110,6 +110,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the name of the user's role from the database. changeRole() keeps it to one role.
+     */
+    public function roleName(): ?string
+    {
+        return $this->roles->first()?->name;
+    }
+
+    /**
      * Determine whether the user has finished 2FA enrollment.
      */
     public function hasCompletedTwoFactorEnrollment(): bool

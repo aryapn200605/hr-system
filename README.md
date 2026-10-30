@@ -44,6 +44,10 @@
 - Password reset uses Laravel's broker with `status = ACTIVE` as a credential, so other accounts behave as if they do not exist. Reset links hold no email address: the form asks for it. A reset never logs in and never touches 2FA or recovery codes.
 - A password reset deletes the user's rows in `sessions`, which needs the database session driver. Two more checks cover what that delete cannot reach: `auth.session` ends a session written back by a request in flight, and `PendingLogin` compares a keyed hash of the password, because pending sessions have no `user_id`.
 - `AccessControlTest` lists public routes on purpose. Activation and password reset pages use controllers and Blade.
+- Logged-in pages use `layouts/app.blade.php` and public pages use `layouts/auth.blade.php`, which loads no Livewire or Alpine. Shared UI lives in `resources/views/components/ui`.
+- Dropdowns, modals and the mobile drawer are shown with a class binding, not `x-show`, because `x-show` waits for an animation frame and focus moves before the element is visible.
+- Menu entries for pages that do not exist yet are disabled text, not links. The menu is only a marker: every page checks its permission on the server.
+- Badge colors are defined on the enums (`RoleName::tone()`, `UserStatus::tone()`), so views never test a role name.
 
 ## Mail
 

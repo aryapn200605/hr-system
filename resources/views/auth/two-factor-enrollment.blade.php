@@ -1,11 +1,10 @@
-<x-layouts::app title="Set up two-factor authentication">
-    <h1 class="mb-2 text-xl font-semibold">Set up two-factor authentication</h1>
-    <p class="mb-6 text-sm">Your account needs an authenticator app. Scan this code with Google Authenticator or Microsoft Authenticator.</p>
+<x-layouts::auth title="Set up two-factor authentication">
+    <x-ui.auth-heading title="Set up two-factor authentication">Your account needs an authenticator app. Scan this code with Google Authenticator or Microsoft Authenticator.</x-ui.auth-heading>
 
     @include('auth.partials.two-factor-setup', ['action' => route('two-factor.enrollment.store')])
 
-    <form method="POST" action="{{ route('two-factor.cancel') }}" class="mt-6">
+    <form method="POST" action="{{ route('two-factor.cancel') }}" class="mt-6 text-center">
         @csrf
-        <button type="submit" class="text-sm underline">Cancel</button>
+        <x-ui.button type="submit" variant="link">Cancel</x-ui.button>
     </form>
-</x-layouts::app>
+</x-layouts::auth>
