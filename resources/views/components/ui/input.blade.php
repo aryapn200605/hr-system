@@ -14,7 +14,7 @@
 @endphp
 
 <div>
-    <label for="{{ $id }}" class="block text-sm font-medium text-ink">{{ $label }}</label>
+    <label for="{{ $id }}" class="block text-sm font-medium text-ink-soft">{{ $label }}</label>
 
     <input
         id="{{ $id }}"
@@ -23,7 +23,7 @@
         @if ($hasError) aria-invalid="true" @endif
         @if ($describedBy) aria-describedby="{{ $describedBy }}" @endif
         {{ $attributes->class([
-            'mt-1 w-full rounded-sm border bg-surface px-2.5 py-1.5 text-sm text-ink tabular-nums placeholder:text-muted',
+            'mt-1.5 h-9 w-full rounded-sm border bg-surface px-3 text-sm text-ink tabular-nums placeholder:text-muted read-only:bg-paper read-only:text-muted',
             'border-tone-red' => $hasError,
             'border-rule-strong' => ! $hasError,
         ]) }}

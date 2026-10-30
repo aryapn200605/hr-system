@@ -12,7 +12,7 @@
     <button
         type="button"
         x-ref="trigger"
-        class="flex cursor-pointer items-center gap-2 rounded-sm {{ $triggerClass }} text-sm text-ink hover:bg-wash"
+        class="flex cursor-pointer items-center gap-2 rounded-sm {{ $triggerClass }} text-sm text-ink transition-colors duration-100 hover:bg-wash"
         aria-label="{{ $label }}"
         aria-haspopup="menu"
         aria-controls="{{ $id }}"

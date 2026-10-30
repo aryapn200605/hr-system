@@ -8,6 +8,7 @@
         'close' => 'M6 6l12 12M18 6 6 18',
         'chevron-down' => 'm6 9 6 6 6-6',
         'chevron-right' => 'm9 6 6 6-6 6',
+        'dots' => 'M4.5 12h1M11.5 12h1M18.5 12h1',
     };
 @endphp
 

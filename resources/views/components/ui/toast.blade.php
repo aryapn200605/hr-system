@@ -20,15 +20,19 @@
 >
     <template x-for="toast in toasts" x-bind:key="toast.id">
         <div
-            class="pointer-events-auto flex items-start justify-between gap-3 rounded-sm border border-l-2 border-rule bg-surface px-3 py-2 text-sm text-ink shadow-overlay"
-            x-bind:class="{
-                'border-l-tone-green': toast.tone === 'success',
-                'border-l-tone-blue': toast.tone === 'info',
-                'border-l-tone-amber': toast.tone === 'warning',
-                'border-l-tone-red': toast.tone === 'danger',
-            }"
+            class="pointer-events-auto flex items-start gap-2.5 rounded-sm border border-rule bg-surface px-3 py-2.5 text-sm text-ink shadow-overlay"
         >
-            <span x-text="toast.message"></span>
+            <span
+                class="mt-1.5 size-1.5 shrink-0"
+                x-bind:class="{
+                    'bg-tone-green': toast.tone === 'success',
+                    'bg-tone-blue': toast.tone === 'info',
+                    'bg-tone-amber': toast.tone === 'warning',
+                    'bg-tone-red': toast.tone === 'danger',
+                }"
+                aria-hidden="true"
+            ></span>
+            <span class="min-w-0 flex-1" x-text="toast.message"></span>
             <button type="button" class="cursor-pointer rounded-sm text-muted hover:text-ink" aria-label="Dismiss" x-on:click="remove(toast.id)">
                 <x-ui.icon name="close" class="size-4" />
             </button>

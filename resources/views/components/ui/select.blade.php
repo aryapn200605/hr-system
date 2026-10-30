@@ -12,14 +12,14 @@
 @endphp
 
 <div>
-    <label for="{{ $id }}" class="block text-sm font-medium text-ink">{{ $label }}</label>
+    <label for="{{ $id }}" class="block text-sm font-medium text-ink-soft">{{ $label }}</label>
 
     <select
         id="{{ $id }}"
         @if ($hasError) aria-invalid="true" @endif
         @if ($describedBy) aria-describedby="{{ $describedBy }}" @endif
         {{ $attributes->class([
-            'mt-1 w-full rounded-sm border bg-surface px-2 py-1.5 text-sm text-ink',
+            'mt-1.5 h-9 w-full rounded-sm border bg-surface px-2.5 text-sm text-ink',
             'border-tone-red' => $hasError,
             'border-rule-strong' => ! $hasError,
         ]) }}

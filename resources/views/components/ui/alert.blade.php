@@ -1,11 +1,11 @@
 @props(['tone' => 'info'])
 
 <p {{ $attributes->class([
-    'border-l-2 px-3 py-2 text-sm text-ink',
+    'rounded-sm border px-3 py-2 text-sm text-ink',
     match ($tone) {
-        'info' => 'border-tone-blue bg-tone-blue-wash',
-        'success' => 'border-tone-green bg-tone-green-wash',
-        'warning' => 'border-tone-amber bg-tone-amber-wash',
-        'danger' => 'border-tone-red bg-tone-red-wash',
+        'info' => 'border-tone-blue/25 bg-tone-blue-wash',
+        'success' => 'border-tone-green/25 bg-tone-green-wash',
+        'warning' => 'border-tone-amber/30 bg-tone-amber-wash',
+        'danger' => 'border-tone-red/25 bg-tone-red-wash',
     },
 ]) }} role="status">{{ $slot }}</p>

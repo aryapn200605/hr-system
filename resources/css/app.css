@@ -8,6 +8,21 @@
 /* The design tokens. Only Tailwind's palette, radii and shadows are switched off, so a page cannot reach
    for a color outside this list. Spacing, containers and breakpoints stay on: max-w-*, mx-auto and gap-*
    depend on them. README.md, "Design direction", says what each one is for. */
+/* True where a table has too little room for its columns: see x-ui.table. */
+@custom-variant stacked {
+    @container (width < 34rem) {
+        &:is([data-stack='narrow'], [data-stack='narrow'] *) {
+            @slot;
+        }
+    }
+
+    @container (width < 60rem) {
+        &:is([data-stack='wide'], [data-stack='wide'] *) {
+            @slot;
+        }
+    }
+}
+
 @theme {
     --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
     --font-mono: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
@@ -42,10 +57,11 @@
     --color-tone-amber: #80530f;
     --color-tone-amber-wash: #f6eedb;
     --color-tone-red: #9b2e23;
+    --color-tone-red-strong: #7a2219;
     --color-tone-red-wash: #f8e9e5;
 
     --radius-*: initial;
-    --radius-sm: 3px;
+    --radius-sm: 4px;
 
     --shadow-*: initial;
     --shadow-overlay: 0 1px 2px rgb(31 28 23 / 0.08), 0 6px 16px rgb(31 28 23 / 0.08);
@@ -66,55 +82,120 @@
     }
 }
 
+/* Outside any layer, so these win over the table's utilities. */
+.table-stack th,
+.table-stack td {
+    padding: 0.625rem 0.5rem;
+    white-space: nowrap;
+}
+
+.table-stack th {
+    padding-block: 0.5rem;
+    font-weight: 500;
+}
+
+.table-stack th:first-child,
+.table-stack td:first-child {
+    padding-left: 1.25rem;
+}
+
+.table-stack th:last-child,
+.table-stack td:last-child {
+    padding-right: 1.25rem;
+}
+
+.table-stack tbody tr:hover {
+    background-color: var(--color-paper);
+}
+
 /* One markup for both layouts, so a row's actions and their authorization are never written twice.
-   Outside any layer, so it wins over the table's utilities. */
-@media (width < 40rem) {
-    .table-stack,
-    .table-stack tbody,
-    .table-stack tr {
+   The row's name runs across the top with the actions beside it, and the rest are labelled values. */
+.table-stack {
+    @variant stacked {
         display: block;
     }
+}
 
-    .table-stack thead {
+.table-stack thead {
+    @variant stacked {
         display: none;
     }
+}
 
-    .table-stack tr {
-        display: flex;
-        flex-direction: column;
-        padding-block: 0.625rem;
+.table-stack tbody {
+    @variant stacked {
+        display: block;
     }
+}
 
-    .table-stack td {
+.table-stack tbody tr {
+    @variant stacked {
+        position: relative;
         display: grid;
-        grid-template-columns: 6.5rem minmax(0, 1fr);
-        gap: 0.75rem;
-        padding: 0.125rem 0;
+        grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+        gap: 0.625rem 1rem;
+        padding: 0.75rem 1rem;
+
+        @media (width >= 40rem) {
+            padding-inline: 1.25rem;
+        }
+    }
+}
+
+.table-stack td,
+.table-stack td:first-child,
+.table-stack td:last-child {
+    @variant stacked {
+        display: block;
+        min-width: 0;
+        max-width: none;
+        width: auto;
+        padding: 0;
+        overflow: visible;
         white-space: normal;
         overflow-wrap: anywhere;
-        text-align: left;
     }
+}
 
-    .table-stack td::before {
-        content: attr(data-label);
-        color: var(--color-muted);
+.table-stack td {
+    @variant stacked {
+        &::before {
+            content: attr(data-label);
+            display: block;
+            font-size: var(--text-xs);
+            line-height: var(--text-xs--line-height);
+            color: var(--color-muted);
+        }
     }
+}
 
-    .table-stack td > * {
-        justify-self: start;
-    }
-
-    .table-stack td[data-primary],
-    .table-stack td[data-actions] {
-        display: block;
-        padding-bottom: 0.25rem;
-    }
-
-    .table-stack td[data-primary] {
+.table-stack td[data-primary] {
+    @variant stacked {
+        grid-column: 1 / -1;
         order: -1;
+        padding-right: 2.5rem;
     }
+}
 
-    .table-stack td[data-primary]::before {
-        content: none;
+.table-stack td[data-primary],
+.table-stack td[data-actions] {
+    @variant stacked {
+        &::before {
+            content: none;
+        }
+    }
+}
+
+.table-stack td[data-span] {
+    @variant stacked {
+        grid-column: span 2;
+    }
+}
+
+.table-stack td[data-actions] {
+    @variant stacked {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.75rem;
     }
 }
