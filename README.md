@@ -56,12 +56,36 @@
 - Changing the username or email of a PENDING account revokes its open invitation, and the admin is told to resend. There is no automatic resend, because it would spend the resend limit unseen. Changing only the name keeps the link. Changing an email deletes reset links for the old address.
 - `#[Url]` filters are strings and are whitelisted before use, and search text has its LIKE wildcards escaped. A forged update with anything but a plain string gets a 422.
 - Dropdowns inside a scrolling table use the `anchored` option, placed from the trigger. Elements with `position: absolute` escape `overflow` unless a parent is positioned, which is why the table's Actions header is plain text and not `sr-only`.
+- Profile and security pages act only on the logged-in user, so they take no user ID and need no permission. Anything that touches a password, secret or code is a controller with a Blade form, not Livewire, because a Livewire snapshot would carry the value back and forth. `/profile` (Livewire) changes the name only and has no property or action that could reach anything else.
+- Sensitive actions (password, username or email, recovery codes, authenticator) need a re-authentication proof from `/security/confirm`: password plus an authenticator code or a recovery code, in one POST. `App\Support\Reauthentication` keeps it in the session for 10 minutes from the moment it was granted, never extended by activity. One completed action spends it, a form refused by validation keeps it, and it dies when the password hash changes. The `reauthenticated:{route}` middleware names its return route in the route definition, so the client cannot choose where the page returns to.
+- The password is checked first, so a wrong one spends no timestep and no recovery code, and the message is the same for a wrong password and a wrong code. Attempts share the TOTP bucket. `TwoFactor::verify()` claims the timestep, so the code that finished a login is refused here and the user waits for the next one. A recovery code is spent even if the action is then abandoned. Failed attempts go to the audit log only: they are not logins, so they stay out of the login history.
+- Confirming identity keeps the session ID. A request in flight on a session the user just ended could otherwise regenerate it, and that writes a new row instead of updating the deleted one.
+- Changing the password ends every other session, deletes the user's reset links and rotates `remember_token`. The session that made the change stays logged in with a new ID. The new password must differ from the current one.
+- **There is no email verification, so changing an email sends no email to either address, and neither does any other change in My Profile or Security Settings.** The re-authentication and typing the address twice stand in for it. A mistyped address is not detected: reset links then go to it, though the username still logs in and the address can be corrected. Reset links for both the old and the new address are deleted, so a vacated address passes on no working link. Changing only the username keeps reset links.
+- The message that an email or username is taken lets a logged-in user test whether an address is registered. The risk is low: it needs a full login plus a re-authentication, and the same list is known to HR Admin anyway. The unique index is the last check, and a collision there becomes the same validation message, not a 500.
+- Reconfiguring the authenticator keeps the new secret encrypted in the session until a code from it is valid, then swaps secret, timestep and recovery codes in one transaction, so a failed attempt changes nothing and the old authenticator works until the swap. The code is checked without the old `two_factor_last_timestep`, which belongs to the old secret, and its own timestep is stored. Old recovery codes die with the old device, and every other session ends. `two_factor_enrolled_at` becomes the date of the latest setup. The QR code's label is the email at that moment and does not follow a later change.
+- A session ID is a credential, so pages only hold an HMAC handle under a key derived from `APP_KEY`, and `App\Support\ActiveSessions` looks a handle up among the user's own other sessions. Ending a session needs no re-authentication, because it protects the user. Devices are named from the user agent with `App\Support\UserAgentLabel`, a hint with no new dependency, as a client can send anything.
+- **Sessions end by deleting the row, which needs the database session driver.** A request in flight on that session read its row at the start, so `DatabaseSessionHandler::write()` only updates, which changes nothing once the row is gone. After a password change, `auth.session` is a second check.
+- **There is no way to turn 2FA off in the application**: no button and no route. SPEC.md allows it only through an explicitly authorized process, and the only such process is `app:reset-two-factor` below, which forces a new enrollment.
+- The optional audit trail viewer was skipped on purpose. It would add a seventh permission to the list SPEC.md fixes, and its metadata would need a whitelist. Audit rows are read in the database for now.
 
 ### Addition outside SPEC.md: Reactivate
 
 SPEC.md has no way back from SUSPENDED. At the user's request, User Management has a minimal Reactivate action: permission `users.suspend`, a confirmation dialog, audit event `user.reactivated`, status back to ACTIVE, password, 2FA and role unchanged. It ends any session left over from the suspension.
 
 It never activates an account that has not finished activation. A PENDING account is refused because it is not suspended, and an account suspended before activation has no password, so it is refused too. **Such an account stays SUSPENDED for good: the invitation was revoked and nothing can restore it.** To invite that person again, create a new user with a different username and email, since accounts are never deleted.
+
+### Addition outside SPEC.md: app:reset-two-factor
+
+A user who lost the authenticator and every recovery code cannot pass a re-authentication, so at the user's request there is a console-only way back. It has no route or UI.
+
+```bash
+php artisan app:reset-two-factor {username}
+```
+
+After a confirmation it removes the secret, enrollment date, last timestep and recovery codes, ends all sessions of that user, and writes the audit event `two_factor.reset` with a null actor. Password, status and role stay. The next login forces a new enrollment.
+
+**Until they enroll again, the password alone reaches the enrollment page**, the same exposure as a first login. Check who is asking before running it, out of band. Anyone who can run this command already has the server, so it adds no new access. The audit entry cannot say who ran it, only that the system did.
 
 ## Mail
 
@@ -73,7 +97,7 @@ Web server access logs record the first request of every link, including its tok
 
 Recovery codes are 80-bit random values, stored as HMAC-SHA256 under a key derived from `APP_KEY` with HKDF and the label `hr-system.recovery-codes.v1`, never under `APP_KEY` itself. The user ID is part of the hashed message. A slow hash is unnecessary at this entropy, and a keyed hash allows an indexed lookup on `(user_id, code_hash)`. Spending a code is one conditional update, so a code works once even with concurrent requests.
 
-**Rotating `APP_KEY` voids every recovery code.** It also makes every TOTP secret undecryptable, because they are encrypted with the same key, and `APP_PREVIOUS_KEYS` does not help recovery codes. Rotation therefore means re-enrolling all users. Until Phase 5, that needs a manual reset of `two_factor_secret`, `two_factor_enrolled_at` and `two_factor_last_timestep`.
+**Rotating `APP_KEY` voids every recovery code.** It also makes every TOTP secret undecryptable, because they are encrypted with the same key, and `APP_PREVIOUS_KEYS` does not help recovery codes. Rotation therefore means re-enrolling all users, with `app:reset-two-factor` for each of them. It clears the secret without reading it, so it works after a rotation too.
 
 ## First HR Admin
 

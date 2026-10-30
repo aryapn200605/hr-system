@@ -203,6 +203,114 @@ class User extends Authenticatable
     }
 
     /**
+     * Replace the password from Security Settings and end every other session of this user.
+     *
+     * Reset links die too: one requested before this change must not undo it. The caller
+     * updates the password hash of its own session, which auth.session then accepts.
+     */
+    public function changePassword(#[SensitiveParameter] string $password, string $currentSessionId): void
+    {
+        DB::transaction(function () use ($password, $currentSessionId) {
+            $locked = static::query()->lockForUpdate()->findOrFail($this->getKey());
+
+            $this->forceFill([
+                'password' => $password,
+                'remember_token' => Str::random(60),
+            ])->save();
+
+            DB::table('password_reset_tokens')->where('email', $locked->email)->delete();
+
+            AuditLog::record(AuditEvent::PasswordChanged, $this, $this, [
+                'source' => 'security_settings',
+                'sessions_ended' => $this->endOtherSessions($currentSessionId),
+            ]);
+        });
+    }
+
+    /**
+     * Replace the 2FA secret with a confirmed new one and issue new recovery codes, all or
+     * nothing. The old codes go too, as they may have left with the old device, and so do
+     * the other sessions. Null means the account is no longer eligible, and nothing changes.
+     *
+     * @return list<string>|null
+     */
+    public function reconfigureTwoFactor(#[SensitiveParameter] string $secret, int $timestep, string $currentSessionId): ?array
+    {
+        return DB::transaction(function () use ($secret, $timestep, $currentSessionId) {
+            $user = static::query()->lockForUpdate()->findOrFail($this->getKey());
+
+            if (! $user->canAccessApplication()) {
+                return null;
+            }
+
+            return $user->enableTwoFactor($secret, $timestep, AuditEvent::TwoFactorReconfigured, [
+                'sessions_ended' => $this->endOtherSessions($currentSessionId),
+            ]);
+        });
+    }
+
+    /**
+     * Replace the recovery codes. The row lock stops two requests from mixing their sets.
+     *
+     * @return list<string>
+     */
+    public function regenerateRecoveryCodes(): array
+    {
+        return DB::transaction(function () {
+            static::query()->lockForUpdate()->findOrFail($this->getKey());
+
+            $recoveryCodes = RecoveryCode::regenerateFor($this);
+
+            AuditLog::record(AuditEvent::RecoveryCodesRegenerated, $this, $this);
+
+            return $recoveryCodes;
+        });
+    }
+
+    /**
+     * Take 2FA away, for the reset command only. The next login forces a new enrollment.
+     * False means the account has no 2FA to reset, such as when a parallel reset came first.
+     */
+    public function resetTwoFactor(): bool
+    {
+        return DB::transaction(function () {
+            $user = static::query()->lockForUpdate()->findOrFail($this->getKey());
+
+            if (! $user->hasCompletedTwoFactorEnrollment()) {
+                return false;
+            }
+
+            $user->forceFill([
+                'two_factor_secret' => null,
+                'two_factor_enrolled_at' => null,
+                'two_factor_last_timestep' => null,
+            ])->save();
+
+            $user->recoveryCodes()->delete();
+
+            AuditLog::record(AuditEvent::TwoFactorReset, subject: $user, metadata: [
+                'sessions_ended' => DB::table('sessions')->where('user_id', $user->getKey())->delete(),
+            ]);
+
+            return true;
+        });
+    }
+
+    /**
+     * End every session of this user except one, and return how many ended.
+     *
+     * A request in flight on an ended session cannot bring it back: the handler already
+     * saw the row, so it only updates, which changes nothing once the row is gone.
+     */
+    public function endOtherSessions(string $currentSessionId): int
+    {
+        return DB::table('sessions')
+            ->where('user_id', $this->getKey())
+            ->where('id', '!=', $currentSessionId)
+            ->delete();
+    }
+
+    /**
      * Create the first HR Admin. 2FA enrollment stays incomplete until first login.
      *
      * @param  array{name: string, username: string, email: string, password: string}  $attributes
@@ -395,10 +503,15 @@ class User extends Authenticatable
     /**
      * Save a confirmed secret and issue recovery codes. The caller holds the user row lock.
      *
+     * @param  array<string, mixed>  $metadata
      * @return list<string>
      */
-    private function enableTwoFactor(#[SensitiveParameter] string $secret, int $timestep): array
-    {
+    private function enableTwoFactor(
+        #[SensitiveParameter] string $secret,
+        int $timestep,
+        AuditEvent $event = AuditEvent::TwoFactorEnrolled,
+        array $metadata = [],
+    ): array {
         $this->forceFill([
             'two_factor_secret' => $secret,
             'two_factor_enrolled_at' => now(),
@@ -407,7 +520,7 @@ class User extends Authenticatable
 
         $recoveryCodes = RecoveryCode::regenerateFor($this);
 
-        AuditLog::record(AuditEvent::TwoFactorEnrolled, $this, $this);
+        AuditLog::record($event, $this, $this, $metadata);
 
         return $recoveryCodes;
     }

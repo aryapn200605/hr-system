@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureFullyAuthenticated;
 use App\Http\Middleware\EnsurePendingActivation;
 use App\Http\Middleware\EnsurePendingLogin;
+use App\Http\Middleware\EnsureReauthenticated;
 use App\Http\Middleware\StartSession;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'fully.authenticated' => EnsureFullyAuthenticated::class,
             'pending.activation' => EnsurePendingActivation::class,
             'pending.login' => EnsurePendingLogin::class,
+            'reauthenticated' => EnsureReauthenticated::class,
         ]);
 
         $middleware->web(replace: [BaseStartSession::class => StartSession::class]);

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\Testing\TestResponse;
+use Livewire\Features\SupportAutoInjectedAssets\SupportAutoInjectedAssets;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\LogsIn;
@@ -181,6 +182,30 @@ class AppLayoutTest extends TestCase
             ->assertSee('Logout')
             ->assertSee(route('logout'))
             ->assertSee('aria-current="page"', false);
+    }
+
+    public function test_my_profile_and_security_settings_are_links_for_every_role(): void
+    {
+        foreach (RoleName::cases() as $role) {
+            $html = $this->dashboardAs($this->userWithRole($role))->assertDontSee('Soon')->getContent();
+
+            $this->assertMatchesRegularExpression('/<a[^>]*href="'.preg_quote(route('profile.show'), '/').'"[^>]*>\s*My Profile/', $html);
+            $this->assertMatchesRegularExpression('/<a[^>]*href="'.preg_quote(route('security.index'), '/').'"[^>]*>\s*Security Settings/', $html);
+        }
+    }
+
+    public function test_a_page_without_a_livewire_component_still_loads_alpine_for_the_menus(): void
+    {
+        $user = $this->userWithRole(RoleName::Employee);
+
+        // Left set by any earlier test that rendered a component in this process.
+        SupportAutoInjectedAssets::$hasRenderedAComponentThisRequest = false;
+
+        $this->actingAs($user)->get(route('security.confirm'))
+            ->assertOk()
+            ->assertDontSee('wire:snapshot', false)
+            ->assertSee('livewire', false)
+            ->assertSee('data-update-uri', false);
     }
 
     public function test_the_dashboard_shows_the_account_and_security_state(): void

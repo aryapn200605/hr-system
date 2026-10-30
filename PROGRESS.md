@@ -9,7 +9,8 @@
 - Phase 3 (Invitation, activation, password reset, emails): done, see "Phase 3" below.
 - Phase 4a (UI layout, components, dashboard, restyled public pages): done, see "Phase 4a" below.
 - Phase 4b (User Management): done, see "Phase 4b" below.
-- Next: Phase 5 (Profile and security settings). Not started.
+- Phase 5 (Profile and security settings): done, see "Phase 5" below.
+- Next: Phase 6 (Docker runtime, documentation, final verification). Not started.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -236,3 +237,48 @@ Recorded in README.md under "Project decisions".
 ### Decisions
 Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: Reactivate".
 - Two tests from earlier phases changed. `AppLayoutTest`: User Management is now a link, as approved. `ActivationTest`: not in the approved list. `suspend()` now revokes the invitation, so that test sets the status directly to keep covering the status check alone, and a new test covers the link dying on suspend.
+
+## Phase 5: Profile and security settings (2026-10-31)
+
+### Done
+- My Profile at `/profile` (Livewire): details, name only. `/profile/identity` (controller) for username and email, with `App\Actions\UpdateOwnIdentity`.
+- Security Settings at `/security`: 2FA status, recovery codes left, change password, regenerate recovery codes, reconfigure authenticator. `/security/sessions` and `/security/login-history` (Livewire). The profile menu entries are now links.
+- `App\Support\Reauthentication`, middleware `reauthenticated:{route}`, `/security/confirm`: password plus TOTP or a recovery code, 10 minutes fixed, spent by one action, tied to the password hash, in the TOTP throttle bucket.
+- `User::changePassword()`, `reconfigureTwoFactor()`, `regenerateRecoveryCodes()`, `resetTwoFactor()`, `endOtherSessions()`. `enableTwoFactor()` now takes the audit event. `PendingLogin::passwordHash()` is public.
+- `App\Support\ActiveSessions` (HMAC handles, only the user's own other sessions), `App\Support\UserAgentLabel`.
+- Command `app:reset-two-factor {username}`, an addition outside SPEC.md requested by the user.
+- Six audit events: `two_factor.reconfigured`, `two_factor.reset`, `recovery_codes.regenerated`, `reauthentication.succeeded`, `reauthentication.failed`, `session.terminated`.
+- `layouts/app.blade.php` now has `@livewireStyles` and `@livewireScripts`, because pages without a Livewire component get no auto-injected Alpine, which the menus need.
+- No new packages or migrations.
+
+### Verified
+- `php artisan test`: 660 passed, on `hr_system_test`. `npm run build`: succeeded. Pint: clean. `npm audit`: no vulnerabilities.
+- Real races with separate PHP processes (`SecurityConcurrencyTest`): 8 concurrent regenerations leave exactly one valid set of 10 codes and 7 fully dead sets. Two users taking one email, 3 rounds: one success and one validation error, never a 500. The unique index path is also forced deterministically in `IdentityChangeTest`, because a race does not always reach it.
+- Mutation check: 93 safeguards removed one at a time, each file restored and confirmed by hash, and the whole tree compared with a backup. 83 were caught. Of the 10 survivors:
+  - 7 exposed weak tests, which were fixed, and the same mutations are now caught. Two of them are worth knowing: the guard's cached user hid the old timestep bug, and a static Livewire flag left by an earlier test hid the missing `@livewireScripts`.
+  - 2 were redundant code, now removed: spending the proof after a password change (the proof dies with the old hash) and lowercasing the username in the command (the collation ignores case).
+  - 1 is a deliberate second layer, kept: the `user_id` filter on the delete in `ActiveSessions::endOne()`. The lookup before it has the same filter, and removing that one is caught.
+  - The full set was not repeated after these fixes, only the 7 mutations above.
+- Real HTTP run on `hr_system_test` (`php -S`, database sessions, real CSRF, separate cookie jars as devices), 47 checks passed: ending a session cuts that device at once, another user's raw session ID ends nothing, password change and reconfiguration keep the current session and end the others, the reset command with real piped answers, and neither the audit table nor laravel.log holds a password, code or secret.
+- That run exposed one bug that every test had missed: `@js()` is not compiled inside a Blade component attribute, so the End session button held the literal text. Fixed, and a test now checks the handle in the button.
+- In a real browser with a real TOTP code: profile, overview, login history, sessions, the end-session dialog with a second device, profile menu, confirmation, password, authenticator, identity and recovery code pages. Checked at 1024px and 375px with no horizontal scroll and no console errors. That check also exposed `GMT+0000` in the session list, now `UTC` like every other page.
+- The test database was reset afterwards. No check account reached `hr_system`.
+
+### Known issues
+- The authenticator QR code has not been scanned by a real app. The URI comes from the same code as first enrollment.
+- A request in flight could revive an ended session only by regenerating its ID during the delete. Confirming identity does not regenerate. Login cannot apply, and a password change on the ended session itself is the one remaining case. The same-ID case is tested at handler level, not with two real processes in flight.
+- Ending a session needs no re-authentication, so a stolen session can log the real user out. They can log back in and change the password.
+- A mistyped new email is not detected, because nothing is sent. See README.md.
+- Two parallel reconfigurations from two sessions both end in a valid state, but the first one's recovery codes are dead by the time they are read.
+- After `app:reset-two-factor`, the password alone reaches enrollment until the user enrolls again. The audit entry does not say who ran it.
+- A user who abandons a reconfiguration leaves its secret in that session until cancel or logout. It is unused and encrypted.
+- Reset links from a forgot password request that finishes during an email change can survive for an address nobody holds, until they expire. The broker finds no user for them.
+- The login history table scrolls sideways on a phone, as User Management does.
+- A real keyboard and a screen reader were not tried on the new pages.
+- Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH. Dates show in UTC. Error pages keep Laravel's default look.
+
+### Decisions
+Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: app:reset-two-factor".
+- Approved by the user: recovery code as an alternative at re-authentication, reconfiguration ends other sessions, no notice email on an email change, the audit viewer skipped, no way to disable 2FA in the application.
+- Pages touching a password, secret or code are controllers, not Livewire, so snapshots never carry them.
+- No older test changed. `AppLayoutTest` gained two tests, and `tests/Support/race.php` gained two modes and two output fields.

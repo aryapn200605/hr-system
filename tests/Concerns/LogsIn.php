@@ -65,6 +65,20 @@ trait LogsIn
     }
 
     /**
+     * Earn a re-authentication proof with a real request. Time moves on first,
+     * because the code that was used to log in is refused as a replay.
+     */
+    protected function confirmIdentity(User $user, string $password = 'password'): TestResponse
+    {
+        $this->travel(30)->seconds();
+
+        return $this->from(route('security.confirm'))->post(route('security.confirm.store'), [
+            'password' => $password,
+            'code' => $this->totp($user->fresh()->two_factor_secret),
+        ]);
+    }
+
+    /**
      * Assert that the last request was turned away by a rate limit.
      */
     protected function assertThrottled(): void

@@ -103,7 +103,7 @@ class PendingLogin
     /**
      * The keyed hash of the password hash, in the format the auth.session middleware compares.
      */
-    private static function passwordHash(User $user): string
+    public static function passwordHash(User $user): string
     {
         return Auth::guard()->hashPasswordForCookie($user->getAuthPassword());
     }

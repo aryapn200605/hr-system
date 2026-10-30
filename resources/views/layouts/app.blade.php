@@ -10,6 +10,9 @@
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
+        {{-- Explicit, because pages without a Livewire component still need Alpine for the menus. --}}
+        @livewireStyles
+
         <script>
             // The server already refused the action. This only replaces Livewire's error modal with the login page.
             document.addEventListener('livewire:init', () => {
@@ -80,8 +83,8 @@
                             <x-ui.icon name="chevron-down" class="size-4 text-slate-500" />
                         </x-slot:trigger>
 
-                        <x-ui.dropdown-item disabled>My Profile <x-ui.badge>Soon</x-ui.badge></x-ui.dropdown-item>
-                        <x-ui.dropdown-item disabled>Security Settings <x-ui.badge>Soon</x-ui.badge></x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('profile.show')">My Profile</x-ui.dropdown-item>
+                        <x-ui.dropdown-item :href="route('security.index')">Security Settings</x-ui.dropdown-item>
 
                         <div class="my-1.5 border-t border-slate-200" role="none"></div>
 
@@ -99,5 +102,7 @@
 
             <x-ui.toast />
         </div>
+
+        @livewireScripts
     </body>
 </html>

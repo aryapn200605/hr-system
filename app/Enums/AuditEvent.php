@@ -13,7 +13,13 @@ enum AuditEvent: string
     case LoginSucceeded = 'login.succeeded';
     case LoginFailed = 'login.failed';
     case TwoFactorEnrolled = 'two_factor.enrolled';
+    case TwoFactorReconfigured = 'two_factor.reconfigured';
+    case TwoFactorReset = 'two_factor.reset';
     case RecoveryCodeUsed = 'recovery_code.used';
+    case RecoveryCodesRegenerated = 'recovery_codes.regenerated';
+    case ReauthenticationSucceeded = 'reauthentication.succeeded';
+    case ReauthenticationFailed = 'reauthentication.failed';
+    case SessionTerminated = 'session.terminated';
     case InvitationCreated = 'invitation.created';
     case InvitationResent = 'invitation.resent';
     case InvitationConsumed = 'invitation.consumed';
