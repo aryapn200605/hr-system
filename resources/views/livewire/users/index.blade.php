@@ -69,7 +69,7 @@
                     @foreach ($users as $row)
                         <tr wire:key="user-{{ $row->id }}">
                             <td data-label="ID" class="text-muted">{{ $row->id }}</td>
-                            <td data-primary class="max-w-36 truncate font-medium text-ink" title="{{ $row->name }}">{{ $row->name }}</td>
+                            <td data-primary class="max-w-36 truncate font-medium text-ink 2xl:max-w-52" title="{{ $row->name }}">{{ $row->name }}</td>
                             <td data-label="Username">{{ $row->username }}</td>
                             {{-- Takes the room left over, so the address is cut only when there is none. --}}
                             <td data-label="Email" data-span title="{{ $row->email }}" class="w-full max-w-0 truncate">{{ $row->email }}</td>

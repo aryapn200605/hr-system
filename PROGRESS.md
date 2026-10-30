@@ -342,3 +342,44 @@ Also in README.md: real Google and Microsoft Authenticator scans, real SMTP deli
 
 ### Decisions
 Recorded in README.md under "Project decisions" and "Design direction".
+
+## Layout fix and visual rework (2026-10-31)
+
+Outside the SPEC.md phases, at the owner's request. Only `resources/views`, `resources/css`, tests and this file changed. No package, PHP logic, authorization, route or security message changed.
+
+### Root cause of "pushed to the left"
+- `main` had `max-w-6xl` and the public pages had `max-w-sm`, both without `mx-auto`. At 1920px the content stopped at x=1344 and the login form sat in the left half of its shell.
+- `@theme` was not the cause: it only resets colors, radii and shadows. `max-w-*`, `mx-auto` and `gap-*` were all in the built CSS. `DesignTokensTest` now fails if another group is reset.
+
+### Problems seen in the "before" screenshots (35 viewed)
+- Layout: content and auth form left aligned on wide screens, with the top bar edges unrelated to the content edges. Narrow in-app forms had the same fault.
+- Bugs: at 1920px the sticky Actions column cut off Created, and at 1024px it cut off 2FA with Last login and Created hidden and no sign of more columns. Emails broke mid-word and dates wrapped at 1024px. Status badges sat lower than their row's text.
+- Hierarchy: every section had the same black rule, section titles matched body text, and field labels outweighed section titles. Phone user cards were long, with Actions last. The sidebar email wrapped at its hyphen.
+
+### Done
+- Page column: one centered `max-w-7xl` shared by the top bar and the page, 208px either side of the content at 1920px. Auth pages are a centered `max-w-md` block, 736px either side at 1920px. Narrow in-app forms are centered too. Text stays left aligned. The sidebar stays 224px.
+- Components: white panels on the paper page, type levels of 24, 16, 14 and 12px, one accent, role labels as a hairline with tinted text, no side stripes, `tabular-nums` on IDs, dates and counts. Short color transitions on controls, off under `prefers-reduced-motion`. New `x-ui.page-header` and `x-ui.pagination`. `security/partials/page-header` was removed.
+- Tables: they become labelled cards from the room they have, through a container query, and not from the screen width. User Management stacks below 960px of room, others below 544px. The sticky column is gone, so nothing is clipped. Row actions are an icon button named "Actions for {name}".
+- Pages: the dashboard has a main and a side column from 1280px. The empty user list has a "Clear search and filters" button, which works in the browser and adds no PHP.
+
+### Verification
+- 692 tests passed (3714 assertions). `npm run build` and Pint are clean. `git diff --stat` is empty for composer.json, composer.lock, package.json and package-lock.json. No CDN or external font. `hr_system` still has 2 users; demo data was only on `hr_system_test`.
+- "After" screenshots at 1920, 1440, 1280, 1024 and 375 for login, TOTP, dashboard, User Management, profile, security and sessions: all 35 viewed, plus login history at 1024, the row menu, the create dialog, the empty state and the phone drawer. Login history and user details at the other widths were checked for overflow only. No horizontal scroll, and no console errors or failed or external requests.
+- axe-core 4.14 found 0 violations on login, forgot password, 404, TOTP, every app page at 1920, 1280, 1024 and 375, and the create dialog. It ran from the scratchpad through puppeteer-core, not through `npx`, so nothing entered the project. axe leaves `aria-valid-attr-value` as "incomplete" for the menus' `aria-controls`, which was not checked by hand.
+- 16 of 16 keyboard checks passed with trusted key events from puppeteer, not a physical keyboard. Under `prefers-reduced-motion` the spinner has no animation.
+
+### Not verified
+- Token contrast was not recomputed for the new role label borders or hover states. axe measured the text on screen.
+- Activation, enrollment, recovery code and error pages were not screenshotted in this pass. They use the same public block, and the tests pass.
+- The optional audit in step 5 was skipped: neither the Impeccable nor the Hallmark skill is installed, so there is no `docs/design-audit.md`.
+
+### Tests changed
+- `UserListTest`: the `table-stack` class check became a check of the table region and the row menu's accessible name, because a class name proves nothing about behavior. The test is renamed. One new test covers the clear filters button.
+- `DesignTokensTest`: one new test on the `@theme` resets.
+- No behavior test changed. The `font-mono` lookups that read the setup key in test helpers are unchanged, and the markup they need was kept.
+
+### Known issues
+- At 1280px and 1440px long names are cut, and at 1280px emails too, with the full text in a tooltip and on the detail page.
+- Stacked tables use `display: block`, so a screen reader reads labels and values and not table navigation.
+- README.md was outside this task's allowed files, so "Design direction" and the table notes under "Also known" still describe the earlier ledger design. This section is the current record until they are updated.
+- This supersedes the Phase 6 known issue about the table scrolling between 640px and 1279px.
