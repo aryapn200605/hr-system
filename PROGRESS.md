@@ -10,7 +10,8 @@
 - Phase 4a (UI layout, components, dashboard, restyled public pages): done, see "Phase 4a" below.
 - Phase 4b (User Management): done, see "Phase 4b" below.
 - Phase 5 (Profile and security settings): done, see "Phase 5" below.
-- Next: Phase 6 (Docker runtime, documentation, final verification). Not started.
+- Phase 6 (tanpa Docker): cleanup, redesign, documentation and final verification done, see "Phase 6 (tanpa Docker)" below. **"Docker mode works" is BELUM DIKERJAKAN / TIDAK DIVERIFIKASI, so Phase 6 is not fully complete.**
+- Next: the Docker runtime, once Docker works again, and the manual checks by the owner.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -160,7 +161,7 @@ Recorded in README.md under "Project decisions" and "Recovery codes and APP_KEY"
 - The timing check used the `log` mailer on mod_php. It has not been measured on the Phase 6 Docker runtime or behind a buffering proxy, where the client may wait for the deferred work. If so, the agreed fallback is a queue job carrying only the email address.
 - A forgot password transport failure reaches the audit log only, because the response must look the same for every address. Nothing shows it to the user or an admin yet.
 - A failed resend leaves no working link until the next resend. The result reports it.
-- `activation.two-factor` shows recovery codes in the POST response, so a browser refresh loses them. The account is active by then and the authenticator still works, and there is no regeneration page yet.
+- `activation.two-factor` shows recovery codes in the POST response, so a browser refresh loses them. The account is active by then and the authenticator still works. (Outdated: Phase 5 added regeneration in Security Settings, and since Phase 6 the page says so.)
 - Real SMTP delivery was not tested: the transport failure path used a refused connection, and no message reached a real mail server. No real authenticator app has scanned the QR code yet.
 - Expired rows in `password_reset_tokens` and `account_invitations` are not pruned.
 - Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH.
@@ -282,3 +283,62 @@ Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: a
 - Approved by the user: recovery code as an alternative at re-authentication, reconfiguration ends other sessions, no notice email on an email change, the audit viewer skipped, no way to disable 2FA in the application.
 - Pages touching a password, secret or code are controllers, not Livewire, so snapshots never carry them.
 - No older test changed. `AppLayoutTest` gained two tests, and `tests/Support/race.php` gained two modes and two output fields.
+
+## Phase 6 (tanpa Docker) (2026-10-31)
+
+The Docker part of SPEC.md Phase 6 was skipped at the owner's instruction, because Docker is not working on this machine.
+
+### Not done
+- **Docker mode works: BELUM DIKERJAKAN / TIDAK DIVERIFIKASI.** No Dockerfile, compose file, runtime-specific environment mechanism or Docker script exists. What remains is listed in README.md, "Docker runtime: postponed".
+
+### Done: cleanup
+- Error pages for 403, 404, 419, 429, 500, 503, plus `4xx` and `5xx` for anything else, in `layouts/error.blade.php`, with no session, user, database or exception detail.
+- `welcome.blade.php` deleted: no route used it.
+- `fontaine` warning gone. The cause was `bunny()` in vite.config.js, which also contacted fonts.bunny.net at build time. Replaced by `@fontsource-variable/ibm-plex-sans` 5.3.0 (OFL-1.1), a dev dependency, after an npm dry run. `npm audit` is clean. No Composer package was added.
+- `app:prune-invitations {--days=90}` and `auth:clear-resets`, scheduled daily. Accepted invitations are kept for good.
+- Recovery codes page says codes can be regenerated in Security Settings.
+- `app:reset-two-factor` writes `operator` (OS account and host) into the audit metadata.
+- `APP_TIMEZONE_DISPLAY`, default UTC, with `compact` dates in User Management.
+- Tables become labelled cards below 640px from one markup, so authorization is not duplicated. The session list was already a list.
+
+### Done: design
+- Tokens in `@theme`, with Tailwind's palette, radii and shadows switched off. Components first, then pages. Direction and tokens are in README.md, "Design direction". The `frontend-design` skill was not available.
+- Text changed only where it said nothing: the dashboard subtitle and the "No users found" description. Security messages unchanged. A footer line was added to public pages.
+- Baseline screenshots of the 7 requested pages plus login history and user detail at 1280, 1024 and 375, and the same set afterwards plus the 404 page, 30 in all, taken with headless Chrome and viewed by eye for the key pages. They are in the session scratchpad, not the repository.
+
+### Verified
+- `php artisan test`: 690 passed, 3708 assertions, on `hr_system_test`, after a real `composer install` and `npm ci`. `npm run build`: no warnings, and the output has no `fontaine` line. Pint: clean. `composer audit` and `npm audit`: nothing found. `composer validate`: valid.
+- `migrate:fresh --seed` on `hr_system_test` only, after confirming the resolved database name: 12 migrations, 3 roles, 6 permissions, 0 users. `hr_system` still has 2 users and 12 migrations, before and after.
+- `http://hr-system.test` on Laragon's Apache 2.4.65 with PHP 8.5.12: `/` (redirect to login), `/login`, `/forgot-password`, `/up`, CSS, JS and the font all 200. `/no-such-page` gives the 404 page, and a real POST without a CSRF token gives the 419 page.
+- `.env` and other secrets are not tracked (`git ls-files`), and `git status` is clean after the last commit.
+- axe-core 4.14 (WCAG 2.0, 2.1 and 2.2 A and AA) on login, forgot password, the 404 page, TOTP, and all 7 logged-in pages at 1280 and 375, plus the create user dialog: 0 violations in the end. Color contrast passed from the start. The tool found one real failure on every logged-in page, `label-content-name-mismatch` on the profile button, now fixed. It leaves `aria-valid-attr-value` as "needs review" on the `aria-controls` of closed menus, which was not reviewed further.
+- axe only measures colors on screen, so every text and background token pair was also computed: lowest 5.75:1, and control borders 3.73:1 at their lowest. Hover states and disabled buttons were not measured.
+- Keyboard through Chrome's input pipeline (trusted key events from puppeteer, not a physical keyboard), 16 of 16 passed: skip link, Tab order on User Management, row menu arrows and Escape, Home and End in the profile menu, focus trapped in a dialog, Escape on dialogs, Escape on the mobile drawer with focus returning to its button.
+- That check exposed one bug, fixed: focus fell to `body` after a dialog closed, because its opener was disabled or hidden.
+- No horizontal page scroll at any of the three widths, and no console errors. Zero requests to other hosts, and one woff2 loaded.
+- IBM Plex Sans digits are all the same width with or without `tabular-nums`. Under `prefers-reduced-motion` the spinner has no animation.
+- Mutation check on the new safeguards only, 4 of 4 caught: the accepted guard, both cutoffs and the schedule entry.
+- Scheduled commands ran by hand on `hr_system_test`. `schedule:run` ran with nothing due. `schedule:list` shows both.
+
+### Not verified
+- Commands in the README not run as written: `cp .env.example .env` and `key:generate` (only `--show`, because both write to the real `.env`), `app:create-admin` and `app:reset-two-factor` in this phase (both verified in earlier phases), and `migrate --seed` only on `hr_system_test`.
+- Maintenance mode itself was not switched on. The 503 page was tested with `abort(503)`.
+- The screen reader, physical keyboard and real phone checks, see below.
+
+### Tests changed
+- `ResetTwoFactorCommandTest`: the exact metadata array became a check of its keys, because `operator` depends on the machine. A new test covers the value.
+- `ActivationTest`: one extra `assertSee` for the regeneration note.
+- `AppLayoutTest`, `UserListTest`: new tests only. `ErrorPagesTest`, `ScheduledCleanupTest` and `DesignTokensTest` are new.
+
+### Known issues
+- The items accepted as they are: README.md, "Known limitations".
+- The scheduler is defined but no operating system task calls it yet.
+- `.env` here does not set `APP_TIMEZONE_DISPLAY`, so dates still show in UTC until the owner sets it.
+- Between 640px and 1279px the User Management table scrolls inside its region, with Actions stuck to the right.
+- Superseded: the `fontaine` warning, default error pages, unused welcome view, UTC-only dates, unpruned expired rows, sideways tables on phones, the audit entry not naming who ran the reset, and unmeasured contrast.
+
+### Manual checks by the owner (none passed yet)
+Also in README.md: real Google and Microsoft Authenticator scans, real SMTP delivery, physical keyboard, a real screen reader, a real phone, and setting up the scheduler.
+
+### Decisions
+Recorded in README.md under "Project decisions" and "Design direction".
