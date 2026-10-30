@@ -22,6 +22,13 @@ class DesignTokensTest extends TestCase
         $this->assertSame([], $offenders);
     }
 
+    public function test_the_theme_switches_off_only_colors_radii_and_shadows(): void
+    {
+        preg_match_all('/--([a-z-]+)-\*:\s*initial/', File::get(resource_path('css/app.css')), $resets);
+
+        $this->assertSame(['color', 'radius', 'shadow'], $resets[1]);
+    }
+
     public function test_the_stylesheet_loads_no_font_or_asset_from_another_host(): void
     {
         $css = File::get(resource_path('css/app.css'));
