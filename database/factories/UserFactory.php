@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Enums\RoleName;
+use App\Enums\UserStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -26,20 +28,50 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
+            'username' => fake()->unique()->bothify('user.####??'),
             'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
+            'status' => UserStatus::Active,
             'remember_token' => Str::random(10),
         ];
     }
 
     /**
-     * Indicate that the model's email address should be unverified.
+     * Indicate that the account is waiting for activation.
      */
-    public function unverified(): static
+    public function pending(): static
     {
         return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+            'password' => null,
+            'status' => UserStatus::Pending,
         ]);
+    }
+
+    /**
+     * Indicate that the account is suspended.
+     */
+    public function suspended(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => UserStatus::Suspended,
+        ]);
+    }
+
+    /**
+     * Indicate that the user has finished 2FA enrollment.
+     */
+    public function twoFactorEnrolled(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'two_factor_enrolled_at' => now(),
+        ]);
+    }
+
+    /**
+     * Give the user a role. The role must already be seeded.
+     */
+    public function withRole(RoleName $role): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->changeRole($role));
     }
 }

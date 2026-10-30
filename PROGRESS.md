@@ -3,7 +3,8 @@
 ## Current status
 - Phase 0: done and committed (4b6b06e, branch main).
 - Phase 0 follow-up (cleanup after Laragon changes): done, see "Phase 0 follow-up" below.
-- Next: Phase 1 (Database, RBAC, admin bootstrap). Not started.
+- Phase 1 (Database, RBAC, admin bootstrap): done, see "Phase 1" below.
+- Next: Phase 2 (Login, TOTP, sessions, history). Not started.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -50,3 +51,34 @@ Recorded in README.md under "Project decisions".
 - Database: MySQL only, for the app and for tests. `pdo_sqlite` is now enabled in Laragon's PHP (a shared setting), but the project does not use it.
 - Tests run against the isolated MySQL database `hr_system_test`, never the real `hr_system`.
 - Laragon configuration and php.ini are changed by the user only. Claude reports what is needed and does not edit them.
+
+## Phase 1: Database, RBAC, admin bootstrap (2026-10-30)
+
+### Done
+- Installed spatie/laravel-permission 8.3.2 after a Composer dry run on PHP 8.5.12 and Laravel 13.39.0. No advisories.
+- New additive migrations: account fields on users (`email_verified_at` dropped, `password` nullable), `sessions.user_id` foreign key, Spatie tables, account_invitations, recovery_codes, login_histories, audit_logs.
+- Enums `UserStatus`, `RoleName`, `PermissionName`, `AuditEvent`. Models `AccountInvitation`, `RecoveryCode`, `LoginHistory`, `AuditLog`.
+- `RolePermissionSeeder`, idempotent, called by `DatabaseSeeder`. Seeders create no users.
+- `User::changeRole()` as the only role change path, with a transaction and row lock. `suspend()` and `createFirstHrAdmin()` added. Spatie's role methods throw on `User`. `save()` and `delete()` enforce the last active HR Admin rule.
+- `App\Support\AccountRules` for shared validation, `Password::defaults()` in AppServiceProvider.
+- Command `app:create-admin`. Audit entries for admin bootstrap, role change and suspension.
+- Updated UserFactory, the User model and FoundationSmokeTest after removing `email_verified_at`.
+
+### Verified
+- `php artisan test`: 77 passed, on `hr_system_test`. Covers the seeder, the command (success, refusal when an active admin exists, invalid input, incomplete 2FA), the last active HR Admin rule through every application path, shared validation and audit immutability.
+- Disabling the last-admin guard made 13 of the 26 tests in LastActiveHrAdminTest fail. The guard was restored.
+- `migrate:fresh` succeeded on both `hr_system` and `hr_system_test`. `db:seed` gives 3 roles, 6 permissions and 8 role grants, 0 users. Rolling back all 7 new migrations and migrating again succeeded on `hr_system_test`.
+- `app:create-admin` ran for real on `hr_system_test` with piped input, created the admin and printed no password. `hr_system` has no users yet.
+- `npm run build`: succeeded. Pint: clean.
+
+### Known issues
+- The bypass limits above are documented in README.md: query-builder writes and direct `roles()` pivot calls skip the model guards, and direct database access can change audit rows.
+- The lock is covered by a test that checks the `FOR UPDATE` query. Two truly concurrent processes were not tested.
+- Hidden password input was not checked in a real terminal, only with piped input and mocked prompts. The prompts use no visible fallback, so they fail instead of showing the password.
+- Phase 3's requirements were not read, per CLAUDE.md, so account_invitations may need a further migration.
+- Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH.
+
+### Decisions
+Recorded in README.md under "Project decisions".
+- `status` is a string column cast to a PHP enum, as the user suggested, instead of the MySQL enum in the approved plan.
+- Role changes require a `users.update` actor unless the actor is null, which means the system (bootstrap command only).
