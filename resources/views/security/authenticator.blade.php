@@ -3,7 +3,7 @@
     ['label' => 'Security Settings', 'href' => route('security.index')],
     ['label' => 'Reconfigure authenticator'],
 ]">
-    <div class="max-w-md space-y-6">
+    <div class="mx-auto w-full max-w-md space-y-6">
         @include('security.partials.page-header', [
             'title' => 'Reconfigure authenticator',
             'description' => 'Scan this new code. Your current authenticator keeps working until a code from the new one is confirmed. Your recovery codes are then replaced and other sessions end.',

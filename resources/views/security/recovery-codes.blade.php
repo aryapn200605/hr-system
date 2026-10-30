@@ -3,7 +3,7 @@
     ['label' => 'Security Settings', 'href' => route('security.index')],
     ['label' => 'Regenerate recovery codes'],
 ]">
-    <div class="max-w-md space-y-6">
+    <div class="mx-auto w-full max-w-md space-y-6">
         @include('security.partials.page-header', ['title' => 'Regenerate recovery codes'])
 
         <x-ui.alert tone="warning">Every existing recovery code stops working at once. The new codes are shown only one time.</x-ui.alert>

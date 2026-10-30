@@ -1,5 +1,5 @@
 <div class="flex h-full flex-col">
-    <div class="flex h-12 shrink-0 items-center border-b border-rule px-4">
+    <div class="flex h-14 shrink-0 items-center border-b border-rule px-4">
         <span class="truncate text-sm font-semibold text-ink">{{ config('app.name') }}</span>
     </div>
 
@@ -14,7 +14,7 @@
 
     <div class="shrink-0 border-t border-rule px-4 py-3">
         <p class="truncate text-sm font-medium text-ink" title="{{ $user->name }}">{{ $user->name }}</p>
-        <p class="text-xs wrap-anywhere text-muted">{{ $user->email }}</p>
+        <p class="truncate text-xs text-muted" title="{{ $user->email }}">{{ $user->email }}</p>
         <x-ui.role-badge :user="$user" class="mt-1.5" />
     </div>
 </div>

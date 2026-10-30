@@ -5,8 +5,9 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
-/* The design tokens. Tailwind's own palette, radii and shadows are switched off, so a page cannot
-   reach for a value outside this list. README.md, "Design direction", says what each one is for. */
+/* The design tokens. Only Tailwind's palette, radii and shadows are switched off, so a page cannot reach
+   for a color outside this list. Spacing, containers and breakpoints stay on: max-w-*, mx-auto and gap-*
+   depend on them. README.md, "Design direction", says what each one is for. */
 @theme {
     --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
     --font-mono: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;

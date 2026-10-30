@@ -3,7 +3,7 @@
     ['label' => 'Security Settings', 'href' => route('security.index')],
     ['label' => 'Change password'],
 ]">
-    <div class="max-w-md space-y-6">
+    <div class="mx-auto w-full max-w-md space-y-6">
         @include('security.partials.page-header', [
             'title' => 'Change password',
             'description' => 'All your other sessions will end. This one stays logged in.',

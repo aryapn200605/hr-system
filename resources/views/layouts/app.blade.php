@@ -1,4 +1,6 @@
 @php($user = auth()->user())
+{{-- The top bar and the page share one centered column, so their edges line up on any screen. --}}
+@php($column = 'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8')
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -34,7 +36,7 @@
             x-data="{ sidebarOpen: false }"
             x-on:resize.window="if (window.innerWidth >= 1024) sidebarOpen = false"
         >
-            <aside class="fixed inset-y-0 left-0 z-30 hidden w-56 border-r border-rule bg-paper lg:block">
+            <aside class="fixed inset-y-0 left-0 z-30 hidden w-56 border-r border-rule bg-surface lg:block">
                 @include('layouts.partials.sidebar', ['navLabel' => 'Main'])
             </aside>
 
@@ -49,7 +51,7 @@
             >
                 <div class="fixed inset-0 bg-ink/40" x-on:click="sidebarOpen = false"></div>
 
-                <div id="mobile-sidebar" class="relative h-full w-64 max-w-[85vw] bg-paper">
+                <div id="mobile-sidebar" class="relative h-full w-64 max-w-[85vw] bg-surface">
                     @include('layouts.partials.sidebar', ['navLabel' => 'Main menu'])
 
                     <button type="button" class="absolute top-2 right-2 cursor-pointer rounded-sm p-1.5 text-muted hover:bg-wash" aria-label="Close menu" x-on:click="sidebarOpen = false">
@@ -59,43 +61,45 @@
             </div>
 
             <div class="lg:pl-56">
-                <header class="sticky top-0 z-20 flex h-12 items-center justify-between gap-3 border-b border-rule bg-paper px-4 sm:px-6 lg:px-8">
-                    <div class="flex min-w-0 items-center gap-2">
-                        <button
-                            type="button"
-                            class="-ml-1.5 cursor-pointer rounded-sm p-1.5 text-ink-soft hover:bg-wash lg:hidden"
-                            aria-label="Open menu"
-                            aria-controls="mobile-sidebar"
-                            aria-expanded="false"
-                            x-bind:aria-expanded="sidebarOpen.toString()"
-                            x-on:click="sidebarOpen = true"
-                        >
-                            <x-ui.icon name="menu" class="size-5" />
-                        </button>
+                <header class="sticky top-0 z-20 border-b border-rule bg-paper">
+                    <div class="{{ $column }} flex h-14 items-center justify-between gap-3">
+                        <div class="flex min-w-0 items-center gap-2">
+                            <button
+                                type="button"
+                                class="-ml-1.5 cursor-pointer rounded-sm p-1.5 text-ink-soft hover:bg-wash lg:hidden"
+                                aria-label="Open menu"
+                                aria-controls="mobile-sidebar"
+                                aria-expanded="false"
+                                x-bind:aria-expanded="sidebarOpen.toString()"
+                                x-on:click="sidebarOpen = true"
+                            >
+                                <x-ui.icon name="menu" class="size-5" />
+                            </button>
 
-                        <x-ui.breadcrumbs :items="$breadcrumbs ?? []" />
+                            <x-ui.breadcrumbs :items="$breadcrumbs ?? []" />
+                        </div>
+
+                        <x-ui.dropdown id="profile-menu" :label="$user->name.' profile menu'">
+                            <x-slot:trigger>
+                                <x-ui.avatar :name="$user->name" class="size-7" />
+                                <span class="hidden max-w-40 truncate font-medium sm:block">{{ $user->name }}</span>
+                                <x-ui.icon name="chevron-down" class="size-3.5 text-muted" />
+                            </x-slot:trigger>
+
+                            <x-ui.dropdown-item :href="route('profile.show')">My Profile</x-ui.dropdown-item>
+                            <x-ui.dropdown-item :href="route('security.index')">Security Settings</x-ui.dropdown-item>
+
+                            <div class="my-1 border-t border-rule" role="none"></div>
+
+                            <form method="POST" action="{{ route('logout') }}" role="none">
+                                @csrf
+                                <x-ui.dropdown-item type="submit">Logout</x-ui.dropdown-item>
+                            </form>
+                        </x-ui.dropdown>
                     </div>
-
-                    <x-ui.dropdown id="profile-menu" :label="$user->name.' profile menu'">
-                        <x-slot:trigger>
-                            <x-ui.avatar :name="$user->name" class="size-7" />
-                            <span class="hidden max-w-40 truncate font-medium sm:block">{{ $user->name }}</span>
-                            <x-ui.icon name="chevron-down" class="size-3.5 text-muted" />
-                        </x-slot:trigger>
-
-                        <x-ui.dropdown-item :href="route('profile.show')">My Profile</x-ui.dropdown-item>
-                        <x-ui.dropdown-item :href="route('security.index')">Security Settings</x-ui.dropdown-item>
-
-                        <div class="my-1 border-t border-rule" role="none"></div>
-
-                        <form method="POST" action="{{ route('logout') }}" role="none">
-                            @csrf
-                            <x-ui.dropdown-item type="submit">Logout</x-ui.dropdown-item>
-                        </form>
-                    </x-ui.dropdown>
                 </header>
 
-                <main id="main" tabindex="-1" class="max-w-6xl px-4 py-6 outline-none sm:px-6 lg:px-8">
+                <main id="main" tabindex="-1" class="{{ $column }} py-6 outline-none sm:py-8">
                     {{ $slot }}
                 </main>
             </div>

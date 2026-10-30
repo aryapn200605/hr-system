@@ -3,7 +3,7 @@
     ['label' => 'Security Settings', 'href' => route('security.index')],
     ['label' => 'Confirm your identity'],
 ]">
-    <div class="max-w-md space-y-6">
+    <div class="mx-auto w-full max-w-md space-y-6">
         @include('security.partials.page-header', [
             'title' => 'Confirm your identity',
             'description' => 'Enter your password and a second factor to continue. This confirmation lasts for one action, for up to 10 minutes.',

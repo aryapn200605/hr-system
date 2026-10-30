@@ -3,7 +3,7 @@
     ['label' => 'My Profile', 'href' => route('profile.show')],
     ['label' => 'Change username or email'],
 ]">
-    <div class="max-w-md space-y-6">
+    <div class="mx-auto w-full max-w-md space-y-6">
         @include('security.partials.page-header', [
             'title' => 'Change username or email',
             'description' => 'You log in with either one, and password reset links go to your email.',
