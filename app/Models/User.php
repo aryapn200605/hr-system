@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use LogicException;
 use SensitiveParameter;
 use Spatie\Permission\Models\Role;
@@ -139,17 +140,57 @@ class User extends Authenticatable
                 return null;
             }
 
-            $user->forceFill([
-                'two_factor_secret' => $secret,
-                'two_factor_enrolled_at' => now(),
-                'two_factor_last_timestep' => $timestep,
-            ])->save();
+            return $user->enableTwoFactor($secret, $timestep);
+        });
+    }
 
-            $recoveryCodes = RecoveryCode::regenerateFor($user);
+    /**
+     * Finish an invitation in one transaction: spend it, set the password, enable 2FA and
+     * activate the account. Null means the invitation or the account is no longer eligible,
+     * such as when a parallel request finished first, and then nothing changes.
+     *
+     * @return list<string>|null
+     */
+    public function completeActivation(
+        AccountInvitation $invitation,
+        #[SensitiveParameter] string $passwordHash,
+        #[SensitiveParameter] string $secret,
+        int $timestep,
+    ): ?array {
+        return DB::transaction(function () use ($invitation, $passwordHash, $secret, $timestep) {
+            $user = static::query()->lockForUpdate()->findOrFail($this->getKey());
 
-            AuditLog::record(AuditEvent::TwoFactorEnrolled, $user, $user);
+            if ($user->status !== UserStatus::Pending || ! $invitation->claim()) {
+                return null;
+            }
+
+            $user->forceFill(['password' => $passwordHash, 'status' => UserStatus::Active]);
+            $recoveryCodes = $user->enableTwoFactor($secret, $timestep);
+
+            AuditLog::record(AuditEvent::InvitationConsumed, $user, $user, ['invitation_id' => $invitation->getKey()]);
+            AuditLog::record(AuditEvent::PasswordChanged, $user, $user, ['source' => 'activation']);
 
             return $recoveryCodes;
+        });
+    }
+
+    /**
+     * Replace the password after a password reset and end every session of this user.
+     *
+     * The database session driver is required for the delete. The auth.session middleware
+     * also ends a session that is written back by a request in flight during the delete.
+     */
+    public function resetPassword(#[SensitiveParameter] string $password): void
+    {
+        DB::transaction(function () use ($password) {
+            $this->forceFill([
+                'password' => $password,
+                'remember_token' => Str::random(60),
+            ])->save();
+
+            DB::table('sessions')->where('user_id', $this->getKey())->delete();
+
+            AuditLog::record(AuditEvent::PasswordChanged, $this, $this, ['source' => 'reset']);
         });
     }
 
@@ -281,6 +322,26 @@ class User extends Authenticatable
 
             return parent::delete();
         });
+    }
+
+    /**
+     * Save a confirmed secret and issue recovery codes. The caller holds the user row lock.
+     *
+     * @return list<string>
+     */
+    private function enableTwoFactor(#[SensitiveParameter] string $secret, int $timestep): array
+    {
+        $this->forceFill([
+            'two_factor_secret' => $secret,
+            'two_factor_enrolled_at' => now(),
+            'two_factor_last_timestep' => $timestep,
+        ])->save();
+
+        $recoveryCodes = RecoveryCode::regenerateFor($this);
+
+        AuditLog::record(AuditEvent::TwoFactorEnrolled, $this, $this);
+
+        return $recoveryCodes;
     }
 
     /**

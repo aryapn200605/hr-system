@@ -8,5 +8,9 @@
         @endforeach
     </ul>
 
-    <a href="{{ route('dashboard') }}" class="block w-full rounded bg-gray-900 px-4 py-2 text-center font-medium text-white">I have saved them</a>
+    @isset($notice)
+        <p class="mb-6 text-sm">{{ $notice }}</p>
+    @endisset
+
+    <a href="{{ $continueUrl ?? route('dashboard') }}" class="block w-full rounded bg-gray-900 px-4 py-2 text-center font-medium text-white">{{ $continueLabel ?? 'I have saved them' }}</a>
 </x-layouts::app>

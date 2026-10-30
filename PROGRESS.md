@@ -5,7 +5,9 @@
 - Phase 0 follow-up (cleanup after Laragon changes): done, see "Phase 0 follow-up" below.
 - Phase 1 (Database, RBAC, admin bootstrap): done, see "Phase 1" below.
 - Phase 2 (Login, TOTP, sessions, history): done, see "Phase 2" below. Manual test with a real phone still to do by the user.
-- Next: Phase 3 (Invitation, activation, password reset, emails). Not started.
+- `hr_system` reset after the Phase 2 manual test (2026-10-30), see "Local database reset" below. The user creates the admin with `app:create-admin`.
+- Phase 3 (Invitation, activation, password reset, emails): done, see "Phase 3" below.
+- Next: Phase 4 (UI layout, dashboard, user management). Not started.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -121,3 +123,47 @@ Recorded in README.md under "Project decisions" and "Recovery codes and APP_KEY"
 - HMAC-SHA256 with a derived key for recovery codes, approved by the user instead of bcrypt.
 - The typed identifier is not refilled after a failed login, because it can contain a mistyped password.
 - Tests use a separate `tests/Support/race.php` process and `AuthConcurrencyTest` does not use RefreshDatabase, whose open transaction would hide rows from other processes.
+
+## Local database reset (2026-10-30)
+- `hr_system` was reset with `migrate:fresh --seed` after the Phase 2 manual test, with user approval. The live connection was confirmed as `hr_system` on 127.0.0.1:3306 first. `hr_system_test`, php.ini and Laragon were not touched.
+- Removed: 1 user, 2 sessions, 5 login_histories, 9 audit_logs, 10 recovery_codes, 1 model_has_roles, 1 cache row.
+- Verified afterwards: 0 users, 3 roles, 6 permissions, 8 role grants, 11 of 11 migrations applied.
+- `app:create-admin` was not run. The user will create the admin.
+
+## Phase 3: Invitation, activation, password reset, emails (2026-10-30)
+
+### Done
+- `App\Actions`: `CreateUserWithInvitation`, `ResendInvitation`, `SendInvitation`, `InvitationResult`, for Phase 4 to call.
+- `AccountInvitation::issueFor()`, `findOpenByToken()`, `claim()`. `User::completeActivation()` and `resetPassword()`. Additive migration: `account_invitations.sent_at`.
+- Activation: `ActivationController`, `PendingActivation`, middleware `EnsurePendingActivation` (`pending.activation`), which rechecks the invitation without a lock on every step. A logged-in browser gets a 409 page and keeps its login.
+- Reused from Phase 2 without rewriting: `TwoFactor`, `RecoveryCode::regenerateFor()`, the shared 2FA throttle bucket and the views. The core of `completeTwoFactorEnrollment()` moved to one private method, and the session secret moved to `TwoFactor::sessionSecret()`.
+- Password reset: `ForgotPasswordController` (all work in `defer()`), `ResetPasswordController`, Laravel's broker with `status = ACTIVE` as a credential.
+- `InvitationMail` and `PasswordResetMail` (responsive Markdown, synchronous), `App\Support\MailDelivery`.
+- Throttles with hashed keys: every activation page per IP, including TOTP confirmation, forgot password, password reset, invitation resend.
+- Session changes in Phase 2 code: `PendingLogin` compares a keyed hash of the password, `auth.session` guards the full-login routes, Livewire gets a 401 from it.
+- `App\Http\Middleware\StartSession`, found by `TokenLeakTest`: the framework stored the token link as the session's previous URL.
+
+### Verified
+- `php artisan test`: 275 passed, on `hr_system_test`, including every Phase 2 test. `npm run build`: succeeded. Pint: clean. Composer and npm audits report no vulnerabilities. No new packages.
+- Two Phase 2 tests changed on purpose: the exact key list of the pending login in `LoginTest` gained `password_hash`, and the public route list in `AccessControlTest` gained the new routes.
+- Real race: `AuthConcurrencyTest` runs 8 PHP processes on one invitation. Exactly one wins, with 10 recovery codes and one audit entry for each event.
+- Timing on the real `hr-system.test` (Laragon Apache, mod_php): 20 active and 20 unknown addresses in random order, with the `log` mailer. Mean 50.4 ms for both, median 47.6 and 44.8 ms, Welch t -0.01. All 20 links were created by deferred work. The response ends well before the broker's 200 ms timebox, so the client does not wait for the deferred work and the queue fallback was not needed. This used 20 temporary accounts in `hr_system`, removed afterwards: 0 users, 0 tokens, 0 audit rows, laravel.log restored to its size.
+- Real HTTP run on `hr_system_test` (`php -S`, database sessions, real CSRF), 37 checks passed: full activation, token absent from raw and decrypted session rows, 409 for a logged-in browser, reset ending a second device, a session row written back being refused by `auth.session`, a half-way login cancelled with a valid recovery code left unspent.
+- Mutation check: 24 safeguards removed one at a time, each file restored and confirmed by hash. 23 were caught. The survivor showed that storing the session's password hash at login was redundant, because `SessionGuard::login()` already does it, so that line was removed. The test for the behavior stays.
+- `app:create-admin` was still not run. `hr_system` has 0 users and 12 of 12 migrations, plus one guest row in `sessions` from a local check of the site.
+
+### Known issues
+- Web server access logs record a link's first request, including its token. Tokens are single use and expire. See README.md.
+- The timing check used the `log` mailer on mod_php. It has not been measured on the Phase 6 Docker runtime or behind a buffering proxy, where the client may wait for the deferred work. If so, the agreed fallback is a queue job carrying only the email address.
+- A forgot password transport failure reaches the audit log only, because the response must look the same for every address. Nothing shows it to the user or an admin yet.
+- A failed resend leaves no working link until the next resend. The result reports it.
+- `activation.two-factor` shows recovery codes in the POST response, so a browser refresh loses them. The account is active by then and the authenticator still works, and there is no regeneration page yet.
+- Real SMTP delivery was not tested: the transport failure path used a refused connection, and no message reached a real mail server. No real authenticator app has scanned the QR code yet.
+- Expired rows in `password_reset_tokens` and `account_invitations` are not pruned.
+- Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH.
+
+### Decisions
+Recorded in README.md under "Project decisions" and "Mail".
+- A logged-in browser is shown a message and not logged out, so a link cannot end someone's session.
+- Mail is sent synchronously, never queued. `defer()` is used for forgot password, as the user approved after measuring.
+- Reset links hold no email address, so the reset form asks for it.

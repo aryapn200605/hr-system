@@ -20,4 +20,9 @@ class AccountProtectionException extends DomainException
     {
         return new self('An active HR Admin already exists.');
     }
+
+    public static function accountNotPending(): self
+    {
+        return new self('Only pending accounts can be invited.');
+    }
 }

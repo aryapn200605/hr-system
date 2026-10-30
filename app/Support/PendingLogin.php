@@ -7,7 +7,6 @@ use App\Models\LoginHistory;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Crypt;
 
 /**
  * The state between a valid password and a valid second factor.
@@ -35,15 +34,21 @@ class PendingLogin
             ? self::CHALLENGE_TTL_SECONDS
             : self::ENROLLMENT_TTL_SECONDS;
 
+        PendingActivation::clear($request);
+
         $request->session()->regenerate(true);
         $request->session()->put(self::SESSION_KEY, [
             'user_id' => $user->getKey(),
+            'password_hash' => static::passwordHash($user),
             'expires_at' => now()->addSeconds($ttl)->getTimestamp(),
         ]);
     }
 
     /**
-     * Get the pending user, read fresh from the database, unless the state expired or the account is no longer active.
+     * Get the pending user, read fresh from the database, unless the state expired, the
+     * password changed since it was checked, or the account is no longer active.
+     *
+     * Pending sessions have no user_id, so ending a user's sessions cannot reach them.
      */
     public static function user(Request $request): ?User
     {
@@ -55,22 +60,20 @@ class PendingLogin
 
         $user = User::find($pending['user_id']);
 
-        return $user?->status === UserStatus::Active ? $user : null;
+        if ($user?->status !== UserStatus::Active
+            || ! hash_equals(static::passwordHash($user), $pending['password_hash'] ?? '')) {
+            return null;
+        }
+
+        return $user;
     }
 
     /**
-     * Get the secret being enrolled, kept encrypted in the session so that
-     * users.two_factor_secret is only ever set for a confirmed enrollment.
+     * Get the secret being enrolled.
      */
     public static function enrollmentSecret(Request $request): string
     {
-        $key = self::SESSION_KEY.'.secret';
-
-        if (! $request->session()->has($key)) {
-            $request->session()->put($key, Crypt::encryptString(TwoFactor::generateSecret()));
-        }
-
-        return Crypt::decryptString($request->session()->get($key));
+        return TwoFactor::sessionSecret($request, self::SESSION_KEY.'.secret');
     }
 
     /**
@@ -95,5 +98,13 @@ class PendingLogin
 
         AuthThrottle::clear(AuthThrottle::twoFactorKey($request, $user));
         LoginHistory::recordSuccess($request, $user, $method);
+    }
+
+    /**
+     * The keyed hash of the password hash, in the format the auth.session middleware compares.
+     */
+    private static function passwordHash(User $user): string
+    {
+        return Auth::guard()->hashPasswordForCookie($user->getAuthPassword());
     }
 }

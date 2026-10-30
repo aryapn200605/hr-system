@@ -1,13 +1,22 @@
 <?php
 
 use App\Enums\PermissionName;
+use App\Http\Controllers\Auth\ActivationController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Auth\TwoFactorEnrollmentController;
 use App\Http\Middleware\EnsurePendingLogin;
 use App\Livewire\Dashboard;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
+
+// Outside the guest group, so a logged-in browser gets an explanation instead of a silent redirect.
+Route::get('/activation/{token}', [ActivationController::class, 'start'])
+    ->where('token', '[0-9a-f]{64}')
+    ->middleware(['throttle:activation', 'cache.headers:no_store;private'])
+    ->name('activation.start');
 
 Route::middleware(['guest', 'cache.headers:no_store;private'])->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -24,9 +33,22 @@ Route::middleware(['guest', 'cache.headers:no_store;private'])->group(function (
         Route::get('/two-factor/enrollment', [TwoFactorEnrollmentController::class, 'create'])->name('two-factor.enrollment');
         Route::post('/two-factor/enrollment', [TwoFactorEnrollmentController::class, 'store'])->name('two-factor.enrollment.store');
     });
+
+    Route::middleware(['throttle:activation', 'pending.activation'])->group(function () {
+        Route::get('/activation', [ActivationController::class, 'createPassword'])->name('activation.password');
+        Route::post('/activation', [ActivationController::class, 'storePassword'])->name('activation.password.store');
+        Route::get('/activation/two-factor', [ActivationController::class, 'createTwoFactor'])->name('activation.two-factor');
+        Route::post('/activation/two-factor', [ActivationController::class, 'storeTwoFactor'])->name('activation.two-factor.store');
+    });
+
+    Route::get('/forgot-password', [ForgotPasswordController::class, 'create'])->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->name('password.email');
+    Route::get('/reset-password', [ResetPasswordController::class, 'create'])->name('password.reset');
+    Route::post('/reset-password', [ResetPasswordController::class, 'store'])->name('password.update');
+    Route::get('/reset-password/{token}', [ResetPasswordController::class, 'start'])->name('password.reset.start');
 });
 
-Route::middleware('fully.authenticated')->group(function () {
+Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
     Route::redirect('/', '/dashboard');
 
     Route::livewire('/dashboard', Dashboard::class)

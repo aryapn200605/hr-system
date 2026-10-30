@@ -122,7 +122,8 @@ class LoginTest extends TestCase
         $this->submitPassword($user)->assertRedirect(route('two-factor.challenge'));
 
         $this->assertGuest();
-        $this->assertSame(['user_id', 'expires_at'], array_keys(session('pending_login')));
+        $this->assertSame(['user_id', 'password_hash', 'expires_at'], array_keys(session('pending_login')));
+        $this->assertNotSame($user->password, session('pending_login.password_hash'));
         $this->assertSame($user->id, session('pending_login.user_id'));
         $this->assertNull($user->fresh()->last_login_at);
         $this->assertSame(0, LoginHistory::where('result', LoginResult::Success)->count());

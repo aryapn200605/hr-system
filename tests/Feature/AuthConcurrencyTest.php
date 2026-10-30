@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditEvent;
 use App\Enums\UserStatus;
+use App\Models\AccountInvitation;
+use App\Models\AuditLog;
 use App\Models\RecoveryCode;
 use App\Models\User;
 use App\Support\TwoFactor;
@@ -25,6 +28,8 @@ class AuthConcurrencyTest extends TestCase
 
     private User $user;
 
+    private ?User $invitee = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -36,7 +41,11 @@ class AuthConcurrencyTest extends TestCase
 
     protected function tearDown(): void
     {
-        DB::table('users')->where('id', $this->user->id)->delete();
+        $ids = array_filter([$this->user->id, $this->invitee?->id]);
+
+        // Audit rows restrict the delete of their actor, and only this test may remove them.
+        DB::table('audit_logs')->whereIn('actor_id', $ids)->delete();
+        DB::table('users')->whereIn('id', $ids)->delete();
 
         parent::tearDown();
     }
@@ -44,16 +53,17 @@ class AuthConcurrencyTest extends TestCase
     /**
      * Run the competitors at the same moment and return how many won.
      */
-    private function race(string $mode, string $code): int
+    private function race(string $mode, string $code, ?User $user = null): int
     {
         $startAt = microtime(true) + 4;
+        $userId = (string) ($user ?? $this->user)->id;
 
-        $pool = Process::pool(function ($pool) use ($mode, $code, $startAt) {
+        $pool = Process::pool(function ($pool) use ($mode, $code, $startAt, $userId) {
             foreach (range(1, self::COMPETITORS) as $competitor) {
                 $pool->path(base_path())->env([
                     'APP_ENV' => 'testing',
                     'DB_DATABASE' => 'hr_system_test',
-                ])->command([PHP_BINARY, 'tests/Support/race.php', $mode, (string) $this->user->id, $code, (string) $startAt]);
+                ])->command([PHP_BINARY, 'tests/Support/race.php', $mode, $userId, $code, (string) $startAt]);
             }
         })->start()->wait();
 
@@ -95,5 +105,22 @@ class AuthConcurrencyTest extends TestCase
 
         $this->assertSame(1, $winners);
         $this->assertGreaterThanOrEqual($timestep, $this->user->fresh()->two_factor_last_timestep);
+    }
+
+    public function test_an_invitation_is_consumed_once_by_concurrent_requests(): void
+    {
+        $this->invitee = User::factory()->pending()->create();
+        [$invitation] = AccountInvitation::issueFor($this->invitee, $this->user);
+
+        $winners = $this->race('activation', (string) $invitation->id, $this->invitee);
+
+        $invitee = $this->invitee->fresh();
+
+        $this->assertSame(1, $winners);
+        $this->assertSame(UserStatus::Active, $invitee->status);
+        $this->assertNotNull($invitation->fresh()->accepted_at);
+        $this->assertSame(10, $invitee->recoveryCodes()->count());
+        $this->assertSame(1, AuditLog::where('event', AuditEvent::InvitationConsumed->value)->where('subject_id', $invitee->id)->count());
+        $this->assertSame(1, AuditLog::where('event', AuditEvent::PasswordChanged->value)->where('subject_id', $invitee->id)->count());
     }
 }

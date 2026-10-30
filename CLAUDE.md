@@ -17,6 +17,8 @@ Full requirements: SPEC.md (read only the phase you are working on). Progress lo
 - Laravel-native first. Minimal dependencies. No needless service or repository layers.
 - Authorization is always enforced server-side (middleware, policies, gates), including Livewire actions. Role labels in the UI are informational only.
 - Never hardcode role names in feature code; use central permission definitions.
+- Public pages (login, activation, password reset) use controllers + Blade, not Livewire: the Livewire update route is only for fully logged-in users.
+- `changeRole()` with a null actor is only for CLI bootstrap. In HTTP/Livewire code, the actor is always the logged-in user.
 - Never log or expose: passwords, TOTP secrets, authentication codes, invitation tokens, recovery codes.
 - Storage: invitation tokens and recovery codes hashed; TOTP secret encrypted; never show a stored secret again after enrollment.
 - Never overwrite existing files or Git history. Check `git status` and the staged diff before each commit. Never commit .env or secrets. No force push, no reset, no push without permission.

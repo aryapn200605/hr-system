@@ -8,6 +8,8 @@ use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use PragmaRX\Google2FA\Google2FA;
 use SensitiveParameter;
@@ -38,6 +40,19 @@ class TwoFactor
     public static function generateSecret(): string
     {
         return (new Google2FA)->generateSecretKey(self::SECRET_LENGTH);
+    }
+
+    /**
+     * Get the unconfirmed secret kept under a session key, creating it on first use. It stays
+     * encrypted in the session so that users.two_factor_secret is only ever set for a confirmed enrollment.
+     */
+    public static function sessionSecret(Request $request, string $key): string
+    {
+        if (! $request->session()->has($key)) {
+            $request->session()->put($key, Crypt::encryptString(static::generateSecret()));
+        }
+
+        return Crypt::decryptString($request->session()->get($key));
     }
 
     /**
