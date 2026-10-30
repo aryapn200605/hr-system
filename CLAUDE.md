@@ -7,6 +7,7 @@ Full requirements: SPEC.md (read only the phase you are working on). Progress lo
 - Windows + Laragon. Project path: C:\laragon\www\hr-system (never move it).
 - PHP 8.5.12 (Laragon's PHP may not be in PATH; look under C:\laragon\bin\php), Composer, Node/npm, Vite, Git.
 - MySQL 8.0.30 local (Laragon), host 127.0.0.1. Never run tests against the real database; use an isolated test database.
+- Database is MySQL only, for the app and for tests. No SQLite anywhere.
 - Stack: Laravel 13, Livewire 4 (Alpine via Livewire), Tailwind CSS 4, Spatie Laravel Permission (only if compatible).
 - Verify every package's compatibility with Laravel 13 and PHP 8.5 via Composer before installing. Never silently use a different PHP version.
 - Docker is for the PHP runtime only (no MySQL, Redis, Nginx or Apache containers). It reaches MySQL via host.docker.internal and serves on port 8000.

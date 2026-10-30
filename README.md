@@ -9,8 +9,9 @@
 
 ## Project decisions
 
-- Tests run on a separate MySQL database, `hr_system_test`, set in phpunit.xml. The skeleton's SQLite default cannot be used because `pdo_sqlite` is not enabled in Laragon's PHP, and tests must never touch `hr_system`.
-- Laragon's php.ini is shared with other projects and stays unchanged. Composer runs with `-d extension=zip` instead.
+- MySQL is the only database, for the app and for tests. The skeleton's SQLite connection, fallbacks and setup script were removed.
+- Tests run on a separate MySQL database, `hr_system_test`, set in phpunit.xml, and must never touch `hr_system`.
+- Laragon's php.ini and configuration are changed by the user only.
 - The skeleton's AGENTS.md and CLAUDE.md (generic Laravel Boost guidance) were not copied. The project's own CLAUDE.md is the only agent guide.
 - Alpine comes from Livewire and is not imported in resources/js/app.js.
 
