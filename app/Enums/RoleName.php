@@ -38,7 +38,7 @@ enum RoleName: string
     {
         return match ($this) {
             self::HrAdmin => PermissionName::cases(),
-            self::Approver, self::Employee => [PermissionName::DashboardView],
+            self::Approver, self::Employee => [PermissionName::DashboardView, PermissionName::RequestsCreate],
         };
     }
 }

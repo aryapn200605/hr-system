@@ -174,7 +174,7 @@ class LeaveBalances
         }, self::DEADLOCK_RETRIES);
     }
 
-    private static function rollOverLocked(User $user, string $source, ?string $operator): int
+    public static function rollOverLocked(User $user, string $source, ?string $operator): int
     {
         $period = static::openPeriod($user);
 
@@ -249,7 +249,7 @@ class LeaveBalances
         ]);
     }
 
-    private static function lockUser(User $user): User
+    public static function lockUser(User $user): User
     {
         return User::query()->lockForUpdate()->findOrFail($user->getKey());
     }

@@ -1,6 +1,6 @@
 # HR System
 
-An internal HR foundation: authentication with mandatory TOTP two-factor login, invitation-based activation, role-based access, user management, a dashboard, profile and security settings, and an audit trail. On top of it: departments, supervisor relations and yearly leave balances. Requests and approvals come in later stages. Requirements are in SPEC.md, business decisions in DECISIONS.md (which wins over any SRS) and the work log in PROGRESS.md.
+An internal HR foundation: authentication with mandatory TOTP two-factor login, invitation-based activation, role-based access, user management, a dashboard, profile and security settings, and an audit trail. On top of it: departments, supervisor relations, yearly leave balances, public holidays, and leave and overtime requests. Approvals come in a later stage. Requirements are in SPEC.md, business decisions in DECISIONS.md (which wins over any SRS) and the work log in PROGRESS.md.
 
 ## Stack
 
@@ -80,6 +80,7 @@ The account is ACTIVE with 2FA enrollment incomplete, so the first login forces 
 | `SESSION_ENCRYPT` | `true`. |
 | `SESSION_SECURE_COOKIE` | `false` for local HTTP, **`true` wherever HTTPS is used**. |
 | `INVITATION_EXPIRE_MINUTES` | Invitation lifetime, default 4320 (3 days). |
+| `REQUEST_EVIDENCE_MAX_KB` | Largest evidence file, default 5120 (5 MB). PHP's own `upload_max_filesize` and `post_max_size` must be at least this. |
 | `MAIL_*` | See "SMTP" below. `MAIL_TIMEOUT` limits how long a request waits for the transport. |
 
 ## Running tests
@@ -166,6 +167,38 @@ $PHP artisan migrate:rollback --step=5
 
 Check afterwards: the last login in User Management should read as the real time in WIB, 7 hours later than it did before.
 
+## Adding requests to a database
+
+Requests add four tables and three permissions. **`hr_system` has not been migrated. The owner runs this**, after the WIB steps above if those are still open. It changes no existing rows, and the three leave categories come with the migration.
+
+```bash
+$PHP artisan down
+```
+
+```bash
+$PHP artisan migrate
+```
+
+```bash
+$PHP artisan db:seed --class=RolePermissionSeeder
+```
+
+```bash
+$PHP artisan up
+```
+
+The seeder gives every role `requests.create` and HR Admin `holidays.manage` and `requests.view-any`. Without it nobody sees My requests.
+
+To change a leave category, edit `Database\Seeders\LeaveCategorySeeder` and run it. It is safe to repeat, and it leaves `is_active` as it finds it:
+
+```bash
+$PHP artisan db:seed --class=LeaveCategorySeeder
+```
+
+Evidence files live in `storage/app/private/evidence`. **Back this folder up with the database**: a request without its file cannot get it back. It holds personal documents, so it must never be under `public/` or in the repository.
+
+Going back with `migrate:rollback --step=4` drops requests and holidays, and leaves the files on disk.
+
 ## Docker runtime: postponed
 
 Not done, and not verified. Docker is not usable on the development machine right now, so at the owner's instruction Phase 6 was finished without it. There is no Dockerfile, no compose file and no runtime-specific environment mechanism yet.
@@ -211,6 +244,7 @@ None of these has passed yet. They need a person or a service this project could
 - [ ] Use it with a real screen reader (NVDA or VoiceOver), including the phone card layout.
 - [ ] Use it on a real phone. Phone widths were checked by viewport emulation only.
 - [ ] Set up the scheduler in Windows Task Scheduler or cron.
+- [ ] Include `storage/app/private/evidence` in backups.
 
 ## Project decisions
 
@@ -300,6 +334,23 @@ None of these has passed yet. They need a person or a service this project could
 - The daily check also opens a first period for any user without one. Periods keep rolling for SUSPENDED and PENDING users, so the history has no gaps.
 - `leave_balance_entries` refuses update and delete at model level, like `audit_logs`.
 - A department in use can be deactivated. Its users keep it, and it cannot be chosen for anyone else.
+
+- **`leave_request_allocations` holds one row per working day, not one per period**, as agreed with the owner. A manual reset or a new reset date moves period boundaries after a request is made, and per-period rows could not be split again, because which days counted is frozen while holidays can change. A day's period is always read from its date, so Tahap 1 code did not change for this, and a later stage groups the rows by period. Only categories that deduct the balance have rows.
+- A request first runs the same roll over as the daily check, so a missing scheduler cannot leave it with a period that has ended. There are then only two periods a request can reach: the open one, and the next one, projected from the reset date with 12 days. A request can go no further than the end of that one, for every leave category. Overtime has no such limit.
+- Pending days never touch `used`. What is left is worked out when needed: `entitlement - used - pending days` in a real period, and `12 - pending days - approved days` in a projected one, which has no `used` yet. Cancelling frees the days at once, as there is nothing to undo. **The approval stage must decide how approved days reach a period that does not exist yet.**
+- **Every rule of DECISIONS.md section 8 that reads stored rows runs in `App\Support\RequestRules`, under the user row lock** that balance changes also take, so requests of one user run one after the other, and a request cannot slip past a roll over. All messages are about the user's own requests.
+- Overlap counts calendar days, weekends and holidays included. Overtime ending at 00:00 touches only the day before.
+- `App\Support\WorkingDays` is the one definition of a working day. `App\Support\RequestEligibility` is the one answer to who can submit, used by the pages and the server alike.
+- The leave and overtime forms are controllers with plain multipart forms, not Livewire. Livewire uploads use a public signed route and a temporary file, and these stay behind the full login. The list and the detail pages are Livewire.
+- **Evidence:** the `evidence` disk has no `serve` option and no URL, so a file leaves only through `EvidenceController`. The type comes from the content with finfo, the extension from that type, and the name is random. The original name is never stored, and a download is called `evidence-{id}.{ext}`, so a sensitive name reaches neither the database nor the audit log. Downloads are attachments with `nosniff` and a sandboxing CSP.
+- `App\Policies\RequestPolicy` decides on files: the owner, a holder of `requests.view-any`, or an active supervisor of the requester. A supervisor link gives nothing for an Approver's files, as HR Admin decides for Approvers. `requests.view-any` is an addition, so the code names a permission and not a role.
+- An unknown request ID gets the same 403 as someone else's, so nobody can learn which requests exist.
+- Cancelling is one conditional update on `status = pending`, so two cancels cannot both win. The row stays, with `cancelled_at`.
+- Status and decision columns are not mass assignable. The decision columns stay empty until the approval stage.
+- Leave category names are in English, following the interface. The codes are `annual`, `sick` and `other`.
+- A dialog stays in the page when its trigger goes away. Removing an open dialog leaves its focus trap active, which swallows every click on the page. The tests cannot see this, only a real browser.
+- Toasts sit below dialogs, as on a phone both are at the bottom of the screen, and a toast covered a dialog's buttons.
+- `datetime-local` inputs carry a `min`, because the browser counts `step` from `min`, or else from the value the form came back with: after a refused 18:30, it would refuse 18:00.
 
 ### Design direction
 

@@ -14,7 +14,7 @@
     }"
     @if (session('toast')) x-init="add(@js(session('toast')))" @endif
     x-on:toast.window="add($event.detail.message, $event.detail.tone)"
-    class="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col gap-2 sm:left-auto sm:w-80"
+    class="pointer-events-none fixed inset-x-4 bottom-4 z-45 flex flex-col gap-2 sm:left-auto sm:w-80"
     role="status"
     aria-live="polite"
 >

@@ -7,6 +7,9 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Auth\TwoFactorEnrollmentController;
+use App\Http\Controllers\Requests\EvidenceController;
+use App\Http\Controllers\Requests\LeaveRequestController;
+use App\Http\Controllers\Requests\OvertimeRequestController;
 use App\Http\Controllers\Security\AuthenticatorController;
 use App\Http\Controllers\Security\ConfirmationController;
 use App\Http\Controllers\Security\IdentityController;
@@ -15,9 +18,13 @@ use App\Http\Controllers\Security\RecoveryCodeController;
 use App\Http\Middleware\EnsurePendingLogin;
 use App\Livewire\Dashboard;
 use App\Livewire\Departments\Index as DepartmentIndex;
+use App\Livewire\Holidays\Index as HolidayIndex;
 use App\Livewire\Profile\LoginActivity;
 use App\Livewire\Profile\Sessions;
 use App\Livewire\Profile\Show as ProfileShow;
+use App\Livewire\Requests\Index as RequestIndex;
+use App\Livewire\Requests\ShowLeave;
+use App\Livewire\Requests\ShowOvertime;
 use App\Livewire\Security\Index as SecurityIndex;
 use App\Livewire\Supervisors\Move as SupervisorMove;
 use App\Livewire\Users\Employment as UserEmployment;
@@ -88,6 +95,28 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
     Route::livewire('/supervisors/move', SupervisorMove::class)
         ->middleware('can:'.PermissionName::SupervisorsManage->value)
         ->name('supervisors.move');
+
+    Route::livewire('/holidays', HolidayIndex::class)
+        ->middleware('can:'.PermissionName::HolidaysManage->value)
+        ->name('holidays.index');
+
+    Route::middleware('can:'.PermissionName::RequestsCreate->value)->group(function () {
+        Route::livewire('/requests', RequestIndex::class)->name('requests.index');
+
+        Route::get('/requests/leave/create', [LeaveRequestController::class, 'create'])->name('requests.leave.create');
+        Route::post('/requests/leave', [LeaveRequestController::class, 'store'])->middleware('throttle:requests')->name('requests.leave.store');
+        Route::livewire('/requests/leave/{request}', ShowLeave::class)->whereNumber('request')->name('requests.leave.show');
+
+        Route::get('/requests/overtime/create', [OvertimeRequestController::class, 'create'])->name('requests.overtime.create');
+        Route::post('/requests/overtime', [OvertimeRequestController::class, 'store'])->middleware('throttle:requests')->name('requests.overtime.store');
+        Route::livewire('/requests/overtime/{request}', ShowOvertime::class)->whereNumber('request')->name('requests.overtime.show');
+    });
+
+    // RequestPolicy decides who gets a file, as it depends on the request and not only on a permission.
+    Route::middleware('cache.headers:no_store;private')->group(function () {
+        Route::get('/requests/leave/{id}/evidence', [EvidenceController::class, 'leave'])->whereNumber('id')->name('requests.leave.evidence');
+        Route::get('/requests/overtime/{id}/evidence', [EvidenceController::class, 'overtime'])->whereNumber('id')->name('requests.overtime.evidence');
+    });
 
     // These act only on the logged-in user, so they take no ID and need no permission.
     Route::livewire('/profile', ProfileShow::class)->name('profile.show');

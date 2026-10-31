@@ -26,6 +26,10 @@ class WibMigrationTest extends TestCase
         'employee_supervisor',
         'leave_balance_entries',
         'leave_balance_periods',
+        'leave_categories',
+        'leave_requests',
+        'overtime_requests',
+        'public_holidays',
     ];
 
     private const UTC_WALL_CLOCK = '2026-10-30 20:15:00';

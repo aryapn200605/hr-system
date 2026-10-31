@@ -7,12 +7,20 @@
         <x-ui.nav-link :href="route('dashboard')" icon="home" :active="request()->routeIs('dashboard')">Home</x-ui.nav-link>
 
         {{-- Only a marker. Every page behind this menu checks the permission on the server itself. --}}
+        @can(\App\Enums\PermissionName::RequestsCreate->value)
+            <x-ui.nav-link :href="route('requests.index')" icon="document" :active="request()->routeIs('requests.*')">My requests</x-ui.nav-link>
+        @endcan
+
         @can(\App\Enums\PermissionName::UsersView->value)
             <x-ui.nav-link :href="route('users.index')" icon="users" :active="request()->routeIs('users.*')">User Management</x-ui.nav-link>
         @endcan
 
         @can(\App\Enums\PermissionName::DepartmentsManage->value)
             <x-ui.nav-link :href="route('departments.index')" icon="building" :active="request()->routeIs('departments.*')">Departments</x-ui.nav-link>
+        @endcan
+
+        @can(\App\Enums\PermissionName::HolidaysManage->value)
+            <x-ui.nav-link :href="route('holidays.index')" icon="calendar" :active="request()->routeIs('holidays.*')">Public holidays</x-ui.nav-link>
         @endcan
 
         @can(\App\Enums\PermissionName::SupervisorsManage->value)

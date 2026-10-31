@@ -14,4 +14,7 @@ enum PermissionName: string
     case SupervisorsManage = 'supervisors.manage';
     case LeaveBalanceView = 'leave-balance.view';
     case LeaveBalanceAdjust = 'leave-balance.adjust';
+    case RequestsCreate = 'requests.create';
+    case RequestsViewAny = 'requests.view-any';
+    case HolidaysManage = 'holidays.manage';
 }

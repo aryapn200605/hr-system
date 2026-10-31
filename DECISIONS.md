@@ -65,3 +65,14 @@ Wajib ada tes race (dua atasan memutuskan bersamaan, pembatalan oleh pemohon ber
 - Aktifkan ulang akun hanya oleh HR Admin.
 - Akses audit log (user atau hanya konsol) masih dibahas; jangan dibuat dulu.
 - Daftar sesi aktif dan riwayat login dipindah ke menu Profile.
+
+## 8. Validasi pengajuan (FR12, usulan final untuk Tahap 2)
+Semua dicek di server, bukan hanya di form.
+- Pemohon berstatus ACTIVE dan punya jalur persetujuan: Employee dan HR Admin butuh minimal satu atasan aktif; Approver butuh minimal satu HR Admin aktif.
+- Alasan/deskripsi wajib (minimal 10 karakter, maksimal 1000).
+- Izin: tanggal mulai tidak lebih awal dari hari ini (WIB), tanggal selesai tidak lebih awal dari tanggal mulai, minimal 1 hari kerja, kategori aktif, tidak bertumpuk dengan izin pending/disetujui, tidak bertumpuk dengan lembur pending/disetujui pada tanggal yang disentuh.
+- Izin yang memotong saldo: jumlah hari kerja dialokasikan per periode saldo; tiap bagian tidak boleh melebihi sisa periode itu setelah dikurangi alokasi pengajuan pending.
+- Lembur: menit harus :00 (ketelitian jam), selesai setelah mulai, maksimal 12 jam per pengajuan, tanggal mulai tidak lebih awal dari hari ini (WIB), tidak menimpa lembur pending/disetujui lain (ujung sama dengan awal boleh), tidak menyentuh tanggal izin pending/disetujui.
+- Bukti opsional: pdf/jpg/png, batas ukuran (default 5 MB, bisa dikonfigurasi), tipe diperiksa dari isi berkas, disimpan di penyimpanan privat dengan nama acak dan hanya bisa diunduh oleh pihak yang berwenang.
+- Jumlah hari kerja dibekukan saat pengajuan dibuat. Hari libur yang ditambahkan kemudian tidak mengubah pengajuan yang sudah ada. **[ASUMSI]**
+- **[ASUMSI]** HR Admin yang menyesuaikan saldonya sendiri dibahas belakangan; belum diubah.

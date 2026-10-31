@@ -1,11 +1,12 @@
 @props([
     'label',
+    'name' => null,
     'id' => null,
     'hint' => null,
 ])
 
 @php
-    $field = $attributes->wire('model')->value();
+    $field = $name ?? $attributes->wire('model')->value();
     $id ??= $field;
     $hasError = $errors->has($field);
     $describedBy = collect([$hint ? $id.'-hint' : null, $hasError ? $id.'-error' : null])->filter()->implode(' ');
@@ -16,6 +17,7 @@
 
     <select
         id="{{ $id }}"
+        @if ($name) name="{{ $name }}" @endif
         @if ($hasError) aria-invalid="true" @endif
         @if ($describedBy) aria-describedby="{{ $describedBy }}" @endif
         {{ $attributes->class([

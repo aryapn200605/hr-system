@@ -12,7 +12,8 @@
 - Phase 5 (Profile and security settings): done, see "Phase 5" below.
 - Phase 6 (tanpa Docker): cleanup, redesign, documentation and final verification done, see "Phase 6 (tanpa Docker)" below. **"Docker mode works" is BELUM DIKERJAKAN / TIDAK DIVERIFIKASI, so Phase 6 is not fully complete.**
 - Tahap 1 (WIB, departments, supervisors, leave balances): done and committed locally, see "Tahap 1" at the end. **`hr_system` is not migrated yet: the owner runs that from README.md, "Moving a database to WIB".**
-- Next: Tahap 2 (requests) when the owner starts it. The Docker runtime and the manual checks by the owner are still open.
+- Tahap 2 (leave and overtime requests, public holidays, evidence): done and committed locally, see "Tahap 2" at the end. **`hr_system` is not migrated: the owner runs that from README.md, "Adding requests to a database".**
+- Next: Tahap 3 (approvals), once the owner approves its plan. The Docker runtime and the manual checks by the owner are still open.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -434,3 +435,47 @@ DECISIONS.md is now in the repository and wins over the SRS. The plan was approv
 ### Decisions
 Recorded in README.md under "Project decisions" and "Moving a database to WIB".
 - Differs from the approved plan: guard refusals are audited in `withinHrAdminLock()` after the rollback and not with `DB::afterRollBack()`, which is unsafe with nested transactions.
+
+## Tahap 2: leave and overtime requests, public holidays, evidence (2026-10-31)
+
+The plan was approved by the owner before any code. One change from the prompt was agreed there: `leave_request_allocations` has one row per working day and not one per period, see README.md.
+
+### Done
+- `leave_categories` (seeded by its migration and by `LeaveCategorySeeder`), `public_holidays`, `leave_requests`, `leave_request_allocations`, `overtime_requests`.
+- `App\Support\WorkingDays`, `LeaveAllocation`, `LeavePeriodWindow`, `RequestRules`, `RequestEligibility`, `RequestEvidence`. Actions `SubmitLeaveRequest`, `SubmitOvertimeRequest`, `CancelRequest`. `App\Policies\RequestPolicy`.
+- Pages: My requests, forms for leave and overtime (controllers), detail pages with a cancel dialog (Livewire), evidence download (controller), Public holidays.
+- Three permissions, eight audit events, disk `evidence`, config `requests.php`, components `x-ui.textarea` and `x-requests.card`, a `name` option on `x-ui.select`.
+- Changes to Tahap 1 code: `LeaveBalances::lockUser()` and `rollOverLocked()` are public. Nothing else.
+- Changes to shared UI: toasts sit below dialogs (`z-45`).
+
+### Verified
+- `php artisan test`: 1021 passed, 5368 assertions, on `hr_system_test`. `npm run build`: succeeded. Pint: clean. `composer audit` and `npm audit`: nothing found. No change to composer or npm files. `hr_system` was not touched, and still reports 2 users and 12 migrations.
+- Migrations on `hr_system_test`: `migrate:rollback --step=4` removes the five tables, `migrate` brings them and the three categories back and leaves an existing user unchanged, and both seeders run (13 permissions, 3 categories).
+- Real races with separate PHP processes (`RequestConcurrencyTest`): overlapping leave at once, leave requests that together exceed the balance, overlapping overtime, leave against overtime on one date, double cancel of both kinds (each 3 rounds except overtime), a request against two daily checks. Exactly one winner each time, and removing the row lock from either action is caught.
+- Mutation check on working days, allocation, overlap, section 8 rules, cancel, file access and eligibility: 77 removed one at a time, each file restored and confirmed by hash. 76 caught. The survivor was redundant code, `trim()` on the reason in both actions, as the `TrimStrings` middleware already does it. Removed, so that mutation no longer exists. The set was not repeated after that.
+- Real clicks in headless Chrome through puppeteer, on `php -S` with `hr_system_test`, real CSRF, real TOTP and real multipart uploads, separate contexts per person, at 375px and 1024px: 93 of 93 checks, 0 console errors. Each new button and dialog was clicked: both request forms, a fake PDF refused and a real one accepted, download, cancel dialog with keep and confirm, status filter, View, add, edit and delete holiday, the phone menu, the disabled buttons of a user with no supervisor, and evidence refused for an unrelated Employee and Approver and given to the supervisor and HR Admin. Every dialog was measured inside the viewport. Screenshots of forms, dialogs and lists at both widths were viewed by eye.
+- That run exposed three bugs the tests could not see, all fixed:
+  - On a phone a toast covered the dialog's Keep request button.
+  - Removing an open dialog from the page left its focus trap active, and every later click on the page was swallowed. The dialog now stays in the page.
+  - After a refused 18:30, the browser counted hour steps from that value and refused a correct 18:00. The inputs now have a `min`.
+
+### Not verified
+- The migration is not run on `hr_system`.
+- A real phone, a physical keyboard and a screen reader were not tried. axe-core was not run on the new pages, so contrast of the new controls was judged by eye.
+- A real scanned document was not uploaded, only small generated PDF, JPG and PNG files. The 5 MB limit was tested with a lowered limit, not with a real 5 MB file.
+- The file download in the browser was checked with `fetch` from the logged-in page. Saving through Chrome's download dialog was not tried.
+- Not every state was viewed by eye at both widths, only those with a screenshot.
+
+### Tests changed
+- `RolePermissionSeederTest`: the permission list, and the Approver and Employee test renamed. `WibMigrationTest`: new tables on the list. `tests/Support/race.php` gained five modes and loads the user's roles up front.
+- New: `LeaveRequestTest`, `OvertimeRequestTest`, `RequestEvidenceTest`, `RequestPagesTest`, `PublicHolidayTest`, `RequestConcurrencyTest`, and the trait `MakesRequests`.
+
+### Known issues
+- **For Tahap 3:** approved days in a projected period have no `used` to land on. Availability already counts them, and the approval stage has to decide where they go.
+- HR can lower an entitlement below what pending requests hold. Nothing refuses that, and approval will have to.
+- A supervisor can lose their role while a request is pending. The guard keeps the employee covered by someone else, but decisions are for Tahap 3.
+- A request that failed validation asks for its file again, as browsers do not keep file inputs.
+- The scheduler and the owner's manual checks are unchanged.
+
+### Decisions
+Recorded in README.md under "Project decisions" and "Adding requests to a database".
