@@ -30,7 +30,9 @@ class Index extends Component
 
     private const SEARCH_COLUMNS = ['name', 'username', 'email'];
 
-    private const FILTERS = ['search', 'roleFilter', 'statusFilter', 'perPage'];
+    private const FILTERS = ['search', 'roleFilter', 'statusFilter', 'supervisorFilter', 'perPage'];
+
+    private const MISSING_SUPERVISOR = 'missing';
 
     #[Url(except: '')]
     public string $search = '';
@@ -40,6 +42,9 @@ class Index extends Component
 
     #[Url(as: 'status', except: '')]
     public string $statusFilter = '';
+
+    #[Url(as: 'supervisor', except: '')]
+    public string $supervisorFilter = '';
 
     #[Url(as: 'per_page', except: '10')]
     public string $perPage = '10';
@@ -259,6 +264,10 @@ class Index extends Component
             $this->statusFilter = '';
         }
 
+        if ($this->supervisorFilter !== self::MISSING_SUPERVISOR) {
+            $this->supervisorFilter = '';
+        }
+
         if (! in_array($this->perPage, self::PER_PAGE_OPTIONS, true)) {
             $this->perPage = self::PER_PAGE_OPTIONS[0];
         }
@@ -276,6 +285,7 @@ class Index extends Component
             ->select(['id', 'name', 'username', 'email', 'status', 'two_factor_enrolled_at', 'last_login_at', 'created_at'])
             ->selectRaw('password is not null as activated')
             ->with(['roles.permissions', 'permissions'])
+            ->withExists(['supervisors as has_active_supervisor' => fn (Builder $query) => $query->activeSupervisor()])
             ->when($term !== '', function (Builder $query) use ($term) {
                 $pattern = '%'.addcslashes($term, '\\%_').'%';
 
@@ -290,6 +300,7 @@ class Index extends Component
                 fn (Builder $roles) => $roles->where('name', $this->roleFilter),
             ))
             ->when($this->statusFilter !== '', fn (Builder $query) => $query->where('status', $this->statusFilter))
+            ->when($this->supervisorFilter !== '', fn (Builder $query) => $query->missingSupervisor())
             ->orderByDesc('id')
             ->paginate((int) $this->perPage);
     }

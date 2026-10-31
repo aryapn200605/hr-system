@@ -61,25 +61,11 @@ return [
     |
     | Here you may specify the default timezone for your application, which
     | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | is WIB everywhere: the office is in one zone, with no daylight saving.
     |
     */
 
-    'timezone' => 'UTC',
-
-    /*
-    |--------------------------------------------------------------------------
-    | Display Timezone
-    |--------------------------------------------------------------------------
-    |
-    | Dates are stored in UTC and shown to users in this timezone. An unknown
-    | name falls back to UTC, because every page shows a date.
-    |
-    */
-
-    'display_timezone' => in_array(env('APP_TIMEZONE_DISPLAY'), DateTimeZone::listIdentifiers(), true)
-        ? env('APP_TIMEZONE_DISPLAY')
-        : 'UTC',
+    'timezone' => 'Asia/Jakarta',
 
     /*
     |--------------------------------------------------------------------------

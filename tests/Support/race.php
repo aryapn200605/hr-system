@@ -13,6 +13,8 @@ use App\Exceptions\AccountProtectionException;
 use App\Models\AccountInvitation;
 use App\Models\RecoveryCode;
 use App\Models\User;
+use App\Support\LeaveBalances;
+use App\Support\SupervisorRelations;
 use App\Support\TwoFactor;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
@@ -40,8 +42,15 @@ if ($mode === 'activation') {
     $secret = TwoFactor::generateSecret();
 }
 
-if (in_array($mode, ['suspend', 'demote'], true)) {
+if (in_array($mode, ['suspend', 'demote', 'adjust', 'use', 'reset'], true)) {
     $actor = User::findOrFail($code);
+    $actor->getAllPermissions();
+}
+
+if ($mode === 'move') {
+    [$targetId, $actorId] = explode(':', $code);
+    $target = User::findOrFail($targetId);
+    $actor = User::findOrFail($actorId);
     $actor->getAllPermissions();
 }
 
@@ -61,6 +70,11 @@ try {
         'activation' => $user->completeActivation($invitation, $passwordHash, $secret, 1) !== null,
         'suspend' => (bool) $user->suspend($actor) || true,
         'demote' => (bool) $user->changeRole(RoleName::Employee, $actor) || true,
+        'move' => SupervisorRelations::move($user, $target, null, $actor) > 0,
+        'rollover' => LeaveBalances::rollOver($user, 'race') > 0,
+        'reset' => (bool) LeaveBalances::resetNow($user, $actor, 'race') || true,
+        'adjust' => (bool) LeaveBalances::adjust($user, 1, 0, 'race', $actor),
+        'use' => (bool) LeaveBalances::adjust($user, 0, 1, 'race', $actor),
         'regenerate' => ($codes = $user->regenerateRecoveryCodes()) !== [],
         'email' => (new UpdateOwnIdentity)->handle($user, [
             'username' => $user->username,

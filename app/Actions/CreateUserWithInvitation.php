@@ -9,6 +9,7 @@ use App\Models\AccountInvitation;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Support\AccountRules;
+use App\Support\LeaveBalances;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +46,8 @@ class CreateUserWithInvitation
                 AuditLog::record(AuditEvent::UserCreated, $actor, $user);
 
                 $user->changeRole(RoleName::from($validated['role']), $actor);
+
+                LeaveBalances::openFirstPeriod($user, actor: $actor);
 
                 [$invitation, $token] = AccountInvitation::issueFor($user, $actor);
 

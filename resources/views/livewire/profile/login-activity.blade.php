@@ -1,6 +1,6 @@
 <div class="space-y-6">
-    <x-ui.page-header title="Security Settings" />
-    @include('security.partials.nav')
+    <x-ui.page-header title="My Profile" />
+    @include('livewire.profile.nav')
 
     <x-ui.card title="Login history" flush>
         @if ($logins->isEmpty())

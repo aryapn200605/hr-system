@@ -1,6 +1,6 @@
 # HR System
 
-An internal HR foundation: authentication with mandatory TOTP two-factor login, invitation-based activation, role-based access, user management, a dashboard, profile and security settings, and an audit trail. Other HR modules are out of scope. Requirements are in SPEC.md and the work log is in PROGRESS.md.
+An internal HR foundation: authentication with mandatory TOTP two-factor login, invitation-based activation, role-based access, user management, a dashboard, profile and security settings, and an audit trail. On top of it: departments, supervisor relations and yearly leave balances. Requests and approvals come in later stages. Requirements are in SPEC.md, business decisions in DECISIONS.md (which wins over any SRS) and the work log in PROGRESS.md.
 
 ## Stack
 
@@ -75,7 +75,6 @@ The account is ACTIVE with 2FA enrollment incomplete, so the first login forces 
 | --- | --- |
 | `APP_URL` | `http://hr-system.test` locally. Links in emails use it. |
 | `APP_DEBUG` | **Must be false in production.** While it is true, a 500 shows Laravel's debug page and not the application's error page. |
-| `APP_TIMEZONE_DISPLAY` | Timezone for dates shown in the UI, for example `Asia/Jakarta`. Default and fallback for an unknown name: `UTC`. Storage stays UTC. |
 | `DB_*` | MySQL at 127.0.0.1. Tests override the database name in phpunit.xml. |
 | `SESSION_DRIVER` | Must stay `database`: ending a session deletes its row. |
 | `SESSION_ENCRYPT` | `true`. |
@@ -101,7 +100,7 @@ $PHP vendor/bin/pint --test
 
 ## Scheduled cleanup
 
-`routes/console.php` schedules two daily jobs, at 00:00 UTC. **Nothing runs them until the operating system calls the scheduler.** Add `schedule:run` to Windows Task Scheduler or cron, once a minute. This has not been set up on this machine.
+`routes/console.php` schedules three daily jobs, in WIB. **Nothing runs them until the operating system calls the scheduler.** Add `schedule:run` to Windows Task Scheduler or cron, once a minute. This has not been set up on this machine.
 
 ```bash
 $PHP artisan schedule:list
@@ -113,10 +112,59 @@ $PHP artisan schedule:run
 
 - `auth:clear-resets` removes expired rows from `password_reset_tokens`.
 - `app:prune-invitations` removes dead invitations, and takes `--days` (default 90).
+- `app:reset-leave-balances`, at 00:10, closes leave periods that have ended and opens the next ones. It is safe to run any number of times. If the scheduler misses days, the next run catches up period by period. `{username}` limits it to one user, and `{username} --now` starts a new period for that user today.
 
 ## SMTP
 
 Local development uses `MAIL_MAILER=log`. For a real server set `MAIL_MAILER=smtp` with `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME`, `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME`. **This path has not been tested against a real SMTP server**, see "Manual checks by the owner".
+
+## Moving a database to WIB
+
+The application now runs on WIB: `app.timezone` is `Asia/Jakarta` and the MySQL connection sets `+07:00`, an offset because this MySQL has no named zones loaded. Stored times written before this change are in UTC wall clock, so one migration moves them by +7 hours. It covers 21 columns in 9 tables, listed in the migration. Epoch columns (sessions, cache, jobs) and `users.two_factor_last_timestep` are not touched, as TOTP counts from the epoch.
+
+**`hr_system` has not been migrated. The owner runs this, once.** Until then `http://hr-system.test` fails, because the code expects the new columns and tables.
+
+**Warnings:**
+
+- Take the backup first. The rollback below loses departments, supervisors and balances.
+- The shift is right only because MySQL runs on +07:00 here. These are `TIMESTAMP` columns, so on a server in UTC the connection setting alone moves them and a shift would add 7 hours twice. The migration checks this, refuses, and changes nothing. A fresh, empty database needs no shift and passes on any server.
+- Keep the site down from before the migration until after the seeder: between the code change and the shift, open invitations and reset links look 7 hours older.
+- Never run `migrate:fresh` here. It erases the 2 real users.
+- Audit rows change too, on purpose. This is the only write to them that the model does not refuse.
+
+Back up. The file holds password hashes and encrypted secrets, so keep it out of the repository:
+
+```bash
+/c/laragon/bin/mysql/mysql-8.0.30-winx64/bin/mysqldump.exe -h 127.0.0.1 -u root -p --single-transaction hr_system > hr_system-before-wib.sql
+```
+
+Then, in order:
+
+```bash
+$PHP artisan down
+```
+
+```bash
+$PHP artisan migrate
+```
+
+```bash
+$PHP artisan db:seed --class=RolePermissionSeeder
+```
+
+```bash
+$PHP artisan up
+```
+
+The seeder adds the four new permissions to HR Admin and touches no user. Logged-in sessions survive, as they are epoch based.
+
+To go back, before returning to older code. This undoes the shift and **drops departments, supervisors and balances**:
+
+```bash
+$PHP artisan migrate:rollback --step=5
+```
+
+Check afterwards: the last login in User Management should read as the real time in WIB, 7 hours later than it did before.
 
 ## Docker runtime: postponed
 
@@ -230,10 +278,28 @@ None of these has passed yet. They need a person or a service this project could
 - `app:prune-invitations` deletes only invitations that were never accepted and stopped working more than 90 days ago, because they prove nothing: the audit log keeps the creation and resend of each one, and audit rows are not touched. **Accepted invitations are kept for good**, as evidence of who invited a person and when they activated. Old audit entries can then hold an `invitation_id` with no row, which is expected, as it is plain metadata.
 - Password reset rows use the framework's own `auth:clear-resets`. Both are scheduled daily, and scheduling needs the operating system, see "Scheduled cleanup".
 - `app:reset-two-factor` records the operating system account and host as `operator` in the audit metadata. It comes from `USERNAME`, `USER` or `LOGNAME`, so it is a hint and not proof.
-- `APP_TIMEZONE_DISPLAY` applies only in `x-ui.datetime`, the one place dates are formatted. `<time datetime>` keeps the UTC instant. Tables use a compact date with the full time in a tooltip.
+- `x-ui.datetime` is the one place dates are formatted, always in WIB. `<time datetime>` keeps the instant. Tables use a compact date with the full time in a tooltip.
 - On phones `.table-stack` restyles the same table markup into cards, labelled by `data-label`, so a row's actions and their `@can` checks are never written twice.
 - Avatar initials come from a CSS pseudo-element, because they are decorative and otherwise count as visible text that the button's accessible name must contain (WCAG 2.5.3).
 - A row menu returns focus to its trigger before Livewire opens a dialog, and "Create user" no longer disables itself while loading. A disabled or hidden opener loses focus, and the dialog then returned it to `body`.
+
+- **Everything is WIB, and `TIMESTAMP` columns store it through a `+07:00` connection.** DECISIONS.md section 2 asks for WIB in the application, the connection and the display. `APP_TIMEZONE_DISPLAY` was removed, so there is one source. Leave and overtime dates of later stages are `DATE`.
+- Sessions and login history moved to My Profile, at `/profile/sessions` and `/profile/login-history`. The old addresses are gone, without a redirect. `ProfileMenuTest` fails if a route, or a Livewire or HTTP class, reaches `resetTwoFactor()`, which stays console only.
+- **Every write to `employee_supervisor` goes through `App\Support\SupervisorRelations`.** Direct `attach()` or `detach()` skips the guard.
+- **`App\Support\SupervisorGuard` is the one place that decides whether a relation may exist or end.** It runs from `User::save()` on a status change, `changeRole()`, `delete()`, and from assign, remove and move, so any future command is covered and not only the pages. Query-builder writes to `status` skip it, as they skip the last HR Admin rule. No console command suspends or demotes today, so the console path is tested with a command defined in the test.
+- All of these share `User::withinHrAdminLock()`: suspensions, role changes and supervisor changes run one at a time. These are rare HR actions, and one lock in one order cannot deadlock.
+- A guard refusal must be audited after the rollback, or the transaction takes the entry with it, so `withinHrAdminLock()` writes it after `DB::transaction()` has failed. `DB::afterRollBack()` was not used, because it is unsafe with nested transactions. A second connection was not used either, because the entry's foreign key to the locked user row would wait on our own lock.
+- A supervisor relation stays in the table when the supervisor is suspended or loses the role, and counts again when they return. Read relations through `activeSupervisor()`. Loop checks follow every link, active or not, for the same reason.
+- A suspended employee does not count as affected by the guard, as agreed with the owner: they cannot submit anything, and someone who has left must not block their supervisor's suspension.
+- The "No supervisor" marker and filter cover roles where `RoleName::needsSupervisor()` is true, which leaves out Approver, as agreed with the owner: HR Admin decides for an Approver without any relation. An Approver can still have supervisors, and the guard still applies to them.
+- A bulk move runs its guard check with the new links in place. The target was found eligible first, so the check is a second layer and not the rule itself.
+- **Leave periods touch end to end for each user**, and dates come from `leave_anchor_date`, never from the last period. A 29 February anchor resets on 28 February in common years and comes back in leap years. All balance changes take the user row lock, in `App\Support\LeaveBalances`.
+- Balances are whole days. Adjustments are relative, so two at once both count, and the limits are checked on the values under the lock. Only the open period can be adjusted. An HR Admin can adjust their own balance, as DECISIONS.md does not refuse it, and the ledger and audit log name them.
+- Reset now, agreed with the owner: the open period ends yesterday and a new one of 12 days runs from today to the next reset date. The reset date does not move, and it is refused when a period already started today. On an overdue balance it does only the overdue roll over.
+- Changing the reset date moves the end of the open period to the day before the next reset. The days in it stay, so no days are granted or taken. A reset date cannot be in the future.
+- The daily check also opens a first period for any user without one. Periods keep rolling for SUSPENDED and PENDING users, so the history has no gaps.
+- `leave_balance_entries` refuses update and delete at model level, like `audit_logs`.
+- A department in use can be deactivated. Its users keep it, and it cannot be chosen for anyone else.
 
 ### Design direction
 

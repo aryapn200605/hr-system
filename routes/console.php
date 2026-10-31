@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('auth:clear-resets')->daily();
 Schedule::command('app:prune-invitations')->daily();
+Schedule::command('app:reset-leave-balances')->dailyAt('00:10');

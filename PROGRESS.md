@@ -11,7 +11,8 @@
 - Phase 4b (User Management): done, see "Phase 4b" below.
 - Phase 5 (Profile and security settings): done, see "Phase 5" below.
 - Phase 6 (tanpa Docker): cleanup, redesign, documentation and final verification done, see "Phase 6 (tanpa Docker)" below. **"Docker mode works" is BELUM DIKERJAKAN / TIDAK DIVERIFIKASI, so Phase 6 is not fully complete.**
-- Next: the Docker runtime, once Docker works again, and the manual checks by the owner.
+- Tahap 1 (WIB, departments, supervisors, leave balances): done and committed locally, see "Tahap 1" at the end. **`hr_system` is not migrated yet: the owner runs that from README.md, "Moving a database to WIB".**
+- Next: Tahap 2 (requests) when the owner starts it. The Docker runtime and the manual checks by the owner are still open.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -383,3 +384,53 @@ Outside the SPEC.md phases, at the owner's request. Only `resources/views`, `res
 - Stacked tables use `display: block`, so a screen reader reads labels and values and not table navigation.
 - README.md was outside this task's allowed files, so "Design direction" and the table notes under "Also known" still describe the earlier ledger design. This section is the current record until they are updated.
 - This supersedes the Phase 6 known issue about the table scrolling between 640px and 1279px.
+
+## Tahap 1: WIB, departments, supervisors, leave balances (2026-10-31)
+
+DECISIONS.md is now in the repository and wins over the SRS. The plan was approved by the owner before any code, with three choices: what Reset now does, suspended employees not counting for the guard, and the "No supervisor" marker leaving out Approvers.
+
+### Done
+- WIB: `app.timezone` is `Asia/Jakarta`, the connection sets `+07:00`, `APP_TIMEZONE_DISPLAY` is gone. One reversible migration shifts 21 columns in 9 tables, and refuses unless the server and the connection are both on +07:00.
+- Sessions and login history moved to My Profile: `App\Livewire\Profile\Sessions` and `LoginActivity`, with their own tab menu. Security Settings is one page now.
+- Departments at `/departments`: add, rename, deactivate, activate, delete when unused.
+- Employment at `/users/{id}/employment`: department, join date, supervisors. "No supervisor" marker and filter in User Management.
+- `employee_supervisor`, `App\Support\SupervisorGuard`, `App\Support\SupervisorRelations`, `App\Exceptions\SupervisorGuardException`. Bulk move at `/supervisors/move`.
+- `leave_balance_periods`, `leave_balance_entries`, `App\Support\LeaveBalances`, page `/users/{id}/leave-balance`, command `app:reset-leave-balances`, scheduled at 00:10 WIB. Existing users get a first period from the migration.
+- Four permissions, twelve audit events. No new package.
+
+### Verified
+- `php artisan test`: 858 passed, 4686 assertions, on `hr_system_test`. `npm run build`: succeeded. Pint: clean. `composer audit` and `npm audit`: nothing found. No change to composer or npm files.
+- Migration up and down on `hr_system_test` with rows written as the old code wrote them: +7 hours going up, identical to the original going down, epoch values and the TOTP timestep unchanged, then up again, the seeder (10 permissions) and the daily check. `hr_system` still has 2 users and 12 migrations.
+- Real races with separate PHP processes (`LeaveAndSupervisorConcurrencyTest`): two supervisors suspended at once (3 rounds), suspend against demote, two bulk moves (3 rounds), a move against the suspension of its target, 6 daily checks at once (3 rounds), 6 manual resets (3 rounds), a reset against the daily check, 6 adjustments with the ledger staying a chain, adjustments pushing against the entitlement.
+- Mutation check on the guard, its entry points, period logic, the migration and page checks: 59 removed one at a time, each file restored and confirmed by hash. 52 caught at once. Of the 7 survivors:
+  - 4 exposed weak tests (the anchor end, and `boot()` on three pages, which the route's `can:` stood behind). `RouteAndBootChecksTest` and one leave test were added, and the same mutations are now caught.
+  - 1 was redundant code: the check before deleting a department. The foreign key is the rule now, and removing its catch is caught.
+  - 1 was two locks covering each other on balances. Removing both is caught in the race test.
+  - 1 stays as a second layer on purpose: the guard call inside the bulk move, which cannot refuse once the target is found eligible.
+  - The full set was not repeated after these fixes, only these mutations.
+- Real HTTP run on `hr_system_test` (`php -S`, database sessions, real CSRF, separate cookie jars), 34 checks passed: login with TOTP, departments, employment, both guard refusals with names, bulk move, adjustment with and without a reason, reset refused, the moved pages, every direct URL refused for an Employee, and replayed admin snapshots refused.
+- In a real browser with a real TOTP code: no horizontal page scroll on 11 pages at 1024px and 375px, measured in same-origin frames of that width, with nothing in `main` past the edge. Bulk move of chosen people through the real controls.
+- That browser check exposed one bug every test missed, the same one as in Phase 5: `@js()` is not compiled inside a Blade component attribute, so the reset date shortcuts were broken. Fixed, with a test on the rendered value.
+- The tests also exposed a real bug: a manual reset on an overdue balance rolled over and then refused, which undid the roll over.
+
+### Not verified
+- `hr_system` was not migrated, and the `mysqldump` command in the README was not run.
+- Screenshots timed out in the browser pane, so the new pages were checked by measurement and not viewed by eye. Open dialogs were not measured at 375px.
+- After the `@js()` fix, the shortcut's rendered attribute was checked in the browser, but a click was not shown to change the date.
+- The console error list keeps old entries, so a clean console after that fix was not confirmed.
+- The scheduler still has no operating system task, so the daily reset does not run on its own yet.
+- A real keyboard, a screen reader and a real phone were not tried on the new pages.
+
+### Tests changed
+- `AppLayoutTest`: 4 UTC tests replaced by 3 on WIB. `RolePermissionSeederTest`: the permission list. `LoginHistoryPageTest`, `ReauthenticationTest`, `SecuritySensitiveDataTest`, `SessionManagementTest`: the new routes and class. `tests/Support/race.php` gained five modes.
+- New: `WibMigrationTest`, `DepartmentTest`, `EmploymentTest`, `SupervisorGuardTest`, `SupervisorMoveTest`, `LeaveBalanceTest`, `LeaveAndSupervisorConcurrencyTest`, `ProfileMenuTest`, `RouteAndBootChecksTest`, and the trait `ReplaysLivewire`.
+
+### Known issues
+- `http://hr-system.test` fails until the owner migrates `hr_system`.
+- No console command suspends or demotes today, so that path of the guard is tested with a command defined in the test.
+- An HR Admin can adjust their own balance. It is recorded, and DECISIONS.md does not refuse it.
+- Superseded: "Dates show in UTC".
+
+### Decisions
+Recorded in README.md under "Project decisions" and "Moving a database to WIB".
+- Differs from the approved plan: guard refusals are audited in `withinHrAdminLock()` after the rollback and not with `DB::afterRollBack()`, which is unsafe with nested transactions.

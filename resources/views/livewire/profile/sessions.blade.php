@@ -1,6 +1,6 @@
 <div class="space-y-6" x-data="{ handle: null }">
-    <x-ui.page-header title="Security Settings" />
-    @include('security.partials.nav')
+    <x-ui.page-header title="My Profile" />
+    @include('livewire.profile.nav')
 
     <x-ui.card title="Active sessions" flush>
         <ul class="divide-y divide-rule">

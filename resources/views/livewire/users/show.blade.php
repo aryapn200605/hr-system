@@ -44,5 +44,20 @@
                 </x-ui.detail>
             </dl>
         </x-ui.card>
+
+        <x-ui.card title="Employment">
+            <dl class="divide-y divide-rule">
+                <x-ui.detail label="Department">{{ $user->department?->name ?? 'None' }}</x-ui.detail>
+                <x-ui.detail label="Join date">{{ $user->joined_at?->format('j M Y') ?? 'Not set' }}</x-ui.detail>
+                <x-ui.detail label="Supervisors">{{ $user->supervisors->pluck('name')->implode(', ') ?: 'None' }}</x-ui.detail>
+            </dl>
+
+            <x-slot:footer>
+                <x-ui.button variant="secondary" size="sm" :href="route('users.employment', $user->id)">Employment</x-ui.button>
+                @can(\App\Enums\PermissionName::LeaveBalanceView->value)
+                    <x-ui.button variant="secondary" size="sm" :href="route('users.leave-balance', $user->id)">Leave balance</x-ui.button>
+                @endcan
+            </x-slot:footer>
+        </x-ui.card>
     </div>
 </div>

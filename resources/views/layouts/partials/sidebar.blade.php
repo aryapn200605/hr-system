@@ -10,6 +10,14 @@
         @can(\App\Enums\PermissionName::UsersView->value)
             <x-ui.nav-link :href="route('users.index')" icon="users" :active="request()->routeIs('users.*')">User Management</x-ui.nav-link>
         @endcan
+
+        @can(\App\Enums\PermissionName::DepartmentsManage->value)
+            <x-ui.nav-link :href="route('departments.index')" icon="building" :active="request()->routeIs('departments.*')">Departments</x-ui.nav-link>
+        @endcan
+
+        @can(\App\Enums\PermissionName::SupervisorsManage->value)
+            <x-ui.nav-link :href="route('supervisors.move')" icon="swap" :active="request()->routeIs('supervisors.*')">Move subordinates</x-ui.nav-link>
+        @endcan
     </nav>
 
     <div class="shrink-0 border-t border-rule px-4 py-3">

@@ -14,11 +14,15 @@ use App\Http\Controllers\Security\PasswordController;
 use App\Http\Controllers\Security\RecoveryCodeController;
 use App\Http\Middleware\EnsurePendingLogin;
 use App\Livewire\Dashboard;
+use App\Livewire\Departments\Index as DepartmentIndex;
+use App\Livewire\Profile\LoginActivity;
+use App\Livewire\Profile\Sessions;
 use App\Livewire\Profile\Show as ProfileShow;
 use App\Livewire\Security\Index as SecurityIndex;
-use App\Livewire\Security\LoginActivity;
-use App\Livewire\Security\Sessions;
+use App\Livewire\Supervisors\Move as SupervisorMove;
+use App\Livewire\Users\Employment as UserEmployment;
 use App\Livewire\Users\Index as UserIndex;
+use App\Livewire\Users\LeaveBalance as UserLeaveBalance;
 use App\Livewire\Users\Show as UserShow;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
@@ -69,13 +73,27 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
     Route::middleware('can:'.PermissionName::UsersView->value)->group(function () {
         Route::livewire('/users', UserIndex::class)->name('users.index');
         Route::livewire('/users/{user}', UserShow::class)->whereNumber('user')->name('users.show');
+        Route::livewire('/users/{user}/employment', UserEmployment::class)->whereNumber('user')->name('users.employment');
     });
+
+    Route::livewire('/users/{user}/leave-balance', UserLeaveBalance::class)
+        ->middleware('can:'.PermissionName::LeaveBalanceView->value)
+        ->whereNumber('user')
+        ->name('users.leave-balance');
+
+    Route::livewire('/departments', DepartmentIndex::class)
+        ->middleware('can:'.PermissionName::DepartmentsManage->value)
+        ->name('departments.index');
+
+    Route::livewire('/supervisors/move', SupervisorMove::class)
+        ->middleware('can:'.PermissionName::SupervisorsManage->value)
+        ->name('supervisors.move');
 
     // These act only on the logged-in user, so they take no ID and need no permission.
     Route::livewire('/profile', ProfileShow::class)->name('profile.show');
+    Route::livewire('/profile/sessions', Sessions::class)->name('profile.sessions');
+    Route::livewire('/profile/login-history', LoginActivity::class)->name('profile.login-history');
     Route::livewire('/security', SecurityIndex::class)->name('security.index');
-    Route::livewire('/security/sessions', Sessions::class)->name('security.sessions');
-    Route::livewire('/security/login-history', LoginActivity::class)->name('security.login-history');
 
     // Controllers, not Livewire: a Livewire snapshot would carry passwords, secrets and codes back and forth.
     Route::middleware('cache.headers:no_store;private')->group(function () {

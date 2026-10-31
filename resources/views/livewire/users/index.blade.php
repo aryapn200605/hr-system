@@ -12,8 +12,8 @@
     @endif
 
     <x-ui.card flush>
-        <div class="grid grid-cols-2 gap-3 border-b border-rule px-4 py-3 sm:grid-cols-3 sm:px-5 xl:grid-cols-[minmax(0,3fr)_repeat(3,minmax(0,1fr))]">
-            <div class="col-span-2 sm:col-span-3 xl:col-span-1">
+        <div class="grid grid-cols-2 gap-3 border-b border-rule px-4 py-3 sm:grid-cols-4 sm:px-5 xl:grid-cols-[minmax(0,3fr)_repeat(4,minmax(0,1fr))]">
+            <div class="col-span-2 sm:col-span-4 xl:col-span-1">
                 <x-ui.input label="Search" id="filter-search" type="search" maxlength="100" placeholder="Name, username or email" wire:model.live.debounce.300ms="search" />
             </div>
 
@@ -31,22 +31,25 @@
                 @endforeach
             </x-ui.select>
 
-            <div class="col-span-2 sm:col-span-1">
-                <x-ui.select label="Rows per page" id="filter-per-page" wire:model.live="perPage">
-                    @foreach ($perPageOptions as $option)
-                        <option value="{{ $option }}">{{ $option }}</option>
-                    @endforeach
-                </x-ui.select>
-            </div>
+            <x-ui.select label="Supervisor" id="filter-supervisor" wire:model.live="supervisorFilter">
+                <option value="">All users</option>
+                <option value="missing">No supervisor</option>
+            </x-ui.select>
+
+            <x-ui.select label="Rows per page" id="filter-per-page" wire:model.live="perPage">
+                @foreach ($perPageOptions as $option)
+                    <option value="{{ $option }}">{{ $option }}</option>
+                @endforeach
+            </x-ui.select>
         </div>
 
-        <div wire:loading.class="opacity-60" wire:target="search,roleFilter,statusFilter,perPage,setPage,nextPage,previousPage">
+        <div wire:loading.class="opacity-60" wire:target="search,roleFilter,statusFilter,supervisorFilter,perPage,setPage,nextPage,previousPage">
             @if ($users->isEmpty())
                 <x-ui.empty-state title="No users found" description="No account matches this search. Clear the search box, or set Role and Status back to All.">
                     <x-ui.button
                         variant="secondary"
                         size="sm"
-                        x-on:click="$wire.set('search', '', false); $wire.set('roleFilter', '', false); $wire.set('statusFilter', '')"
+                        x-on:click="$wire.set('search', '', false); $wire.set('roleFilter', '', false); $wire.set('supervisorFilter', '', false); $wire.set('statusFilter', '')"
                     >Clear search and filters</x-ui.button>
                 </x-ui.empty-state>
             @else
@@ -74,7 +77,12 @@
                             {{-- Takes the room left over, so the address is cut only when there is none. --}}
                             <td data-label="Email" data-span title="{{ $row->email }}" class="w-full max-w-0 truncate">{{ $row->email }}</td>
                             <td data-label="Role"><x-ui.role-badge :user="$row" /></td>
-                            <td data-label="Status"><x-ui.status-badge :status="$row->status" /></td>
+                            <td data-label="Status">
+                                <x-ui.status-badge :status="$row->status" />
+                                @if (! $row->has_active_supervisor && \App\Enums\RoleName::tryFrom((string) $row->roleName())?->needsSupervisor())
+                                    <x-ui.badge tone="amber" class="flex">No supervisor</x-ui.badge>
+                                @endif
+                            </td>
                             <td data-label="2FA">
                                 @if ($row->hasCompletedTwoFactorEnrollment())
                                     <x-ui.badge tone="green">Enabled</x-ui.badge>
@@ -97,6 +105,11 @@
                                     </x-slot:trigger>
 
                                     <x-ui.dropdown-item :href="route('users.show', $row->id)" wire:navigate.off>View details</x-ui.dropdown-item>
+                                    <x-ui.dropdown-item :href="route('users.employment', $row->id)" wire:navigate.off>Employment</x-ui.dropdown-item>
+
+                                    @can(\App\Enums\PermissionName::LeaveBalanceView->value)
+                                        <x-ui.dropdown-item :href="route('users.leave-balance', $row->id)" wire:navigate.off>Leave balance</x-ui.dropdown-item>
+                                    @endcan
 
                                     @can('update', $row)
                                         <x-ui.dropdown-item wire:click="openEdit({{ $row->id }})">Edit</x-ui.dropdown-item>

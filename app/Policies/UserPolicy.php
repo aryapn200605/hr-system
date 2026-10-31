@@ -101,6 +101,14 @@ class UserPolicy
     }
 
     /**
+     * Determine whether the actor may change who supervises whom.
+     */
+    public function manageSupervisors(User $actor): bool
+    {
+        return $actor->hasPermissionTo(PermissionName::SupervisorsManage);
+    }
+
+    /**
      * The roles whose every permission the actor already holds, read from the database.
      * Nobody can hand out more than they have, whatever the role is called.
      *

@@ -1,5 +1,6 @@
 <div class="space-y-6">
     <x-ui.page-header title="My Profile" description="Your account details." />
+    @include('livewire.profile.nav')
 
     <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <x-ui.card title="Account information">

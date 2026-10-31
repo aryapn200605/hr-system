@@ -8,6 +8,9 @@ use App\Enums\PermissionName;
 use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Exceptions\AccountProtectionException;
+use App\Exceptions\SupervisorGuardException;
+use App\Support\LeaveBalances;
+use App\Support\SupervisorGuard;
 use Database\Factories\UserFactory;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,9 +19,12 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
@@ -56,7 +62,18 @@ class User extends Authenticatable
             'two_factor_enrolled_at' => 'datetime',
             'two_factor_last_timestep' => 'integer',
             'last_login_at' => 'datetime',
+            'joined_at' => 'immutable_date',
+            'leave_anchor_date' => 'immutable_date',
         ];
+    }
+
+    /**
+     * Bootstrap the model and its traits.
+     */
+    protected static function booted(): void
+    {
+        // The leave year counts from the day the account is created, until HR picks another date.
+        static::creating(fn (self $user) => $user->leave_anchor_date ??= today());
     }
 
     /**
@@ -83,6 +100,66 @@ class User extends Authenticatable
     {
         $query->where('status', UserStatus::Active)
             ->whereHas('roles', fn (Builder $roles) => $roles->where('name', RoleName::HrAdmin->value));
+    }
+
+    /**
+     * Scope the query to users who can act as a supervisor right now.
+     */
+    #[Scope]
+    protected function activeSupervisor(Builder $query): void
+    {
+        $query->where('status', UserStatus::Active)
+            ->whereHas('roles', fn (Builder $roles) => $roles->where('name', RoleName::Approver->value));
+    }
+
+    /**
+     * Scope the query to users whose role needs a supervisor and who have no active one.
+     */
+    #[Scope]
+    protected function missingSupervisor(Builder $query): void
+    {
+        $roles = array_map(
+            fn (RoleName $role) => $role->value,
+            array_filter(RoleName::cases(), fn (RoleName $role) => $role->needsSupervisor()),
+        );
+
+        $query->whereHas('roles', fn (Builder $query) => $query->whereIn('name', $roles))
+            ->whereDoesntHave('supervisors', fn (Builder $query) => $query->activeSupervisor());
+    }
+
+    /**
+     * @return BelongsTo<Department, $this>
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * The people above this user. Links stay when a supervisor is suspended or changes
+     * role, and count again when they return, so use activeSupervisor() to read them.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function supervisors(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'employee_supervisor', 'employee_id', 'supervisor_id');
+    }
+
+    /**
+     * @return BelongsToMany<User, $this>
+     */
+    public function subordinates(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'employee_supervisor', 'supervisor_id', 'employee_id');
+    }
+
+    /**
+     * @return HasMany<LeaveBalancePeriod, $this>
+     */
+    public function leavePeriods(): HasMany
+    {
+        return $this->hasMany(LeaveBalancePeriod::class);
     }
 
     /**
@@ -328,6 +405,8 @@ class User extends Authenticatable
             $admin->save();
             $admin->changeRole(RoleName::HrAdmin);
 
+            LeaveBalances::openFirstPeriod($admin);
+
             AuditLog::record(AuditEvent::AdminBootstrapped, subject: $admin);
 
             return $admin;
@@ -352,6 +431,10 @@ class User extends Authenticatable
         static::withinHrAdminLock(function () use ($role, $actor) {
             if ($role !== RoleName::HrAdmin) {
                 $this->ensureNotLastActiveHrAdmin();
+            }
+
+            if ($role !== RoleName::Approver) {
+                SupervisorGuard::ensureSupervisorMayGo($this, 'change_role');
             }
 
             $this->roles()->sync([Role::findByName($role->value)->getKey()]);
@@ -465,7 +548,8 @@ class User extends Authenticatable
     }
 
     /**
-     * Save the model, refusing any status change that would remove the last active HR Admin.
+     * Save the model, refusing any status change that would remove the last active HR Admin
+     * or leave someone without an active supervisor.
      *
      * Guarding save() also covers update(), saveQuietly() and saveOrFail().
      *
@@ -480,13 +564,14 @@ class User extends Authenticatable
 
         return static::withinHrAdminLock(function () use ($options) {
             $this->ensureNotLastActiveHrAdmin();
+            SupervisorGuard::ensureSupervisorMayGo($this, 'suspend');
 
             return parent::save($options);
         });
     }
 
     /**
-     * Delete the model, refusing to delete the last active HR Admin.
+     * Delete the model, refusing to delete the last active HR Admin or anyone's last active supervisor.
      *
      * The check runs here because Spatie's deleting listener detaches roles before any listener of ours.
      *
@@ -496,6 +581,7 @@ class User extends Authenticatable
     {
         return static::withinHrAdminLock(function () {
             $this->ensureNotLastActiveHrAdmin();
+            SupervisorGuard::ensureSupervisorMayGo($this, 'delete');
 
             return parent::delete();
         });
@@ -527,21 +613,30 @@ class User extends Authenticatable
     }
 
     /**
-     * Run a callback in a transaction holding the HR Admin role row, which serializes
-     * every change that could affect the number of active HR Admins.
+     * Run a callback in a transaction holding the HR Admin role row, which serializes every change
+     * that could affect the number of active HR Admins or anyone's active supervisors.
+     *
+     * A guard refusal is audited after the rollback, as the transaction would take the entry with it.
+     * Calls can nest. The inner entry then goes with the outer rollback, so one entry stays.
      *
      * @template TReturn
      *
      * @param  callable(): TReturn  $callback
      * @return TReturn
      */
-    private static function withinHrAdminLock(callable $callback): mixed
+    public static function withinHrAdminLock(callable $callback): mixed
     {
-        return DB::transaction(function () use ($callback) {
-            Role::query()->where('name', RoleName::HrAdmin->value)->lockForUpdate()->first();
+        try {
+            return DB::transaction(function () use ($callback) {
+                Role::query()->where('name', RoleName::HrAdmin->value)->lockForUpdate()->first();
 
-            return $callback();
-        });
+                return $callback();
+            });
+        } catch (SupervisorGuardException $exception) {
+            AuditLog::record(AuditEvent::SupervisorGuardRefused, Auth::user(), $exception->subject, $exception->metadata);
+
+            throw $exception;
+        }
     }
 
     /**
