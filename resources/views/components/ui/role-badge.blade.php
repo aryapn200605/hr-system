@@ -1,5 +1,5 @@
 @props(['user'])
 
-@php($role = $user->roleName())
+@php($role = \App\Enums\RoleName::tryFrom((string) $user->roleName()))
 
-<x-ui.badge :tone="\App\Enums\RoleName::tryFrom((string) $role)?->tone() ?? 'gray'" data-role-badge {{ $attributes }}>{{ $role ?? 'No role' }}</x-ui.badge>
+<x-ui.badge :tone="$role?->tone() ?? 'gray'" data-role-badge {{ $attributes }}>{{ $role?->label() ?? $user->roleName() ?? __('No role') }}</x-ui.badge>

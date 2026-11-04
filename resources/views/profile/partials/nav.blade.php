@@ -1,5 +1,5 @@
-<nav aria-label="My Profile" class="flex flex-wrap gap-1 border-b border-slate-200 pb-3">
-    @foreach (['profile.show' => 'Details', 'profile.sessions' => 'Active sessions', 'profile.login-history' => 'Login history'] as $route => $label)
+<nav aria-label="{{ __('My Profile') }}" class="flex flex-wrap gap-1 border-b border-slate-200 pb-3">
+    @foreach (['profile.show' => __('Details'), 'profile.sessions' => __('Active sessions'), 'profile.login-history' => __('Login history')] as $route => $label)
         <a
             href="{{ route($route) }}"
             @if (request()->routeIs($route)) aria-current="page" @endif

@@ -153,7 +153,7 @@ class Index extends Component
         $role = RoleName::tryFrom($this->role);
 
         if (! $role) {
-            $this->addError('role', 'Choose a valid role.');
+            $this->addError('role', __('Choose a valid role.'));
 
             return;
         }
@@ -237,9 +237,9 @@ class Index extends Component
             'statuses' => UserStatus::cases(),
             'perPageOptions' => self::PER_PAGE_OPTIONS,
             'assignableRoles' => app(UserPolicy::class)->assignableRoles(Auth::user()),
-        ])->title('User Management')->layoutData(['breadcrumbs' => [
-            ['label' => 'Home', 'href' => route('dashboard')],
-            ['label' => 'User Management'],
+        ])->title(__('User Management'))->layoutData(['breadcrumbs' => [
+            ['label' => __('Home'), 'href' => route('dashboard')],
+            ['label' => __('User Management')],
         ]]);
     }
 
@@ -313,9 +313,9 @@ class Index extends Component
         $this->closeDialogs();
 
         if ($result->sent) {
-            $this->dispatch('toast', message: 'Invitation sent to '.$result->user->email.'.', tone: 'success');
+            $this->dispatch('toast', message: __('Invitation sent to :email.', ['email' => $result->user->email]), tone: 'success');
         } else {
-            $this->notice = 'The account for '.$result->user->email.' was created, but the invitation email could not be sent. The account stays pending. Use Resend invitation to try again.';
+            $this->notice = __('The account for :email was created, but the invitation email could not be sent. The account stays pending. Use Resend invitation to try again.', ['email' => $result->user->email]);
         }
     }
 
@@ -328,9 +328,9 @@ class Index extends Component
         $this->closeDialogs();
 
         if ($revoked > 0) {
-            $this->notice = 'Changes saved. The invitation already sent no longer works. Use Resend invitation to send a new one.';
+            $this->notice = __('Changes saved. The invitation already sent no longer works. Use Resend invitation to send a new one.');
         } else {
-            $this->dispatch('toast', message: 'Changes saved.', tone: 'success');
+            $this->dispatch('toast', message: __('Changes saved.'), tone: 'success');
         }
     }
 
@@ -341,7 +341,7 @@ class Index extends Component
         $user->suspend(Auth::user());
 
         $this->closeDialogs();
-        $this->dispatch('toast', message: $user->name.' was suspended and signed out.', tone: 'success');
+        $this->dispatch('toast', message: __(':name was suspended and signed out.', ['name' => $user->name]), tone: 'success');
     }
 
     private function reactivate(User $user): void
@@ -351,7 +351,7 @@ class Index extends Component
         $user->reactivate(Auth::user());
 
         $this->closeDialogs();
-        $this->dispatch('toast', message: $user->name.' can sign in again.', tone: 'success');
+        $this->dispatch('toast', message: __(':name can sign in again.', ['name' => $user->name]), tone: 'success');
     }
 
     private function resend(User $user): void
@@ -363,9 +363,9 @@ class Index extends Component
         $this->closeDialogs();
 
         if ($result->sent) {
-            $this->dispatch('toast', message: 'A new invitation was sent to '.$user->email.'.', tone: 'success');
+            $this->dispatch('toast', message: __('A new invitation was sent to :email.', ['email' => $user->email]), tone: 'success');
         } else {
-            $this->notice = 'The invitation email to '.$user->email.' could not be sent. The earlier link no longer works, so this user has no working link until a resend succeeds.';
+            $this->notice = __('The invitation email to :email could not be sent. The earlier link no longer works, so this user has no working link until a resend succeeds.', ['email' => $user->email]);
         }
     }
 

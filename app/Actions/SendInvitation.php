@@ -23,7 +23,8 @@ class SendInvitation
         User $actor,
         bool $resent = false,
     ): InvitationResult {
-        $sent = MailDelivery::send($user->email, new InvitationMail($user->name, $token, $resent));
+        // The invitee has not chosen a language yet, so invitations use the default one.
+        $sent = MailDelivery::send($user->email, new InvitationMail($user->name, $token, $resent), config('app.fallback_locale'));
 
         if ($sent) {
             $invitation->update(['sent_at' => now()]);

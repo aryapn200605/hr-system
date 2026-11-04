@@ -20,14 +20,14 @@ class Sessions extends Component
         $user = Auth::user();
 
         if (! ActiveSessions::endOne($user, session()->getId(), $handle)) {
-            $this->dispatch('toast', message: 'That session has already ended.', tone: 'info');
+            $this->dispatch('toast', message: __('That session has already ended.'), tone: 'info');
 
             return;
         }
 
         AuditLog::record(AuditEvent::SessionTerminated, $user, $user, ['scope' => 'single', 'sessions_ended' => 1]);
 
-        $this->dispatch('toast', message: 'The session has ended.');
+        $this->dispatch('toast', message: __('The session has ended.'));
     }
 
     /**
@@ -40,14 +40,14 @@ class Sessions extends Component
         $ended = $user->endOtherSessions(session()->getId());
 
         if ($ended === 0) {
-            $this->dispatch('toast', message: 'There are no other sessions.', tone: 'info');
+            $this->dispatch('toast', message: __('There are no other sessions.'), tone: 'info');
 
             return;
         }
 
         AuditLog::record(AuditEvent::SessionTerminated, $user, $user, ['scope' => 'others', 'sessions_ended' => $ended]);
 
-        $this->dispatch('toast', message: 'Other sessions have ended.');
+        $this->dispatch('toast', message: __('Other sessions have ended.'));
     }
 
     /**
@@ -57,10 +57,10 @@ class Sessions extends Component
     {
         return view('livewire.profile.sessions', [
             'sessions' => ActiveSessions::listFor(Auth::user(), session()->getId()),
-        ])->title('Active sessions')->layoutData(['breadcrumbs' => [
-            ['label' => 'Home', 'href' => route('dashboard')],
-            ['label' => 'My Profile', 'href' => route('profile.show')],
-            ['label' => 'Active sessions'],
+        ])->title(__('Active sessions'))->layoutData(['breadcrumbs' => [
+            ['label' => __('Home'), 'href' => route('dashboard')],
+            ['label' => __('My Profile'), 'href' => route('profile.show')],
+            ['label' => __('Active sessions')],
         ]]);
     }
 }

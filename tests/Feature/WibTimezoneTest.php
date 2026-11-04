@@ -29,7 +29,10 @@ class WibTimezoneTest extends TestCase
      *
      * @var array<string, list<string>>
      */
-    private const ADDED_AFTER_WIB = [];
+    private const ADDED_AFTER_WIB = [
+        'languages' => ['created_at', 'updated_at'],
+        'translations' => ['created_at', 'updated_at'],
+    ];
 
     protected function setUp(): void
     {

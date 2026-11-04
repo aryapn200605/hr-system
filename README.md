@@ -14,6 +14,8 @@
 - Migrating `hr_system` happens at the end of a phase, after a verified `mysqldump` backup outside the repository, with `php artisan migrate` only. The steps the owner must run are written at the end of each phase in PROGRESS.md.
 - Before any check that needs a service, `http://hr-system.test/up` must answer and MySQL must accept a connection on 127.0.0.1. If either is down, work that needs it stops until the owner starts Laragon.
 - Build assets with `npm run build` so Apache serves them. No Vite dev server is left running.
+- After changing views, run `php artisan view:clear`. A stale compiled view once kept the plain-text part of an email in English after its template had changed.
+- Browser checks run as a puppeteer script outside the project, in `C:\laragon	mp\browser-check` (puppeteer 25.14.0, not in package.json): `node phase7.mjs <file with the activation link and password>`. Screenshots go to its `shots` folder.
 - Browser checks run on hr-system.test at 1024px and 375px. Temporary accounts there are created only through the application, with the username prefix `zz-check-`, and removed afterwards with a targeted delete, after which the counts of real accounts and their rows must match the numbers taken before.
 - The backup before an end-of-phase migration goes outside the repository, in `C:\laragon\backup\hr-system\`, and is read back before migrating. Never `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe` or truncate on `hr_system` without the owner's explicit approval.
 - Documents: CLAUDE.md (working rules), DECISIONS.md (business rules), SPEC.md (phases), PROGRESS.md (log and lessons), this README (technical decisions and commands).
@@ -123,6 +125,81 @@ php artisan app:reset-two-factor {username}
 After a confirmation it removes the secret, enrollment date, last timestep and recovery codes, ends all sessions of that user, and writes the audit event `two_factor.reset` with a null actor. Password, status and role stay. The next login forces a new enrollment.
 
 **Until they enroll again, the password alone reaches the enrollment page**, the same exposure as a first login. Check who is asking before running it, out of band. Anyone who can run this command already has the server, so it adds no new access. The audit entry cannot say who ran it, only that the system did.
+
+## Language
+
+The interface is in English or Indonesian. Each user picks a language in My Profile; guests, users who never chose, and users whose language was deactivated get the default, `APP_FALLBACK_LOCALE` (English). Account emails go out in the recipient's language: a password reset follows the user's choice, and an invitation is always in the default language, because the invitee has not chosen yet.
+
+### How it works
+
+- Texts live in two tables. `languages` lists the languages (`code`, `name`, `native_name`, `is_active`, `sort`). `translations` holds one row per language, group and key. `key` uses the `utf8mb4_bin` collation, so `Save` and `save` are different keys. `users.locale` holds the user's choice (null means the default), and it is not mass assignable.
+- `App\Translation\DatabaseLoader` replaces Laravel's file loader, so `__()`, `@lang` and validation messages all read the database. A key missing in one language falls back to English. There is no `lang/` folder.
+- Keys: a sentence is keyed by its English text in the `*` group, for example `__('Log in')`. The framework's messages keep their keyed groups, `validation`, `auth` and `passwords`, with dotted keys such as `validation.min.string`. `validation.attributes.*` gives field names in Indonesian messages. The framework's `pagination` group is not loaded: it holds HTML entities, and the app does not use it.
+- Labels picked at runtime are written out as literals, so the checker sees them: account statuses, role names, login results and device names (`:browser on :system`). They are also listed in `App\Translation\DynamicLabels`, which the checker always requires. A new dynamic label goes in both places, and `LanguageTest` fails if an enum case is missing from the list.
+- Every text is printed escaped, and translations hold no HTML. `app:translation-set` refuses tags and entities, and a test checks the base files.
+- Each language and group is cached under a version number. Changes through `app:translation-set`, the `Translation` model or the seeder start a new version. **After editing the table directly in the database, run `php artisan app:translations-cache-clear`.**
+- The base texts are in `database/translations/en.php` and `id.php`. The migration `2026_11_05_100100_load_base_translations` loads them through `TranslationSeeder`, which only inserts rows that do not exist yet, so it never overwrites a text changed later. Two seeders running at once can deadlock on the unique index; each chunk retries, and `TranslationSeederConcurrencyTest` runs four at once.
+- The role names stored in the database stay English (`HR Admin`, `Approver`, `Employee`). Only their display is translated.
+
+### Commands
+
+```bash
+php artisan app:translations-missing
+php artisan app:translation-set id "Log in" "Masuk"
+php artisan app:translation-set id required ":Attribute wajib diisi." --group=validation
+php artisan app:translations-cache-clear
+```
+
+`app:translations-missing` lists every key that an active language lacks and exits with 1 if there is one. A key is required when the code names it as a literal (`__()`, `trans()`, `trans_choice()`, `@lang`), when it is in `DynamicLabels`, or when English has it in the database. `LanguageTest` runs it, so a sentence added without both languages fails the suite.
+
+`app:translation-set` adds or changes one text. It is the only editing tool in this phase: there is no editing screen. It runs on the server console only, so it has no role check of its own (whoever runs it already controls the server). It refuses an unknown language or group, HTML, and placeholders that differ from the English text, writes the audit event `translation.changed` with a null actor, and refreshes the cache.
+
+### Adding a sentence (every later phase)
+
+Write `__('English sentence')` in the code, add the same key to `database/translations/en.php` and its Indonesian text to `id.php`, and add a migration that runs `(new TranslationSeeder)->run()`. The suite fails until both languages have it.
+
+### Adding a language
+
+1. Insert a row in `languages`, with `is_active = 0` until the texts are complete. For example, in tinker: `App\Models\Language::create(['code' => 'ms', 'name' => 'Malay', 'native_name' => 'Bahasa Melayu', 'is_active' => false, 'sort' => 3]);`
+2. Add its texts: copy `database/translations/id.php` to `ms.php`, translate it, then run `php artisan db:seed --class=TranslationSeeder --force`. Single texts can also be added with `app:translation-set`.
+3. Activate it: `App\Models\Language::whereKey('ms')->update(['is_active' => true]);`, then run `php artisan app:translations-missing`, which must report nothing.
+
+No code changes. Carbon's month names come from Carbon itself and need no rows.
+
+### Standard Indonesian terms
+
+The formal register uses "Anda". The same English term always gets the same Indonesian term:
+
+| English | Indonesian |
+|---|---|
+| account | akun |
+| user | pengguna |
+| username | nama pengguna |
+| password | kata sandi |
+| email | email |
+| log in / login | masuk |
+| log out / logout | keluar |
+| session | sesi |
+| two-factor authentication | autentikasi dua faktor |
+| authenticator app | aplikasi autentikator |
+| recovery code | kode pemulihan |
+| invitation | undangan |
+| activate / reactivate | aktifkan / aktifkan kembali |
+| suspend / suspended | tangguhkan / ditangguhkan |
+| pending (account status) | menunggu aktivasi |
+| role | peran |
+| HR Admin / Approver / Employee | Admin HR / Penyetuju / Karyawan |
+| Home | Beranda |
+| My Profile | Profil Saya |
+| Security Settings | Pengaturan Keamanan |
+| User Management | Manajemen Pengguna |
+| reset (a password) | atur ulang |
+| link | tautan |
+| device | perangkat |
+| confirm | konfirmasi |
+| cancel | batal |
+| save | simpan |
+| field (validation) | named by its label, for example "Nama lengkap wajib diisi." |
 
 ## Mail
 

@@ -16,11 +16,11 @@ enum LoginResult: string
     public function label(): string
     {
         return match ($this) {
-            self::Success => 'Successful',
-            self::FailedCredentials => 'Wrong password',
-            self::FailedAccountStatus => 'Account not active',
-            self::FailedTotp => 'Wrong authenticator code',
-            self::FailedRecovery => 'Wrong recovery code',
+            self::Success => __('Successful'),
+            self::FailedCredentials => __('Wrong password'),
+            self::FailedAccountStatus => __('Account not active'),
+            self::FailedTotp => __('Wrong authenticator code'),
+            self::FailedRecovery => __('Wrong recovery code'),
         };
     }
 

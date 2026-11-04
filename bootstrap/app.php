@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureFullyAuthenticated;
 use App\Http\Middleware\EnsurePendingActivation;
 use App\Http\Middleware\EnsurePendingLogin;
 use App\Http\Middleware\EnsureReauthenticated;
+use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\StartSession;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(replace: [BaseStartSession::class => StartSession::class]);
+        $middleware->web(append: [SetLocale::class]);
 
         $middleware->redirectUsersTo('/dashboard');
     })

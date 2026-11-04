@@ -4,21 +4,26 @@ namespace App\Livewire\Profile;
 
 use App\Enums\AuditEvent;
 use App\Models\AuditLog;
+use App\Models\Language;
 use App\Support\AccountRules;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 /**
- * Only the name changes here. Username and email need a re-authentication, so they have
- * their own controller, and this component has no property or action that could reach them.
+ * Only the name and the language change here. Username and email need a re-authentication, so they
+ * have their own controller, and this component has no property or action that could reach them.
  */
 class Show extends Component
 {
     public string $name = '';
 
+    public string $locale = '';
+
     public function mount(): void
     {
         $this->name = Auth::user()->name;
+        $this->locale = Auth::user()->preferredLocale();
     }
 
     /**
@@ -45,7 +50,30 @@ class Show extends Component
             AuditLog::record(AuditEvent::UserUpdated, $user, $user, ['fields' => ['name']]);
         }
 
-        session()->flash('toast', 'Your name has been updated.');
+        session()->flash('toast', __('Your name has been updated.'));
+
+        $this->redirectRoute('profile.show');
+    }
+
+    /**
+     * Save the interface language, then reload the whole page in it. Only active languages are accepted.
+     */
+    public function saveLocale(): void
+    {
+        $validated = $this->validate(['locale' => ['required', 'string', Rule::in(Language::activeCodes()->all())]]);
+
+        $user = Auth::user();
+        $user->locale = $validated['locale'];
+
+        if ($user->isDirty('locale')) {
+            $user->save();
+
+            AuditLog::record(AuditEvent::UserUpdated, $user, $user, ['fields' => ['locale']]);
+        }
+
+        // The confirmation is already in the new language.
+        app()->setLocale($user->preferredLocale());
+        session()->flash('toast', __('Your language has been changed.'));
 
         $this->redirectRoute('profile.show');
     }
@@ -55,11 +83,14 @@ class Show extends Component
      */
     public function render(): mixed
     {
-        return view('livewire.profile.show', ['user' => Auth::user()])
-            ->title('My Profile')
+        return view('livewire.profile.show', [
+            'user' => Auth::user(),
+            'languages' => Language::query()->active()->get(['code', 'native_name']),
+        ])
+            ->title(__('My Profile'))
             ->layoutData(['breadcrumbs' => [
-                ['label' => 'Home', 'href' => route('dashboard')],
-                ['label' => 'My Profile'],
+                ['label' => __('Home'), 'href' => route('dashboard')],
+                ['label' => __('My Profile')],
             ]]);
     }
 }

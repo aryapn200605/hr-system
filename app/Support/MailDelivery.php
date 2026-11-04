@@ -20,9 +20,10 @@ class MailDelivery
     private const LOCAL_MAILERS = ['log', 'array'];
 
     /**
-     * Send an email. Logs only the classes involved, because a transport error can quote the message.
+     * Send an email in the given language. Logs only the classes involved, because a transport error
+     * can quote the message.
      */
-    public static function send(string $address, Mailable $mail): bool
+    public static function send(string $address, Mailable $mail, string $locale): bool
     {
         if (app()->isProduction() && in_array(config('mail.default'), self::LOCAL_MAILERS, true)) {
             Log::error('Mail delivery refused: a local mailer is configured in production.', [
@@ -33,7 +34,7 @@ class MailDelivery
         }
 
         try {
-            Mail::to($address)->send($mail);
+            Mail::to($address)->locale($locale)->send($mail);
 
             return true;
         } catch (Throwable $exception) {

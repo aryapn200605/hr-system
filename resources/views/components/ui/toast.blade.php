@@ -29,7 +29,7 @@
             }"
         >
             <span x-text="toast.message"></span>
-            <button type="button" class="cursor-pointer rounded text-slate-600 hover:text-slate-900" aria-label="Dismiss" x-on:click="remove(toast.id)">
+            <button type="button" class="cursor-pointer rounded text-slate-600 hover:text-slate-900" aria-label="{{ __('Dismiss') }}" x-on:click="remove(toast.id)">
                 <x-ui.icon name="close" class="size-4" />
             </button>
         </div>

@@ -13,7 +13,8 @@
 - **Reset on 2026-11-04 (or earlier):** the owner reverted the repository to this stable Phase 5 state. Everything built after it was discarded: the Docker skip and redesign attempt, the "layout fix and visual rework", and the first attempts at Phases for employees, requests and approvals (WIB shift, departments, supervisors, balance, requests, decisions). Their lessons are kept in "Lessons carried over" below and in CLAUDE.md; their business decisions are in DECISIONS.md.
 - Planning was redone: the phases after Phase 5 are now Phase 6 to 16, see SPEC.md "Phase map". The old "Phase 6: Docker runtime" no longer exists; Docker moved to the deferred deployment phase (Phase 16).
 - Phase 6 (Foundation cleanup): done, see "Phase 6" below.
-- **Next: Phase 7 (Language mechanism).** Not started.
+- Phase 7 (Language mechanism): done, see "Phase 7" below.
+- **Next: Phase 8 (Organization and leave balance).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -337,3 +338,47 @@ Recorded in README.md under "Project decisions" and "Scheduler".
 
 ### Owner steps
 - Optional: install the scheduler with the `schtasks` command in README "Scheduler".
+
+## Phase 7: Language mechanism (2026-11-04)
+
+### Done
+- Tables `languages` (en, id) and `translations` (locale, group, key with `utf8mb4_bin`, value), `users.locale`. Models `Language` and `Translation`.
+- `App\Translation\DatabaseLoader` replaces the file loader: `__()`, `@lang` and validation messages read the database, cached per language and group under a version, with English as fallback. A database error is not cached.
+- Middleware `SetLocale` in the web group (including the Livewire update route): the user's active language, otherwise `APP_FALLBACK_LOCALE` (English). Guests always get English; no selector on public pages.
+- All 243 interface sentences in views, Livewire components, controllers, exceptions and mail templates go through `__()` with unchanged English wording. Framework messages (`validation`, `auth`, `passwords`) and Indonesian field names (`validation.attributes.*`) are in the database. Dates use `translatedFormat` (Carbon follows the app locale on its own).
+- Dynamic labels (statuses, role names, login results, device names) are literal `__()` calls in a match and listed in `App\Translation\DynamicLabels`.
+- My Profile: a Language card with the active languages. Forged values get a 422, unknown or inactive ones a validation error, the change is audited (`user.updated`, fields `[locale]`), and the page reloads in the new language.
+- Emails: `MailDelivery::send()` takes a locale. Invitations use the default language; password reset uses the user's choice (`User::preferredLocale()`, `HasLocalePreference`).
+- Commands: `app:translations-missing` (with `--path` for tests), `app:translation-set` (audit event `translation.changed`, no HTML, same placeholders as English), `app:translations-cache-clear`.
+- Base data in `database/translations/en.php` and `id.php`, loaded by `TranslationSeeder` (insert-only, retries a chunk on deadlock) through a migration, and by `DatabaseSeeder`.
+- README: section "Language" with commands, how to add a sentence or a language, and the standard Indonesian terms.
+
+### Verified
+- `php artisan test`: 742 passed on `hr_system_test` (690 before). New: `LanguageTest` (40), `TranslationSetCommandTest` (13), `TranslationSeederConcurrencyTest` (1). `WibTimezoneTest` gained the two new tables in `ADDED_AFTER_WIB`; no other older test changed. `npm run build`, Pint, `npm audit`, `composer audit`: clean. No new project packages.
+- Real race: four processes seed the texts at once on committed rows. It first failed with a MySQL deadlock in `INSERT IGNORE`; each chunk now retries in a transaction, and the run inserts every row once.
+- Mutation check: 38 mutations, file restored and confirmed by hash each time, source tree compared with a backup. 33 caught at first. Of the 5 survivors: `Carbon::setLocale` in the middleware was redundant (Carbon's own listener does it) and was removed; the "skip existing rows" filter in the seeder was redundant with `insertOrIgnore` and was removed, which also exposed the "seeder overwrites" mutation, now caught; tests were added for an uncached database error and for the cache refresh after seeding. Those mutations were re-run and are caught.
+- `hr_system`: backup `C:\laragon\backup\hr-system\hr_system-before-phase7-20261104-140615.sql` (32.4 KB, "Dump completed", INSERTs for 11 tables), `migrate` ran the two new migrations, real-row counts unchanged, 787 translations, `app:translations-missing` passes, `view:clear` run. The owner's `users.locale` is null (English).
+- Puppeteer 25.14.0 (outside the project, `C:\laragon\tmp\browser-check\phase7.mjs`) on hr-system.test with a temporary HR Admin `zz-check-p7`, created through `CreateUserWithInvitation` with the owner as actor, activated through the real link with a real TOTP code: 55 checks passed, 0 console errors. Language switch and toast, Indonesian validation message, dashboard, profile, sessions, login history, security and user management in Indonesian at 1024px and 375px with no horizontal scroll, profile menu, profile tabs, mobile drawer, create-user dialog and row menu, the End session dialog and its Livewire toast with a second device (which was logged out), switching back to English, and the login page in English for a guest. The invitation email in the log was English. Screenshots were reviewed.
+- Cleanup: 11 audit rows, 2 login rows, 10 recovery codes, 1 invitation, 1 role link and the user deleted in one transaction that checked each count. Afterwards users 1, login_histories 2, audit_logs 5 (max id 5), recovery_codes 10, account_invitations 0, password_reset_tokens 0, model_has_roles 1, the same as before.
+
+### Known issues
+- The Indonesian texts were written by the agent in a formal register and still need the owner's review.
+- Console command output (artisan messages) stays English; only the web interface and emails are translated.
+- An edit made directly in the `translations` table shows only after `app:translations-cache-clear`.
+- Guest rows in `sessions` (8 now) come from the checks and expire on their own.
+- The sessions dialog now switches its two sentences with `x-show` instead of an `x-text` string, so both texts come from the server; checked in the browser.
+- Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH. Error pages keep Laravel's default look. Tables scroll sideways on a phone.
+
+### Lessons
+- `App::setLocale()` also rewrites `config('app.locale')`, so after the middleware runs that value is the request's language. The default language is read from `app.fallback_locale`.
+- `{--group=*}` in a command signature declares an array option, not a default of `*`.
+- A stale compiled view kept the text part of an email in English while its HTML part was translated. Run `php artisan view:clear` after changing views.
+- MySQL can deadlock two concurrent `INSERT IGNORE` statements on the same unique index; retry the transaction.
+
+### Decisions
+Recorded in README.md under "Language".
+- Approved by the owner: `app:translation-set` as the console editing tool, puppeteer in `C:\laragon\tmp\browser-check`, formal Indonesian with a list of standard terms, invitations in English and password reset in the user's language, `utf8mb4_bin` keys with a case test, dynamic labels registered and checked.
+- Assumptions: sentence keys are the English text; the framework `pagination` group is not loaded (HTML entities, unused); the seeder never overwrites an existing text; stored role names stay English and only their display is translated; `users.locale` is not mass assignable.
+
+### Owner steps
+- Review the Indonesian wording (`database/translations/id.php`, or switch My Profile to Bahasa Indonesia). Corrections: `php artisan app:translation-set id "<English key>" "<Indonesian text>"`, and the same change in `id.php`.

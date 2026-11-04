@@ -60,7 +60,7 @@ class ForgotPasswordController extends Controller
         Password::sendResetLink(
             ['email' => mb_strtolower($email), 'status' => UserStatus::Active->value],
             function (User $user, string $token) {
-                if (MailDelivery::send($user->email, new PasswordResetMail($user->name, $token))) {
+                if (MailDelivery::send($user->email, new PasswordResetMail($user->name, $token), $user->preferredLocale())) {
                     return;
                 }
 

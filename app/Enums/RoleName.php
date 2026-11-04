@@ -11,6 +11,18 @@ enum RoleName: string
     /**
      * Get the badge color of this role.
      */
+    /**
+     * The role name shown on screen. The stored name stays the enum value.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::HrAdmin => __('HR Admin'),
+            self::Approver => __('Approver'),
+            self::Employee => __('Employee'),
+        };
+    }
+
     public function tone(): string
     {
         return match ($this) {

@@ -10,6 +10,7 @@ use App\Enums\UserStatus;
 use App\Exceptions\AccountProtectionException;
 use Database\Factories\UserFactory;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -28,10 +29,19 @@ use Spatie\Permission\Traits\HasRoles;
 
 #[Fillable(['name', 'username', 'email', 'password'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_last_timestep'])]
-class User extends Authenticatable
+class User extends Authenticatable implements HasLocalePreference
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
+
+    /**
+     * The language for this user's pages and emails: their choice while it is an active language,
+     * otherwise the default. `locale` is set only through My Profile and is not mass assignable.
+     */
+    public function preferredLocale(): string
+    {
+        return Language::isActive($this->locale) ? $this->locale : config('app.fallback_locale');
+    }
 
     /**
      * The model's default values for attributes.

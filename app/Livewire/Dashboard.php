@@ -29,7 +29,7 @@ class Dashboard extends Component
      */
     public function refresh(): void
     {
-        session()->flash('toast', 'Dashboard refreshed.');
+        session()->flash('toast', __('Dashboard refreshed.'));
 
         $this->redirectRoute('dashboard');
     }
@@ -53,7 +53,7 @@ class Dashboard extends Component
             'failedLogins' => $loginResults->reject(fn (string $result) => $result === LoginResult::Success->value)->count(),
             'recentLogins' => $user->loginHistories()->latest('occurred_at')->latest('id')->limit(5)->get(),
             'accountCounts' => $user->can(PermissionName::UsersView->value) ? $this->accountCounts() : null,
-        ])->title('Home')->layoutData(['breadcrumbs' => [['label' => 'Home']]]);
+        ])->title(__('Home'))->layoutData(['breadcrumbs' => [['label' => __('Home')]]]);
     }
 
     /**

@@ -8,41 +8,41 @@ class AccountProtectionException extends DomainException
 {
     public static function lastActiveHrAdmin(): self
     {
-        return new self('The last active HR Admin cannot be suspended, demoted or deleted.');
+        return new self(__('The last active HR Admin cannot be suspended, demoted or deleted.'));
     }
 
     public static function ownRoleChange(): self
     {
-        return new self('Users cannot change their own role.');
+        return new self(__('Users cannot change their own role.'));
     }
 
     public static function ownSuspension(): self
     {
-        return new self('Users cannot suspend their own account.');
+        return new self(__('Users cannot suspend their own account.'));
     }
 
     public static function alreadySuspended(): self
     {
-        return new self('This account is already suspended.');
+        return new self(__('This account is already suspended.'));
     }
 
     public static function notSuspended(): self
     {
-        return new self('Only suspended accounts can be reactivated.');
+        return new self(__('Only suspended accounts can be reactivated.'));
     }
 
     public static function neverActivated(): self
     {
-        return new self('This account never finished activation, so it cannot be reactivated.');
+        return new self(__('This account never finished activation, so it cannot be reactivated.'));
     }
 
     public static function activeHrAdminExists(): self
     {
-        return new self('An active HR Admin already exists.');
+        return new self(__('An active HR Admin already exists.'));
     }
 
     public static function accountNotPending(): self
     {
-        return new self('Only pending accounts can be invited.');
+        return new self(__('Only pending accounts can be invited.'));
     }
 }

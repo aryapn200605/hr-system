@@ -1,13 +1,13 @@
 <x-mail::message>
-# Reset your password
+# {{ __('Reset your password') }}
 
-Hello {{ $name }},
+{{ __('Hello :name,', ['name' => $name]) }}
 
-We received a request to reset the password of your {{ config('app.name') }} account.
+{{ __('We received a request to reset the password of your :app account.', ['app' => config('app.name')]) }}
 
 <x-mail::button :url="$url">
-Reset password
+{{ __('Reset password') }}
 </x-mail::button>
 
-This link expires in {{ $expiresInMinutes }} minutes. You will still need your authenticator app to log in. If you did not ask for this, ignore this email and your password stays the same.
+{{ __('This link expires in :minutes minutes. You will still need your authenticator app to log in. If you did not ask for this, ignore this email and your password stays the same.', ['minutes' => $expiresInMinutes]) }}
 </x-mail::message>

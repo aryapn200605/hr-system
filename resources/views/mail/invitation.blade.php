@@ -1,17 +1,17 @@
 <x-mail::message>
-# {{ $resent ? 'Your new invitation' : 'You are invited' }}
+# {{ $resent ? __('Your new invitation') : __('You are invited') }}
 
-Hello {{ $name }},
+{{ __('Hello :name,', ['name' => $name]) }}
 
 @if ($resent)
-Here is a new link to activate your {{ config('app.name') }} account. Any earlier link no longer works.
+{{ __('Here is a new link to activate your :app account. Any earlier link no longer works.', ['app' => config('app.name')]) }}
 @else
-An account has been created for you on {{ config('app.name') }}. Activate it to choose a password and set up two-factor authentication.
+{{ __('An account has been created for you on :app. Activate it to choose a password and set up two-factor authentication.', ['app' => config('app.name')]) }}
 @endif
 
 <x-mail::button :url="$url">
-Activate account
+{{ __('Activate account') }}
 </x-mail::button>
 
-This link works once and expires in {{ $expiresInHours }} hours. If you were not expecting it, ignore this email.
+{{ __('This link works once and expires in :hours hours. If you were not expecting it, ignore this email.', ['hours' => $expiresInHours]) }}
 </x-mail::message>

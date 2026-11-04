@@ -17,9 +17,9 @@ class Index extends Component
         return view('livewire.security.index', [
             'user' => $user,
             'recoveryCodesLeft' => $user->recoveryCodes()->whereNull('used_at')->count(),
-        ])->title('Security Settings')->layoutData(['breadcrumbs' => [
-            ['label' => 'Home', 'href' => route('dashboard')],
-            ['label' => 'Security Settings'],
+        ])->title(__('Security Settings'))->layoutData(['breadcrumbs' => [
+            ['label' => __('Home'), 'href' => route('dashboard')],
+            ['label' => __('Security Settings')],
         ]]);
     }
 }

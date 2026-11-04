@@ -35,7 +35,7 @@ class RecoveryCodeController extends Controller
         return response()
             ->view('auth.recovery-codes', [
                 'recoveryCodes' => $recoveryCodes,
-                'notice' => 'Your previous recovery codes no longer work.',
+                'notice' => __('Your previous recovery codes no longer work.'),
                 'continueUrl' => route('security.index'),
             ])
             ->header('Cache-Control', 'no-store, private');

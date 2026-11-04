@@ -19,10 +19,10 @@ class LoginActivity extends Component
     {
         return view('livewire.profile.login-activity', [
             'logins' => Auth::user()->loginHistories()->latest('occurred_at')->latest('id')->paginate(self::PER_PAGE),
-        ])->title('Login history')->layoutData(['breadcrumbs' => [
-            ['label' => 'Home', 'href' => route('dashboard')],
-            ['label' => 'My Profile', 'href' => route('profile.show')],
-            ['label' => 'Login history'],
+        ])->title(__('Login history'))->layoutData(['breadcrumbs' => [
+            ['label' => __('Home'), 'href' => route('dashboard')],
+            ['label' => __('My Profile'), 'href' => route('profile.show')],
+            ['label' => __('Login history')],
         ]]);
     }
 }

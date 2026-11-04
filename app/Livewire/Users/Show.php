@@ -38,8 +38,8 @@ class Show extends Component
         return view('livewire.users.show', ['user' => $user])
             ->title($user->name)
             ->layoutData(['breadcrumbs' => [
-                ['label' => 'Home', 'href' => route('dashboard')],
-                ['label' => 'User Management', 'href' => route('users.index')],
+                ['label' => __('Home'), 'href' => route('dashboard')],
+                ['label' => __('User Management'), 'href' => route('users.index')],
                 ['label' => $user->name],
             ]]);
     }

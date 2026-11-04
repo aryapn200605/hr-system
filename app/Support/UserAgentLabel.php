@@ -40,8 +40,8 @@ class UserAgentLabel
         $system = static::firstMatch(self::SYSTEMS, (string) $userAgent);
 
         return match (true) {
-            $browser && $system => "{$browser} on {$system}",
-            default => $browser ?? $system ?? 'Unknown device',
+            $browser && $system => __(':browser on :system', ['browser' => $browser, 'system' => $system]),
+            default => $browser ?? $system ?? __('Unknown device'),
         };
     }
 

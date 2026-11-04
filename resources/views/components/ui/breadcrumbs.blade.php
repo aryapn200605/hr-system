@@ -1,6 +1,6 @@
 @props(['items'])
 
-<nav aria-label="Breadcrumb" {{ $attributes->class('min-w-0') }}>
+<nav aria-label="{{ __('Breadcrumb') }}" {{ $attributes->class('min-w-0') }}>
     <ol class="flex items-center gap-1.5 text-sm text-slate-600">
         @foreach ($items as $item)
             <li class="flex min-w-0 items-center gap-1.5">

@@ -69,7 +69,7 @@ class AuthenticatorController extends Controller
         return response()
             ->view('auth.recovery-codes', [
                 'recoveryCodes' => $recoveryCodes,
-                'notice' => 'Your new authenticator is active. Your previous recovery codes and other sessions have ended.',
+                'notice' => __('Your new authenticator is active. Your previous recovery codes and other sessions have ended.'),
                 'continueUrl' => route('security.index'),
             ])
             ->header('Cache-Control', 'no-store, private');

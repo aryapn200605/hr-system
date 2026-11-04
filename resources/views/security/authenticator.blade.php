@@ -1,12 +1,12 @@
-<x-layouts::app title="Reconfigure authenticator" :breadcrumbs="[
-    ['label' => 'Home', 'href' => route('dashboard')],
-    ['label' => 'Security Settings', 'href' => route('security.index')],
-    ['label' => 'Reconfigure authenticator'],
+<x-layouts::app :title="__('Reconfigure authenticator')" :breadcrumbs="[
+    ['label' => __('Home'), 'href' => route('dashboard')],
+    ['label' => __('Security Settings'), 'href' => route('security.index')],
+    ['label' => __('Reconfigure authenticator')],
 ]">
     <div class="mx-auto max-w-md space-y-6">
         @include('security.partials.page-header', [
-            'title' => 'Reconfigure authenticator',
-            'description' => 'Scan this new code. Your current authenticator keeps working until a code from the new one is confirmed. Your recovery codes are then replaced and other sessions end.',
+            'title' => __('Reconfigure authenticator'),
+            'description' => __('Scan this new code. Your current authenticator keeps working until a code from the new one is confirmed. Your recovery codes are then replaced and other sessions end.'),
         ])
 
         <x-ui.card class="p-5">
@@ -16,7 +16,7 @@
         <form method="POST" action="{{ route('security.authenticator.cancel') }}" class="text-center">
             @csrf
 
-            <x-ui.button type="submit" variant="link">Cancel</x-ui.button>
+            <x-ui.button type="submit" variant="link">{{ __('Cancel') }}</x-ui.button>
         </form>
     </div>
 </x-layouts::app>

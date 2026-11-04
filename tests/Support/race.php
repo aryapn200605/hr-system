@@ -4,7 +4,7 @@
  * One competitor in AuthConcurrencyTest. It runs in its own PHP process with its own
  * database connection, waits for the agreed moment and prints the outcome.
  *
- * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email|prune> <user id> <code, invitation id, actor id or email> <start time>
+ * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email|prune|seed-translations> <user id> <code, invitation id, actor id or email> <start time>
  */
 
 use App\Actions\UpdateOwnIdentity;
@@ -69,6 +69,7 @@ try {
             'email_confirmation' => $code,
         ]) === ['email'],
         'prune' => Artisan::call('app:prune-expired-tokens') === 0,
+        'seed-translations' => Artisan::call('db:seed', ['--class' => TranslationSeeder::class, '--force' => true]) === 0,
     };
 } catch (AccountProtectionException) {
     $won = false;

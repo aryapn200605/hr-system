@@ -13,7 +13,11 @@ enum UserStatus: string
      */
     public function label(): string
     {
-        return ucfirst(strtolower($this->value));
+        return match ($this) {
+            self::Pending => __('Pending'),
+            self::Active => __('Active'),
+            self::Suspended => __('Suspended'),
+        };
     }
 
     /**

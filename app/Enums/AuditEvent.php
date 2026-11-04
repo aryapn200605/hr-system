@@ -26,4 +26,5 @@ enum AuditEvent: string
     case InvitationDeliveryFailed = 'invitation.delivery_failed';
     case PasswordChanged = 'password.changed';
     case PasswordResetDeliveryFailed = 'password_reset.delivery_failed';
+    case TranslationChanged = 'translation.changed';
 }

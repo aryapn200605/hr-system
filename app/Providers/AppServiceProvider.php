@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Support\AuthThrottle;
+use App\Translation\DatabaseLoader;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -16,7 +17,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Texts come from the translations table. An extender survives the deferred
+        // TranslationServiceProvider binding its own file loader later.
+        $this->app->extend('translation.loader', fn () => new DatabaseLoader);
     }
 
     /**

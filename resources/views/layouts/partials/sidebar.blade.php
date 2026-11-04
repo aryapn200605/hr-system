@@ -5,11 +5,11 @@
     </div>
 
     <nav aria-label="{{ $navLabel }}" class="flex-1 space-y-1 overflow-y-auto p-3">
-        <x-ui.nav-link :href="route('dashboard')" icon="home" :active="request()->routeIs('dashboard')">Home</x-ui.nav-link>
+        <x-ui.nav-link :href="route('dashboard')" icon="home" :active="request()->routeIs('dashboard')">{{ __('Home') }}</x-ui.nav-link>
 
         {{-- Only a marker. Every page behind this menu checks the permission on the server itself. --}}
         @can(\App\Enums\PermissionName::UsersView->value)
-            <x-ui.nav-link :href="route('users.index')" icon="users" :active="request()->routeIs('users.*')">User Management</x-ui.nav-link>
+            <x-ui.nav-link :href="route('users.index')" icon="users" :active="request()->routeIs('users.*')">{{ __('User Management') }}</x-ui.nav-link>
         @endcan
     </nav>
 
