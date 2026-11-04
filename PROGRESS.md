@@ -17,7 +17,8 @@
 - Phase 8 (Organization and leave balance): done, see "Phase 8" below.
 - Phase 9 (Requests): done, see "Phase 9" below.
 - Phase 10 (Approvals): done, see "Phase 10" below.
-- **Next: Phase 11 (History, recap, CSV export).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
+- Phase 11 (History, recap, CSV export): done, see "Phase 11" below.
+- **Next: Phase 12 (Dashboard).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -539,3 +540,52 @@ Recorded in README.md under "Approvals".
 ### Owner steps
 - Review the new Indonesian texts.
 - Nothing else: the migration and the permission seeder were run on `hr_system` in this phase.
+
+## Phase 11: History, recap, export (2026-11-04)
+
+### Plan (Step 0)
+- **Permission:** one new permission `requests.view-all` (HR Admin, through `RoleName::permissions()`): "sees every request in history and recap". Everything else is relation-based and reads no role name: every user with `requests.submit` sees their own requests; a user who also holds `requests.decide` sees the requests of the users linked to them now in `supervisor_user` (links exist only to Approvers). One service, `App\Services\Reports\Visibility`, used by the pages, the exports and the tests. Pages need `requests.submit` or `requests.view-all` (`RequestPolicy::viewHistory`).
+- **Tables:** no new table. One migration adds indexes for the recap and the HR Admin history (`leave_requests (status, starts_on)`, `(created_at)`; `overtime_requests (status, start_at)`, `(created_at)`), one migration loads the texts.
+- **Routes:** `/history` (Livewire), `/recap` (Livewire, tabs Balance and By department), `GET /history/export`, `GET /recap/balance/export`, `GET /recap/departments/export` (controller, streamed, throttle 10 per minute per user).
+- **History:** one UNION query over both request tables with joins (requester, department, category, decider), filters employee, department (current department; "none" too), type, category, status, date range (overlap with the dates a request touches), 25 per page, newest submitted first. Detail links only where the existing pages already allow it: own → My requests detail; may decide now or decided it → Approvals detail; otherwise no link ([ASSUMPTION], existing authorization unchanged).
+- **Recap (a):** per visible user (25 per page), every real period (filter: current and next / all) plus the projected next period: entitlement, used, approved-not-yet-deducted, pending, remaining (entitlement − used − approved-not-yet-deducted). Read only: no `sync()`.
+- **Recap (b):** per current department and month of a year: request counts per category, overtime count and hours, status Approved by default (filter). A leave counts in the month it starts, an overtime in the month it starts ([ASSUMPTION]).
+- **CSV:** `App\Support\Csv`, BOM, delimiter `CSV_DELIMITER` (default `;`), CRLF, formula prefix `'`, WIB times, cursor over the same query as the page, no reason, note or evidence columns. Audit `report.exported` (report, filters, rows) after the stream ends.
+- **Tests:** visibility per role (page, Livewire forged filters, export), filters, recap numbers, query counts constant for 2 and 8 users, CSV format and injection, audit, throttle. No new write path, so no new race point; races only if a check shows one.
+
+### Done
+- Permission `requests.view-all` (HR Admin). `App\Services\Reports\Visibility`: own rows always, plus the users linked now as subordinates for holders of `requests.decide`, everyone with `requests.view-all`; no role name is read. `RequestPolicy::viewHistory()` guards both pages and the exports.
+- Request history (`/history`): one UNION query, filters employee, department (and "No department"), type, category, status, date range by overlap, 25 per page, detail links only where the existing pages already allow them, an export link with the active filters.
+- Recap (`/recap`): leave balance per employee and period (entitlement, used, approved not deducted yet, in pending requests, remaining; current and next or all periods; projected next period), and requests per department and month (counts per category, overtime requests and hours; Approved by default, status filter, year). Each tab reads only its own filters.
+- CSV exports for all three (`App\Support\Csv`): streamed, BOM, CRLF, `CSV_DELIMITER` (default `;`), formula prefix, WIB times, no reason, note, evidence, username or email; 10 per minute per user; audit `report.exported` (report, filters, row count).
+- Migrations `2026_11_09_100000_add_report_indexes_to_requests` and `2026_11_09_100100_load_history_texts`. 37 new texts in English and Indonesian. Menu entries Request history and Recap. README section "History, recap and export"; `CSV_DELIMITER` in `.env.example`.
+
+### Verified
+- `php artisan test`: 1075 passed on `hr_system_test` (1025 before). New: `HistoryTest` (22), `RecapTest` (17), `ExportTest` (14), helper `tests/Concerns/SeedsReportData.php`. Changed on purpose: `RolePermissionSeederTest` (the new permission). Both pages and the balance export are checked for a constant query count when users and requests are added.
+- Mutation check: 79 safeguards removed one at a time, each file restored and confirmed by hash, source tree compared with a hash list afterwards (identical). 71 caught at first. Of the 8 survivors, 7 exposed weak tests and are now caught (filter fields shown to an Employee, an Approver's employee options, a non-existent date that rolls over, an unknown type, a category without a type in the export, the tie-break of the order, allocations read only for the users on the page). Redundant code found before the run was removed (the `requests.submit` test and `1 = 0` branch inside `Visibility::apply()`, unreachable behind `viewHistory`). **One survivor is kept on purpose:** `ignore_user_abort(true)` in the CSV stream, which only matters when a browser closes mid-download and cannot be shown in-process.
+- No real-process race test: this phase adds no write path except the audit row of an export, which has no competing writer.
+- `npm run build`, Pint, `composer audit`, `npm audit`: clean. No new packages.
+- `hr_system`: counts before (users 2, login_histories 5, audit_logs 19 with max id 323, recovery_codes 20, account_invitations 1, model_has_roles 2, departments 2, supervisor_user 1, leave_periods 2, leave_balance_entries 2, requests 0, permissions 13, role grants 18, translations 1333, sessions 2), `migrate:status` with the two migrations pending, backup `C:\laragon\backup\hr-system\hr_system-before-phase11-20261105-000943.sql` (562,826 bytes, "Dump completed", INSERTs for 19 tables), `migrate` ran both, `db:seed --class=RolePermissionSeeder --force` (permissions 14, role grants 19), `app:translations-missing` passes (1407 translations), `view:clear`.
+- Puppeteer (`C:\laragon\tmp\browser-check\phase11.mjs`, with `phase11-setup.php`, `phase11-cleanup.php`, `counts.php`) on hr-system.test: three temporary accounts (Employee, Approver, HR Admin) created through `CreateUserWithInvitation` with the owner as actor, activated through their real links and logged in with real TOTP codes; the Employee assigned to an existing department through `UpdateEmployment`; requests submitted and decided through the services. Final run: 63 checks passed, 0 console errors: menu entries, each role's rows, every filter (overlap range, open end, category switching to Leave, Clear filters), detail links (own to My requests, subordinate to Approvals, none for HR Admin on an Employee's request), balance numbers, department counts by default and with all statuses, the three exports (BOM, separator, filters in the link, no reason text, Indonesian headers), a real download by clicking Export CSV, every table fitting at 1024px, no horizontal scroll at 375px, the drawer, the pages in Indonesian. Screenshots reviewed.
+- Cleanup after each of the four runs: the zz-check users with their audit rows (exports included), login history, recovery codes, invitations, sessions, role links, supervisor link, requests, allocations, periods and ledger rows, in one transaction that checked each count. Afterwards every count matched the numbers before except the expected permission, role-grant and translation rows, and `sessions` 2 to 1: the cleanup deleted only the 3 zz-check sessions (its checked count); the other row was most likely an expired session removed by Laravel's session garbage collection (lottery 2/100, lifetime 120 minutes), which cannot be proven because its row was not recorded. The owner's two accounts are unchanged (same `updated_at`).
+
+### Bugs found
+- The browser check showed the history table cut off at 1024px (the Submitted column) and the balance table wider than its box. History now has three columns (submission time under the status); the balance table has one heading row per employee with narrow number columns and wrapping headers, the department table likewise; all checked to fit at 1024px.
+- The first browser run's CSV assertions were wrong, not the export: `fputcsv` quotes cells that contain spaces, which is valid CSV.
+
+### Known issues
+- Rows an HR Admin may see but not decide (an Employee's request) have no detail link, because the detail pages keep their Phase 9 and 10 rules (owner's instruction). The row shows type, dates, days or hours, status, decider and submission time.
+- The history export reads through a buffered MySQL cursor, so a very large export holds its result in PHP memory; fine for the expected size, to revisit in the deployment phase.
+- The Periods select on an Employee's recap is narrow at 1024px and cuts its Indonesian text.
+- The Indonesian texts are the agent's and await the owner's review.
+- Not tested: a spreadsheet program opening the CSV (format checked byte by byte), a browser closing mid-download, a real keyboard and a screen reader.
+
+### Decisions
+Recorded in README.md under "History, recap and export".
+- From the owner: who sees what, the filters, 25 per page, existing detail pages and evidence rule, both recaps with approved-not-deducted and pending apart, Approved by default, CSV format, formula prefix, audit without data.
+- Permission: one new permission `requests.view-all` instead of reading a role; subordinates through the existing `requests.decide` plus the current links.
+- Assumptions: an Approver's recap includes their own balance; a request counts in the month it starts; the department is the requester's current one; "remaining" subtracts approved-not-deducted days but not pending ones; a reversed date range is swapped; malformed filters count as no filter; the year filter offers the first request's year to next year; exports are limited to 10 per minute per user; the formula prefix is an apostrophe.
+
+### Owner steps
+- Review the new Indonesian texts.
+- Optional: set `CSV_DELIMITER` in `.env` for another separator. Nothing else: the migration and the permission seeder were run on `hr_system` in this phase.

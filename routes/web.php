@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Auth\TwoFactorEnrollmentController;
 use App\Http\Controllers\EvidenceController;
+use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ReviewLockController;
 use App\Http\Controllers\Security\AuthenticatorController;
 use App\Http\Controllers\Security\ConfirmationController;
@@ -19,16 +20,19 @@ use App\Livewire\Approvals\Index as ApprovalIndex;
 use App\Livewire\Approvals\Show as ApprovalShow;
 use App\Livewire\Dashboard;
 use App\Livewire\Departments\Index as DepartmentIndex;
+use App\Livewire\History\Index as HistoryIndex;
 use App\Livewire\Holidays\Index as HolidayIndex;
 use App\Livewire\Profile\LoginActivity;
 use App\Livewire\Profile\Sessions;
 use App\Livewire\Profile\Show as ProfileShow;
+use App\Livewire\Recap\Index as RecapIndex;
 use App\Livewire\Requests\Index as RequestIndex;
 use App\Livewire\Requests\Show as RequestShow;
 use App\Livewire\Security\Index as SecurityIndex;
 use App\Livewire\Users\Index as UserIndex;
 use App\Livewire\Users\LeaveBalance as UserLeaveBalance;
 use App\Livewire\Users\Show as UserShow;
+use App\Models\LeaveRequest;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 
@@ -116,6 +120,19 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
             ->whereIn('type', ['leave', 'overtime'])
             ->whereNumber('id')
             ->name('approvals.release');
+    });
+
+    // What each user sees here is App\Services\Reports\Visibility's rule, applied by the pages and the exports.
+    Route::middleware('can:viewHistory,'.LeaveRequest::class)->group(function () {
+        Route::livewire('/history', HistoryIndex::class)->name('history.index');
+        Route::livewire('/recap', RecapIndex::class)->name('recap.index');
+
+        // Controllers: the CSV is streamed. The same filters as the page, read from the query string.
+        Route::middleware('throttle:exports')->group(function () {
+            Route::get('/history/export', [ExportController::class, 'history'])->name('history.export');
+            Route::get('/recap/balance/export', [ExportController::class, 'balance'])->name('recap.balance.export');
+            Route::get('/recap/departments/export', [ExportController::class, 'departments'])->name('recap.departments.export');
+        });
     });
 
     // These act only on the logged-in user, so they take no ID and need no permission.

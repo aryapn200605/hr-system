@@ -17,4 +17,5 @@ enum PermissionName: string
     case HolidaysManage = 'holidays.manage';
     case RequestsSubmit = 'requests.submit';
     case RequestsDecide = 'requests.decide';
+    case RequestsViewAll = 'requests.view-all';
 }

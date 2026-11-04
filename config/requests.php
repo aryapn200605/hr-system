@@ -24,4 +24,16 @@ return [
     */
     'review_heartbeat_seconds' => 60,
 
+    /*
+    | CSV exports (history and recap). The separator defaults to a semicolon, which Excel expects in
+    | Indonesian (and other comma-decimal) locales. One character other than a quote or a line break;
+    | anything else falls back to the semicolon.
+    */
+    'csv_delimiter' => env('CSV_DELIMITER', ';'),
+
+    /*
+    | How many CSV exports one user may start per minute.
+    */
+    'exports_per_minute' => 10,
+
 ];

@@ -38,5 +38,8 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('activation', fn (Request $request) => Limit::perMinute(AuthThrottle::ACTIVATION_REQUESTS_PER_MINUTE)
             ->by(AuthThrottle::activationKey($request)));
+
+        RateLimiter::for('exports', fn (Request $request) => Limit::perMinute(config('requests.exports_per_minute'))
+            ->by('exports:'.$request->user()?->getKey()));
     }
 }

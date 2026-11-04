@@ -23,6 +23,11 @@
             </x-ui.nav-link>
         @endcan
 
+        @can('viewHistory', \App\Models\LeaveRequest::class)
+            <x-ui.nav-link :href="route('history.index')" icon="clock" :active="request()->routeIs('history.*')">{{ __('Request history') }}</x-ui.nav-link>
+            <x-ui.nav-link :href="route('recap.index')" icon="chart" :active="request()->routeIs('recap.*')">{{ __('Recap') }}</x-ui.nav-link>
+        @endcan
+
         {{-- Only a marker. Every page behind this menu checks the permission on the server itself. --}}
         @can(\App\Enums\PermissionName::UsersView->value)
             <x-ui.nav-link :href="route('users.index')" icon="users" :active="request()->routeIs('users.*')">{{ __('User Management') }}</x-ui.nav-link>

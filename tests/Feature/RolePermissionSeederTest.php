@@ -25,7 +25,7 @@ class RolePermissionSeederTest extends TestCase
             Role::pluck('name')->all(),
         );
         $this->assertEqualsCanonicalizing(
-            ['dashboard.view', 'users.view', 'users.create', 'users.update', 'users.suspend', 'users.invite', 'departments.manage', 'supervisors.manage', 'leave-balance.view', 'leave-balance.adjust', 'holidays.manage', 'requests.submit', 'requests.decide'],
+            ['dashboard.view', 'users.view', 'users.create', 'users.update', 'users.suspend', 'users.invite', 'departments.manage', 'supervisors.manage', 'leave-balance.view', 'leave-balance.adjust', 'holidays.manage', 'requests.submit', 'requests.decide', 'requests.view-all'],
             Permission::pluck('name')->all(),
         );
     }

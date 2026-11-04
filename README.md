@@ -15,7 +15,7 @@
 - Before any check that needs a service, `http://hr-system.test/up` must answer and MySQL must accept a connection on 127.0.0.1. If either is down, work that needs it stops until the owner starts Laragon.
 - Build assets with `npm run build` so Apache serves them. No Vite dev server is left running.
 - After changing views, run `php artisan view:clear`. A stale compiled view once kept the plain-text part of an email in English after its template had changed.
-- Browser checks run as a puppeteer script outside the project, in `C:\laragon\tmp\browser-check` (puppeteer 25.14.0, not in package.json): `node phase7.mjs <file with the activation link and password>`, `node phase8.mjs <setup.json>`. Screenshots go to its `shots` folder.
+- Browser checks run as a puppeteer script outside the project, in `C:\laragon\tmp\browser-check` (puppeteer 25.14.0, not in package.json): `node phase7.mjs <file with the activation link and password>`, `node phase8.mjs <setup.json>`; from Phase 10 on, from the project folder, `php phaseN-setup.php <setup.json>`, `node phaseN.mjs <setup.json>` and `php phaseN-cleanup.php`. Screenshots go to its `shots` folder.
 - Browser checks run on hr-system.test at 1024px and 375px. Temporary accounts there are created only through the application, with the username prefix `zz-check-`, and removed afterwards with a targeted delete, after which the counts of real accounts and their rows must match the numbers taken before.
 - The backup before an end-of-phase migration goes outside the repository, in `C:\laragon\backup\hr-system\`, and is read back before migrating. Never `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe` or truncate on `hr_system` without the owner's explicit approval.
 - Documents: CLAUDE.md (working rules), DECISIONS.md (business rules), SPEC.md (phases), PROGRESS.md (log and lessons), this README (technical decisions and commands).
@@ -291,6 +291,56 @@ The first layer of DECISIONS.md section 6 (`App\Services\Requests\ReviewLock`):
 - Taking, renewing and releasing are each one conditional `UPDATE` (free, mine, or expired), read back afterwards because MySQL reports 0 changed rows when a renewal in the same second writes the same values. It does not change `updated_at`.
 - **The soft lock never replaces the check at submit:** the decision re-reads the request under its row lock and refuses while someone else holds a live soft lock, so view-only mode also holds against a forged Livewire call. A lock that has expired does not stop anyone.
 
+## History, recap and export
+
+Built in Phase 11. The owner's Phase 11 decisions: who sees what, the filters, the two recaps and the CSV format.
+
+### Permission and pages
+
+| Permission | Allows | Roles |
+|---|---|---|
+| `requests.view-all` | every user's requests and balance in history, recap and exports | HR Admin |
+
+| Page | URL | Who |
+|---|---|---|
+| Request history | `/history` | anyone with `requests.submit` or `requests.view-all` |
+| Recap (tabs Leave balance, By department and month) | `/recap`, `/recap?tab=departments` | the same |
+| CSV exports | `GET /history/export`, `/recap/balance/export`, `/recap/departments/export` | the same, 10 per minute per user (`config/requests.php`) |
+
+Checked by the route (`can:viewHistory`, `RequestPolicy::viewHistory()`) and the Livewire `boot()`. After migrating, run `php artisan db:seed --class=RolePermissionSeeder --force` once (idempotent).
+
+### Who sees what
+
+`App\Services\Reports\Visibility` is the one rule, used by both pages and all three exports. It reads permissions, never a role name, and the links as they are now:
+
+- `requests.view-all`: everyone;
+- otherwise the user's own requests and balance;
+- with `requests.decide`, also those of the users linked to them now as supervisor (`supervisor_user`; links exist only to Approvers). A removed link hides that user at once. An Approver therefore sees their own requests and their subordinates' (including an HR Admin they supervise), and in the recap their own balance too ([ASSUMPTION]: "bawahannya" plus their own).
+
+Filters can only narrow this: a forged employee or department in a Livewire call or an export URL returns fewer rows, never more. Filters are plain strings checked by shape in `App\Services\Reports\ReportFilters`; a value of the wrong shape counts as no filter, and anything but a string in a Livewire update is a 422.
+
+### History
+
+- Both request types in one UNION query with the requester, current department, category and decider joined (`App\Services\Reports\RequestHistory`), newest submitted first, 25 per page.
+- Filters: employee and department (only offered to users who may see others; "No department" too), type, category (selects Leave; Overtime clears it), status, and a date range. **A request is listed when the dates it touches overlap the range** (leave: start to end; overtime: `first_date` to `last_date`, so overtime across midnight counts on both dates). Either end may stay open; a reversed range is read the right way round.
+- The department is the requester's department now, like the supervisor relation, not the one at submission.
+- **Detail links use the existing pages and their rules only:** the user's own request opens My requests; a request the user may decide now, or decided, opens Approvals (`RequestPolicy::review()`); any other row has no link ([ASSUMPTION]: for example an HR Admin looking at an Employee's request; the row itself shows type, dates, days or hours, status, decider and submission time). Evidence stays behind the existing download rule. The page never shows a reason, note or rejection reason.
+
+### Recap
+
+- **Leave balance** (`App\Services\Reports\BalanceRecap`): per visible user, 25 users per page, the latest real period (or every period with "All periods") plus the next period projected from the anchor date. Columns: entitlement, used, approved but not deducted yet (approved parts waiting for their period to open), in pending requests, and remaining = entitlement − used − approved not deducted yet. Pending days are shown apart and not subtracted. Parts are matched to a period by their first day, as on My requests. The recap only reads: it never opens a period.
+- **By department and month** (`App\Services\Reports\DepartmentRecap`): for one year, per current department and month, the number of leave requests per category, overtime requests and overtime hours. **Approved only by default**; the status filter offers the other statuses and "All statuses". A request counts in the month it starts (leave by its start date, overtime by its start time) ([ASSUMPTION]), so overtime from 31 December 20:00 counts in December. Only months with a request are listed.
+- Each tab reads only its own filters, so the employee filter of the balance tab does not narrow the department tab.
+- **Query counts are fixed:** the balance runs three queries for any page (users with department, periods, open allocations), the department recap two grouped queries, history one UNION plus a count and one query for the detail links. `HistoryTest`, `RecapTest` and `ExportTest` compare the query count before and after adding users and requests.
+
+### CSV export
+
+- `App\Support\Csv`, no library: `response()->streamDownload()`, rows written as they are read (history through a cursor, the balance in batches of 200 users), UTF-8 with a byte order mark, CRLF line ends, `Content-Disposition: attachment`, `no-store`.
+- **Separator:** `CSV_DELIMITER` in `.env` (default `;`, which Excel expects in Indonesian). Anything but one character other than a quote or a line break falls back to `;`.
+- **Formula injection:** a cell starting with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading `'`.
+- The rows are those the page shows for the same filters, read through the same services. Columns: type, request ID, employee name, department, category, start, end, working days, hours, status, submitted, decided by, decided; the balance and department recaps have the page's columns. Times are WIB as `Y-m-d H:i`, with "(WIB)" in the header; headers and labels follow the user's language. **Never exported:** reason, decision note, rejection reason, evidence, username, email.
+- **Audit:** `report.exported` with the report (`history`, `leave_balance`, `requests_by_department`), the filters in effect and the number of rows, written after the last row; no row data. The stream ignores a closed connection (`ignore_user_abort`) so the count is always written.
+
 ## Language
 
 The interface is in English or Indonesian. Each user picks a language in My Profile; guests, users who never chose, and users whose language was deactivated get the default, `APP_FALLBACK_LOCALE` (English). Account emails go out in the recipient's language: a password reset follows the user's choice, and an invitation is always in the default language, because the invitee has not chosen yet.
@@ -391,6 +441,8 @@ The formal register uses "Anda". The same English term always gets the same Indo
 | review (a request) | tinjau |
 | reason for rejection / note | alasan penolakan / catatan |
 | deducted / reserved | sudah dipotong / dicadangkan |
+| request history / recap / export | riwayat pengajuan / rekap / ekspor |
+| filter / date range (from, to) | filter / rentang tanggal (dari, sampai) |
 
 ## Mail
 

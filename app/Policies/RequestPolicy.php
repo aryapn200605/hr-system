@@ -7,6 +7,7 @@ use App\Enums\RequestStatus;
 use App\Models\LeaveRequest;
 use App\Models\OvertimeRequest;
 use App\Models\User;
+use App\Services\Reports\Visibility;
 use App\Services\Requests\Deciders;
 
 /**
@@ -15,7 +16,7 @@ use App\Services\Requests\Deciders;
  */
 class RequestPolicy
 {
-    public function __construct(private Deciders $deciders) {}
+    public function __construct(private Deciders $deciders, private Visibility $visibility) {}
 
     /**
      * Determine whether the actor may open My requests and submit. Whether the request has someone
@@ -56,6 +57,15 @@ class RequestPolicy
 
         return $request->decided_by === $actor->getKey()
             || $this->deciders->allows($actor, $request->user()->with('roles')->firstOrFail());
+    }
+
+    /**
+     * Determine whether the actor may open request history and recap. What they see there is
+     * App\Services\Reports\Visibility's question.
+     */
+    public function viewHistory(User $actor): bool
+    {
+        return $this->visibility->seesAnything($actor);
     }
 
     public function downloadEvidence(User $actor, LeaveRequest|OvertimeRequest $request): bool
