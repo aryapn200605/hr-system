@@ -47,35 +47,20 @@
             </dl>
         </x-ui.card>
 
-        <x-ui.card :title="__('Reason')">
-            <p class="px-5 py-4 text-sm whitespace-pre-line wrap-anywhere text-slate-800">{{ $record->reason }}</p>
-        </x-ui.card>
+        <div class="space-y-6">
+            <x-ui.card :title="__('Reason')">
+                <p class="px-5 py-4 text-sm whitespace-pre-line wrap-anywhere text-slate-800">{{ $record->reason }}</p>
+            </x-ui.card>
+
+            @if ($record->decided_at)
+                @include('livewire.requests.partials.decision', ['record' => $record])
+            @endif
+        </div>
     </div>
 
     @if ($record instanceof \App\Models\LeaveRequest && $record->allocations->isNotEmpty())
         <x-ui.card :title="__('Leave balance used per period')">
-            <x-ui.table :caption="__('Leave balance used per period')">
-                <x-slot:head>
-                    <tr>
-                        <th scope="col">{{ __('Period') }}</th>
-                        <th scope="col">{{ __('Dates in this period') }}</th>
-                        <th scope="col">{{ __('Working days') }}</th>
-                    </tr>
-                </x-slot:head>
-
-                @foreach ($record->allocations as $allocation)
-                    <tr wire:key="allocation-{{ $allocation->id }}">
-                        <td>
-                            <x-ui.date :value="$allocation->period_starts_on" /> – <x-ui.date :value="$allocation->period_ends_on" />
-                            @if ($allocation->isProjected())
-                                <x-ui.badge class="ml-1">{{ __('Projected') }}</x-ui.badge>
-                            @endif
-                        </td>
-                        <td><x-ui.date :value="$allocation->starts_on" /> – <x-ui.date :value="$allocation->ends_on" /></td>
-                        <td>{{ $allocation->days }}</td>
-                    </tr>
-                @endforeach
-            </x-ui.table>
+            @include('livewire.requests.partials.allocations', ['record' => $record])
         </x-ui.card>
     @endif
 

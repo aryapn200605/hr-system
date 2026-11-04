@@ -27,7 +27,7 @@ use Throwable;
  * reach past the next reset, the next one, projected from the anchor date with 12 days if the daily job
  * has not opened it yet. A request may not end after the end of that next period. Each part must fit
  * in what its period has left after the allocations of the user's pending requests. `used` changes
- * only on approval (Phase 10).
+ * only on approval (App\Services\Requests\Decisions).
  */
 class LeaveRequests
 {
@@ -269,7 +269,8 @@ class LeaveRequests
 
         return [
             new LeavePeriodSlot($current->getKey(), $start, $end, $current->entitlement, $current->used, $this->pending($user, $start, $end)),
-            new LeavePeriodSlot(null, $nextStart, $nextEnd, LeaveBalance::ENTITLEMENT, 0, $this->pending($user, $nextStart, $nextEnd)),
+            // Approved leave in the next period is charged when the period opens; until then it counts as used here.
+            new LeavePeriodSlot(null, $nextStart, $nextEnd, LeaveBalance::ENTITLEMENT, $this->balance->deferredDays($user, $nextStart, $nextEnd), $this->pending($user, $nextStart, $nextEnd)),
         ];
     }
 

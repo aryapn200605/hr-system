@@ -11,7 +11,7 @@ use LogicException;
 /**
  * A row of the leave balance ledger. The ledger is append-only: rows are never changed or removed.
  */
-#[Fillable(['leave_period_id', 'user_id', 'actor_id', 'type', 'change', 'before', 'after', 'reason'])]
+#[Fillable(['leave_period_id', 'user_id', 'actor_id', 'leave_request_id', 'type', 'change', 'before', 'after', 'reason'])]
 class LeaveBalanceEntry extends Model
 {
     public const UPDATED_AT = null;

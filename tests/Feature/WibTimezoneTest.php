@@ -38,9 +38,9 @@ class WibTimezoneTest extends TestCase
         'leave_balance_entries' => ['created_at'],
         'leave_categories' => ['created_at', 'updated_at'],
         'holidays' => ['created_at', 'updated_at'],
-        'leave_requests' => ['cancelled_at', 'created_at', 'updated_at'],
-        'leave_request_allocations' => ['created_at', 'updated_at'],
-        'overtime_requests' => ['start_at', 'end_at', 'cancelled_at', 'created_at', 'updated_at'],
+        'leave_requests' => ['cancelled_at', 'decided_at', 'review_locked_until', 'created_at', 'updated_at'],
+        'leave_request_allocations' => ['charged_at', 'created_at', 'updated_at'],
+        'overtime_requests' => ['start_at', 'end_at', 'cancelled_at', 'decided_at', 'review_locked_until', 'created_at', 'updated_at'],
     ];
 
     protected function setUp(): void

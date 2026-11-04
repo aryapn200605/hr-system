@@ -4,7 +4,7 @@
  * One competitor in AuthConcurrencyTest. It runs in its own PHP process with its own
  * database connection, waits for the agreed moment and prints the outcome.
  *
- * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email|prune|seed-translations|move|attach|detach|adjust|reset|sync-leave|leave|overtime|cancel-leave|cancel-overtime>
+ * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email|prune|seed-translations|move|attach|detach|adjust|reset|sync-leave|leave|overtime|cancel-leave|cancel-overtime|approve|reject|acquire>
  *        <user id> <code, invitation id, actor id, email or "actor id:argument"> <start time>
  */
 
@@ -15,10 +15,13 @@ use App\Models\AccountInvitation;
 use App\Models\RecoveryCode;
 use App\Models\User;
 use App\Services\LeaveBalance;
+use App\Services\Requests\Decisions;
 use App\Services\Requests\LeaveRequests;
 use App\Services\Requests\OvertimeRequests;
+use App\Services\Requests\ReviewLock;
 use App\Services\Supervisors;
 use App\Support\TwoFactor;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +67,12 @@ if (in_array($mode, ['leave', 'overtime'], true)) {
     $user->getAllPermissions();
 }
 
+// Decision modes act as the decider and pass "<leave|overtime>:<request id>" as the code.
+if (in_array($mode, ['approve', 'reject', 'acquire'], true)) {
+    [$requestType, $requestId] = explode(':', $code);
+    $user->getAllPermissions();
+}
+
 $reachedBarrier = microtime(true) < (float) $startAt;
 
 while (microtime(true) < (float) $startAt) {
@@ -71,6 +80,7 @@ while (microtime(true) < (float) $startAt) {
 }
 
 $invalid = false;
+$refused = false;
 $codes = [];
 
 try {
@@ -98,12 +108,18 @@ try {
         'overtime' => app(OvertimeRequests::class)->submit($user, ['start_at' => $parts[0], 'end_at' => $parts[1], 'reason' => 'Concurrent request test.']) !== null,
         'cancel-leave' => app(LeaveRequests::class)->cancel($user, $code) !== null,
         'cancel-overtime' => app(OvertimeRequests::class)->cancel($user, $code) !== null,
+        'approve' => app(Decisions::class)->approve($user, $requestType, $requestId, 'Concurrent decision test.') !== null,
+        'reject' => app(Decisions::class)->reject($user, $requestType, $requestId, 'Concurrent decision test.') !== null,
+        'acquire' => app(ReviewLock::class)->acquire($user, Decisions::model($requestType), (int) $requestId)?->isHeldBy($user->getKey()) ?? false,
     };
 } catch (AccountProtectionException) {
     $won = false;
 } catch (ValidationException) {
     $won = false;
     $invalid = true;
+} catch (AuthorizationException) {
+    $won = false;
+    $refused = true;
 }
 
-echo json_encode(['won' => $won, 'reached_barrier' => $reachedBarrier, 'invalid' => $invalid, 'codes' => $codes]);
+echo json_encode(['won' => $won, 'reached_barrier' => $reachedBarrier, 'invalid' => $invalid, 'refused' => $refused, 'codes' => $codes]);

@@ -24,6 +24,7 @@ class LeaveRequestAllocation extends Model
             'starts_on' => 'date',
             'ends_on' => 'date',
             'days' => 'integer',
+            'charged_at' => 'datetime',
         ];
     }
 

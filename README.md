@@ -165,12 +165,12 @@ Department and join date use the existing `users.update`. Every permission is ch
 - Every user has periods (`leave_periods`: start, end, entitlement, used) and an append-only ledger (`leave_balance_entries`: period, actor or null for the system, type, change, remaining days before and after, reason). The ledger model refuses update and delete, and no code deletes a period; only deleting a user row (which no screen offers) removes its periods and ledger by foreign key cascade.
 - **A new account gets its anchor date (today in WIB) and its first period with 12 days at once**, in the transaction that creates it, through the `User` model's `creating` and `created` events. This covers the invitation flow, `app:create-admin` and every other way a user row is created, without the daily job. Existing users got their anchor date from `DATE(created_at)` (already WIB after the Phase 6 shift) and their current period from the migration `2026_11_06_100300`.
 - **A period** runs from an anniversary of the anchor date to the day before the next one. Anniversaries are counted from the anchor with `addYearsNoOverflow`, never from the previous period: an anchor on 29 February gives 28 February in other years and the 29th again in leap years. The first period is the one that contains today, with the full 12 days ([ASSUMPTION] of DECISIONS.md). No carry over: remaining days stay on the old period, which simply ends.
-- **`app:leave-periods-sync`** opens every period that should have started by today, for every user including PENDING and SUSPENDED. It is idempotent and fills each missed period in turn, so a machine that was off loses no year. The leave balance page runs the same sync for the user it shows. A rollover is audited as `leave.balance_reset` with source `schedule`.
+- **`app:leave-periods-sync`** opens every period that should have started by today, for every user including PENDING and SUSPENDED. It is idempotent and fills each missed period in turn, so a machine that was off loses no year. The leave balance page runs the same sync for the user it shows. A rollover is audited as `leave.balance_reset` with source `schedule`. Opening a period also charges the approved leave that was waiting for it (Phase 10, "Approvals").
 - **Adjust**: a whole number of days between -365 and 365 (not 0) and a reason of 10 to 1000 characters, on the current period only. The remaining days can never go below 0. Audited as `leave.balance_adjusted`.
 - **Reset period**: the current period ends yesterday and a new one with 12 days starts today, until the day before the next anniversary. The anchor does not move. Refused when the current period started today. Reason required. Audited with source `manual`.
 - **Change anchor date** (2000-01-01 to today): the current period keeps its dates. The new anchor sets the end of every period from the next one on, so that next period can be shorter (or longer) than a year. The dialog has a "use the account creation date" button. Audited as `leave.anchor_changed` with both dates.
 - **Nobody adjusts, resets or re-anchors their own balance**, an HR Admin included: another HR Admin must do it. Refused by `UserPolicy::adjustLeaveBalance()`, which the service and the page both ask.
-- **Locking:** every change locks the user's row first, so the daily job, a reset and adjustments of one user run one after another; period rows need no lock of their own.
+- **Locking:** every change locks the user's row first, so the daily job, a reset, adjustments and approvals of one user run one after another. An approval also locks the periods it charges, by start date (see "Approvals", Lock order).
 
 ### Translation seeder lock
 
@@ -187,7 +187,7 @@ Built in Phase 9. Business rules: DECISIONS.md sections 4, 8 and 9, plus the own
 | `requests.submit` | `/requests` (My requests), `/requests/{leave\|overtime}/{id}` (detail and cancel), evidence download | HR Admin, Approver, Employee |
 | `holidays.manage` | `/holidays`: add, edit and delete holidays | HR Admin |
 
-Checked by the route, the Livewire `boot()` and the service. After migrating, run `php artisan db:seed --class=RolePermissionSeeder --force` once (idempotent) so every role gets its new permission. A request is visible only to its requester in this phase (`App\Policies\RequestPolicy`); someone else's request, by URL or by forged Livewire call, is a 404. Phase 10 adds the people who decide.
+Checked by the route, the Livewire `boot()` and the service. After migrating, run `php artisan db:seed --class=RolePermissionSeeder --force` once (idempotent) so every role gets its new permission. On My requests a request is visible only to its requester (`App\Policies\RequestPolicy`); someone else's request, by URL or by forged Livewire call, is a 404. The people who may decide it see it under Approvals (below).
 
 ### Approval path
 
@@ -217,13 +217,79 @@ Checked by the route, the Livewire `boot()` and the service. After migrating, ru
 ### Cancel, locking and limits
 
 - The requester cancels a pending request from its detail page. A page opened before the request was cancelled or decided shows the reason instead of the dialog, and a second cancel is refused with the status.
-- **Lock order for every request change, now and in Phase 10: the requester's user row first, then the request row.** Every submission and cancellation of one user runs one after another, so the overlap and balance checks read a state nobody can change meanwhile. The user row lock is the first statement of the transaction.
+- **Locks:** a submission locks the requester's user row as its first statement, so every submission of one user runs one after another and the overlap and balance checks read a state nobody can change meanwhile. A cancellation locks only the request row. Decisions take more locks in a fixed order: see "Approvals", Lock order.
 - Submissions are limited to 10 per minute per user (`config/requests.php`).
 - Audit: `leave_request.created` (category, dates, days, allocations), `overtime_request.created` (times, hours), `leave_request.cancelled`, `overtime_request.cancelled`, `request.evidence_uploaded` (type and size), `holiday.created`, `holiday.updated`, `holiday.deleted`. No reason text and no file name.
 
 ### Holidays
 
 `/holidays`, permission `holidays.manage`: one holiday per date, name up to 100 characters, dates from 2000-01-01 to the end of the year after next ([ASSUMPTION]). A change affects only requests submitted afterwards.
+
+## Approvals
+
+Built in Phase 10. Business rules: DECISIONS.md sections 3, 5 and 6, plus the owner's Phase 10 decisions on projected periods, lock order and the soft lock.
+
+### Permission and pages
+
+| Permission | Allows | Roles |
+|---|---|---|
+| `requests.decide` | `/approvals` (inbox: Waiting for me, Decided by me), `/approvals/{leave\|overtime}/{id}` (detail, Approve, Reject), `POST /approvals/{type}/{id}/release` | HR Admin, Approver |
+
+Checked by the route, the Livewire `boot()` and `App\Services\Requests\Decisions`. After migrating, run `php artisan db:seed --class=RolePermissionSeeder --force` once (idempotent). The menu entry "Approvals" shows how many pending requests wait for the user. The inbox lists both request types together, oldest first, with a type filter; "Decided by me" lists the user's decisions, newest first.
+
+### Who decides
+
+`App\Services\Requests\Deciders` is the one rule, read from the database at the moment of every action, never from the state at submission:
+
+| Requester | Decided by |
+|---|---|
+| Employee | an ACTIVE Approver linked to them as supervisor |
+| HR Admin | an ACTIVE Approver linked to them as supervisor |
+| Approver | any ACTIVE HR Admin (their own supervisors do not decide) |
+
+The decider also needs `requests.decide`. Nobody decides their own request: the role that decides is never the requester's role, and a user has one role. A user without a role has nobody. If a link is removed, a supervisor is suspended or a role changes while a page is open, the next action says "You cannot decide this request." and is audited. The requester's own status does not matter: a pending request of a suspended user can still be decided ([ASSUMPTION]).
+
+Who may open a request under Approvals: anyone who may decide it now (pending or not, so a second supervisor sees who decided first), and whoever decided it, even after losing the link (`RequestPolicy::review()`). Everyone else gets a 404. The same people may download its evidence.
+
+### Deciding
+
+- **Approve** with an optional note (up to 1000 characters); **Reject** with a reason of 5 to 1000 characters after trimming. The requester sees both on their request, with who decided and when (WIB).
+- A request that is no longer pending is not an error: "This request was already decided: Approved by X on 4 Nov 2026, 13:45 WIB." or "The requester cancelled this request on …". A cancel that loses against a decision gets "This request is no longer pending: it is Approved."
+- Overtime approval touches no balance. The overtime detail shows, for each date the request touches, the requester's approved and pending overtime hours on that date (hours across midnight count on the date they are worked). There is no daily limit (DECISIONS.md section 4).
+- Audit: `leave_request.approved`, `leave_request.rejected`, `overtime_request.approved`, `overtime_request.rejected` (requester, whether a note was given, the charged parts; never the note or reason text), and `request.decision_refused` with reason `no_authority` or `insufficient_balance`, written after the transaction has rolled back.
+
+### Leave balance on approval
+
+Approving a leave request of a deducting category (`LeaveBalance::chargeApproved()`), in the decision's transaction:
+
+- Each allocation part is charged to the **real period that holds the part's first day**. Normally that is the period with the same start date as the projection at submission (the owner's rule). After a manual reset or an anchor change it is the period that now holds those dates, which is also how pending days are counted (Phase 9). A period that has started but was not opened yet (the daily job did not run) is opened first by `LeaveBalance::sync()` under the user row lock. **A closed period can be charged, through this path only.**
+- **A part in a period that has not started yet** ([ASSUMPTION]: the owner's rule covers a period that has started but was not opened): it is checked against that projected period (12 days minus parts already approved there), stays with `charged_at` null, and is charged by `sync()` the moment it opens the period, with a ledger row in the approver's name. Periods are never created ahead of time, so reset, re-anchor and the daily job keep working as in Phase 8. Until then the projected next period on My requests counts those days as used.
+- Every part must fit in its period's remaining days (entitlement − used) at the moment of approval; other pending requests do not count against it. If one does not fit, nothing is charged, the request stays pending, the decider sees "Not enough leave balance in the period …: this request needs N working days, M remain. The request stays pending.", and the refusal is audited.
+- Each charge adds to `used`, writes a ledger row of type `deducted` ("Leave approved") naming the request (`leave_balance_entries.leave_request_id`) and the approver, and sets the allocation's `leave_period_id` and `charged_at`. The detail pages show each part as Reserved, Deducted, Deducted when the period opens, or Not deducted.
+- Non-deducting categories and rejections never touch the balance.
+- Approved deductions do not move when HR later resets a period or changes the anchor ([ASSUMPTION]); cancelling an approved request is not built (DECISIONS.md section 7).
+
+### Lock order
+
+Every decision runs in one transaction and takes its locks in this order (the owner's Phase 10 decision):
+
+1. the HR Admin role row, **shared** (`User::shareAccountLock()`): roles, statuses and supervisor links change only under its exclusive lock (`User::withinAccountLock()`), so who may decide cannot change while a decision runs, and decisions do not wait for each other;
+2. the request row (`FOR UPDATE`); its status and soft lock are then read again;
+3. the requester's user row, **before any plain read**: MySQL's REPEATABLE READ fixes a transaction's snapshot at its first plain read, so taking it after this lock makes every balance change of the user that committed before visible;
+4. the leave periods to charge, ordered by start date.
+
+The other writers fit this order: a cancellation locks only the request row; a submission, the daily job, adjustments and resets lock only the user row and then periods; account changes lock the role row exclusively and then user rows. No two of them can wait for each other in a circle. `ApprovalConcurrencyTest` runs the critical pairs in separate processes on committed rows (two to four supervisors at once, approve against cancel, two requests for the last days, approve against an HR adjustment, approve against a supervisor being suspended or unlinked, soft-lock takeover, soft lock against decision); a deadlock would fail the process and the test. The mutation check showed why step 3 must come before any plain read: with the snapshot taken earlier (reading the decider first), two approvals for the last days both went through when the period lock was removed, and the sum of approved parts waiting for a future period, which has no row to lock, was exposed. The period row lock (step 4) is kept as the owner asked, although with step 3 in place it is redundant (its removal is the one mutation that survives).
+
+### Soft lock
+
+The first layer of DECISIONS.md section 6 (`App\Services\Requests\ReviewLock`):
+
+- Two columns on each request, `review_locked_by` and `review_locked_until`. No table and no background job: expiry is checked whenever the lock is read or taken.
+- Opening a pending request takes the lock for 5 minutes (`config/requests.php`, `review_lock_minutes`). The page renews it every 60 seconds (`wire:poll`, `review_heartbeat_seconds`) while it holds it. Browsers slow down polling in background tabs, so a forgotten tab lets the lock lapse.
+- Anyone else who may decide sees **view-only mode**: "X is reviewing this request until 10:05 WIB. You can view it, but not decide it now.", without Approve and Reject. The page refreshes every 30 seconds; once the lock is free it offers "Start reviewing".
+- **Released** by "Back to approvals", by a decision, and when the tab is closed or left: the page sends `navigator.sendBeacon()` to `approvals.release` on `pagehide`, because a Livewire call does not survive the unload. The release only clears a lock the user holds.
+- Taking, renewing and releasing are each one conditional `UPDATE` (free, mine, or expired), read back afterwards because MySQL reports 0 changed rows when a renewal in the same second writes the same values. It does not change `updated_at`.
+- **The soft lock never replaces the check at submit:** the decision re-reads the request under its row lock and refuses while someone else holds a live soft lock, so view-only mode also holds against a forged Livewire call. A lock that has expired does not stop anyone.
 
 ## Language
 
@@ -319,6 +385,12 @@ The formal register uses "Anda". The same English term always gets the same Indo
 | holiday | hari libur |
 | evidence | bukti |
 | projected (period) | proyeksi |
+| approvals / approve / reject | persetujuan / setujui / tolak |
+| decision / decided by | keputusan / diputuskan oleh |
+| requester | pemohon |
+| review (a request) | tinjau |
+| reason for rejection / note | alasan penolakan / catatan |
+| deducted / reserved | sudah dipotong / dicadangkan |
 
 ## Mail
 

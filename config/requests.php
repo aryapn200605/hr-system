@@ -13,4 +13,15 @@ return [
     */
     'submissions_per_minute' => 10,
 
+    /*
+    | How long the soft review lock of a decider lasts without a heartbeat, in minutes
+    | (DECISIONS.md section 6). The approval page renews it every minute while it is open.
+    */
+    'review_lock_minutes' => 5,
+
+    /*
+    | How often the approval page renews its soft lock, in seconds. Must stay well below the lock.
+    */
+    'review_heartbeat_seconds' => 60,
+
 ];

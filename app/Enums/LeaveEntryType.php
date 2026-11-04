@@ -16,6 +16,9 @@ enum LeaveEntryType: string
     /** A manual reset ended the period early. The remaining days do not move: they lapse with the period. */
     case Closed = 'closed';
 
+    /** An approved leave request used days of this period. The row names the request. */
+    case Deducted = 'deducted';
+
     /**
      * The name shown on screen.
      */
@@ -25,6 +28,7 @@ enum LeaveEntryType: string
             self::Opened => __('Period opened'),
             self::Adjusted => __('Adjusted'),
             self::Closed => __('Closed by reset'),
+            self::Deducted => __('Leave approved'),
         };
     }
 }

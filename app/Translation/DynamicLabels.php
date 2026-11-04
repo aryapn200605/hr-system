@@ -31,6 +31,7 @@ class DynamicLabels
         'Period opened',
         'Adjusted',
         'Closed by reset',
+        'Leave approved',
         // App\Enums\RequestStatus::label()
         'Pending approval',
         'Approved',

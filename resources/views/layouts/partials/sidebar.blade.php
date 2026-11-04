@@ -11,6 +11,18 @@
             <x-ui.nav-link :href="route('requests.index')" icon="clipboard" :active="request()->routeIs('requests.*')">{{ __('My requests') }}</x-ui.nav-link>
         @endcan
 
+        @can(\App\Enums\PermissionName::RequestsDecide->value)
+            @php($waiting = app(\App\Services\Requests\Deciders::class)->waitingCount($user))
+            <x-ui.nav-link :href="route('approvals.index')" icon="inbox" :active="request()->routeIs('approvals.*')" data-nav-approvals>
+                <span class="flex-1">{{ __('Approvals') }}</span>
+                @if ($waiting > 0)
+                    <x-ui.badge tone="amber" data-waiting-count>
+                        {{ $waiting }}<span class="sr-only"> {{ __('waiting for your decision') }}</span>
+                    </x-ui.badge>
+                @endif
+            </x-ui.nav-link>
+        @endcan
+
         {{-- Only a marker. Every page behind this menu checks the permission on the server itself. --}}
         @can(\App\Enums\PermissionName::UsersView->value)
             <x-ui.nav-link :href="route('users.index')" icon="users" :active="request()->routeIs('users.*')">{{ __('User Management') }}</x-ui.nav-link>

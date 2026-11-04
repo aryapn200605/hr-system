@@ -179,6 +179,40 @@ class User extends Authenticatable implements HasLocalePreference
     }
 
     /**
+     * Whether this user holds the Approver role, the role that supervises (read from the loaded roles).
+     */
+    public function isApprover(): bool
+    {
+        return $this->roleName() === RoleName::Approver->value;
+    }
+
+    /**
+     * Whether this user holds the HR Admin role (read from the loaded roles).
+     */
+    public function isHrAdmin(): bool
+    {
+        return $this->roleName() === RoleName::HrAdmin->value;
+    }
+
+    /**
+     * Scope the query to users whose requests go to a supervisor: Employee and HR Admin.
+     */
+    #[Scope]
+    protected function requestingFromSupervisor(Builder $query): void
+    {
+        $query->whereHas('roles', fn (Builder $roles) => $roles->whereIn('name', [RoleName::Employee->value, RoleName::HrAdmin->value]));
+    }
+
+    /**
+     * Scope the query to users whose requests go to any active HR Admin: Approvers.
+     */
+    #[Scope]
+    protected function requestingFromHrAdmin(Builder $query): void
+    {
+        $query->whereHas('roles', fn (Builder $roles) => $roles->where('name', RoleName::Approver->value));
+    }
+
+    /**
      * Whether an active Approver supervises this user now.
      */
     public function hasActiveSupervisor(): bool
@@ -694,6 +728,19 @@ class User extends Authenticatable implements HasLocalePreference
 
             return $callback();
         });
+    }
+
+    /**
+     * Hold the same row in shared mode for the rest of the caller's transaction. Decisions on requests
+     * take it first, so who may decide cannot change while one runs, yet decisions do not wait for each other.
+     */
+    public static function shareAccountLock(): void
+    {
+        if (DB::transactionLevel() === 0) {
+            throw new LogicException('The shared account lock needs a transaction.');
+        }
+
+        Role::query()->where('name', RoleName::HrAdmin->value)->sharedLock()->first();
     }
 
     /**

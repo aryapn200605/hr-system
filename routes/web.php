@@ -8,12 +8,15 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Auth\TwoFactorEnrollmentController;
 use App\Http\Controllers\EvidenceController;
+use App\Http\Controllers\ReviewLockController;
 use App\Http\Controllers\Security\AuthenticatorController;
 use App\Http\Controllers\Security\ConfirmationController;
 use App\Http\Controllers\Security\IdentityController;
 use App\Http\Controllers\Security\PasswordController;
 use App\Http\Controllers\Security\RecoveryCodeController;
 use App\Http\Middleware\EnsurePendingLogin;
+use App\Livewire\Approvals\Index as ApprovalIndex;
+use App\Livewire\Approvals\Show as ApprovalShow;
 use App\Livewire\Dashboard;
 use App\Livewire\Departments\Index as DepartmentIndex;
 use App\Livewire\Holidays\Index as HolidayIndex;
@@ -100,6 +103,19 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
             ->whereIn('type', ['leave', 'overtime'])
             ->whereNumber('id')
             ->name('requests.evidence');
+    });
+
+    Route::middleware('can:'.PermissionName::RequestsDecide->value)->group(function () {
+        Route::livewire('/approvals', ApprovalIndex::class)->name('approvals.index');
+        Route::livewire('/approvals/{type}/{id}', ApprovalShow::class)
+            ->whereIn('type', ['leave', 'overtime'])
+            ->whereNumber('id')
+            ->name('approvals.show');
+        // A controller: the page calls it with sendBeacon() while closing, when Livewire can no longer answer.
+        Route::post('/approvals/{type}/{id}/release', [ReviewLockController::class, 'destroy'])
+            ->whereIn('type', ['leave', 'overtime'])
+            ->whereNumber('id')
+            ->name('approvals.release');
     });
 
     // These act only on the logged-in user, so they take no ID and need no permission.

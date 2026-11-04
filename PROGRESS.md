@@ -16,7 +16,8 @@
 - Phase 7 (Language mechanism): done, see "Phase 7" below.
 - Phase 8 (Organization and leave balance): done, see "Phase 8" below.
 - Phase 9 (Requests): done, see "Phase 9" below.
-- **Next: Phase 10 (Approvals).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
+- Phase 10 (Approvals): done, see "Phase 10" below.
+- **Next: Phase 11 (History, recap, CSV export).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -483,4 +484,58 @@ Recorded in README.md under "Requests".
 
 ### Owner steps
 - Review the new Indonesian texts (`database/translations/id.php`, or switch My Profile to Bahasa Indonesia).
+- Nothing else: the migration and the permission seeder were run on `hr_system` in this phase.
+
+## Phase 10: Approvals (2026-11-04)
+
+### Plan (Step 0)
+Columns `decided_by`, `decided_at`, `decision_note`, `review_locked_by`, `review_locked_until` on both request tables, `leave_request_allocations.charged_at`, `leave_balance_entries.leave_request_id`, ledger type `deducted`; permission `requests.decide` (Approver, HR Admin); services `Deciders`, `Decisions`, `ReviewLock`, `LeaveBalance::chargeApproved()`; routes `/approvals`, `/approvals/{type}/{id}`, `POST /approvals/{type}/{id}/release`. The owner decided the three technical questions in the phase prompt: a projected part maps to the real period with the same start date, opened through the sync service under the user lock if the daily job has not run, and closed periods may be charged by this path only; lock order role lock, request, user, periods by start date, proven by race tests; soft lock storage and expiry left to the agent (about 5 minutes, heartbeat, released on close, no job). Also from the owner: rejection reason at least 5 characters, optional note, authority evaluated at every action, the overtime page shows the day's total.
+
+### Done
+- Migration `2026_11_08_100000_add_decisions_to_requests` (decision and soft-lock columns, inbox indexes, `charged_at`, ledger link to the request) and `2026_11_08_100100_load_approval_texts` (texts through `TranslationSeeder`).
+- `App\Services\Requests\Deciders`: the one rule (Employee and HR Admin by a linked active Approver, Approver by any active HR Admin, `requests.decide` required), read from the database at every action; also the inbox query and the menu count.
+- `App\Services\Requests\Decisions`: approve (optional note, max 1000) and reject (reason 5 to 1000 after trimming) in one transaction with the fixed lock order; "already decided by X on …" and "the requester cancelled …" instead of errors; refusals for no authority or insufficient balance audited after the rollback.
+- `LeaveBalance::chargeApproved()`: each part charged to the real period holding its first day, started-but-unopened periods opened by `sync()`, closed periods chargeable, parts in a period that has not started kept and charged by `sync()` when it opens (ledger in the approver's name); insufficient balance keeps the request pending. The projected next period counts those waiting days as used.
+- Soft lock (`ReviewLock`, two columns, no job): 5 minutes, heartbeat every 60 s while held, view-only mode with the holder's name for others, "Start reviewing" once free, released by Back, by the decision and by a `sendBeacon` on `pagehide`. The decision refuses while someone else holds a live lock.
+- Pages: Approvals inbox (Waiting for me oldest first, Decided by me, type filter, count in the menu), detail (requester, department, dates or hours, allocations with their state, the requester's balance per period, overtime hours per date, evidence, decision), Approve and Reject dialogs. The requester's detail page shows who decided, when, and the note or rejection reason. `RequestPolicy::review()` lets deciders and whoever decided open the request and its evidence; anyone else gets a 404.
+- Audit: `leave_request.approved|rejected`, `overtime_request.approved|rejected` (no note or reason text), `request.decision_refused` (`no_authority`, `insufficient_balance`).
+- 57 new texts in English and Indonesian; "Leave approved" registered as a dynamic label.
+- README: section "Approvals" (who decides, deciding, balance, lock order, soft lock), standard terms, the Phase 8 and 9 notes on locks updated.
+
+### Verified
+- `php artisan test`: 1025 passed on `hr_system_test` (940 before). New: `ApprovalTest` (29 tests plus 7 data sets), `LeaveApprovalBalanceTest` (14), `ApprovalPagesTest` (27), `ApprovalConcurrencyTest` (8). Changed on purpose: `RolePermissionSeederTest` (the new permission; the Approver test split from the Employee one), `WibTimezoneTest` (new time columns), `tests/Support/race.php` (modes approve, reject, acquire).
+- Real races (separate processes, committed rows, 3 rounds each): four supervisors deciding one request (one wins, one ledger row), approve against cancel (leave and overtime), two requests for the last days, two approvals waiting for the same future period, approve against an HR adjustment (no overspend, ledger matches), approve against the supervisor being suspended and being unlinked (approved only before the change, otherwise refused and audited), takeover of an expired soft lock (one winner), soft lock against decision. No deadlock in any run.
+- Mutation check: 85 safeguards removed one at a time, each file restored and confirmed by hash, source tree compared with a hash list afterwards (identical). 74 caught at first. Of the 11 survivors: 2 were redundant code and were removed (the Approver role test in `Deciders::allows()`, since links exist only to Approvers; `abort_if` after `filter_var`, since `find(false)` is already a 404); 9 exposed weak tests and are now caught (permission revoked from the role, suspended supervisor with links, Approver subordinate, a reset after an approval, a part beyond a shortened next period, both pages' `boot()`, the view-only heartbeat, evidence for a demoted former decider). Updated mutations for the changed code are caught. **A check of the one suspicious catch found a real bug** (see Bugs found). Final: every mutation is caught except one kept on purpose: removing the period row lock, which the owner asked for and which is redundant behind the user row lock.
+- `npm run build`, Pint, `composer audit`, `npm audit`: clean. No new packages.
+- `hr_system`: counts before (users 2, login_histories 5, audit_logs 19 with max id 323, recovery_codes 20, account_invitations 1, model_has_roles 2, departments 2, supervisor_user 1, leave_periods 2, leave_balance_entries 2, requests 0, translations 1219), `migrate:status` with the two migrations pending, backup `C:\laragon\backup\hr-system\hr_system-before-phase10-20261104-215343.sql` (441,221 bytes, "Dump completed", INSERTs for 19 tables), `migrate` ran the two migrations, `db:seed --class=RolePermissionSeeder --force` (permissions 12 to 13, role grants 16 to 18), `app:translations-missing` passes (1333 translations), `view:clear`. The owner's two accounts unchanged (same `updated_at`).
+- Puppeteer (`C:\laragon\tmp\browser-check\phase10.mjs`, with `phase10-setup.php`, `phase10-cleanup.php`, `counts.php`) on hr-system.test: four temporary accounts (Employee, two Approvers, HR Admin) created through `CreateUserWithInvitation` with the owner as actor, each activated through its real link and logged in with real TOTP codes in its own browser context; requests seeded through the services. Final run: 66 checks passed, 0 unexpected console errors (one expected: the Employee's deliberate visit to `/approvals`, 403). Menu count, inbox order and filter, lock holder and view-only page with the name, Approve dialog with the deduction sentence, toast, Deducted, the second supervisor told who decided, Reject with a short reason refused then saved, overtime hours per date across midnight, release by Back and by closing the tab (beacon, checked in the database), Decided by me, HR Admin deciding an Approver's request, the requester's view and balance, every page and both dialogs at 375px, the drawer, the pages and a validation message in Indonesian. Screenshots reviewed.
+- Cleanup after each of the two runs: the zz-check users with their audit rows, login history, recovery codes, invitations, sessions, role links, supervisor links, requests, allocations, periods and ledger rows, in one transaction that checked each count. Afterwards every count matched the numbers before.
+
+### Bugs found
+- **Stale snapshot in decisions** (found by the mutation check): the decision read the decider before locking the requester's row, which fixed MySQL's REPEATABLE READ snapshot too early. Only the period `FOR UPDATE` hid it for real periods; the sum of approved parts waiting for a future period (no row to lock) was exposed, so two approvals could exceed that period's 12 days. The requester's row is now locked right after the request row, before any plain read; a new race test proves it, and removing the lock is caught.
+- The browser check showed the inbox table cut off at 1024px (Submitted and the button off-screen; Decided by me had 7 columns). It now has three columns with a second line each and the requester's name as the link; checked to fit at 1024px.
+- An old rejection-reason error stayed in the dialog after the reason was fixed (the service validates, not the component). The error bag is now cleared before each attempt.
+
+### Known issues
+- Tables on the detail page (overtime hours per date, allocations) and the inbox scroll sideways inside their box at 375px, like the other tables.
+- Requests submitted within the same second have no meaningful order between leave and overtime in the inbox (ties broken by ID per table).
+- The menu count is computed when a page loads; a Livewire update does not refresh it.
+- A beacon sent on reload may arrive after the reloaded page took the lock again and clear it; the next heartbeat takes it back within a minute (a short window for another decider).
+- The Indonesian texts are the agent's and await the owner's review.
+- Not tested: a real keyboard and a screen reader; a browser tab left in the background for over 5 minutes (polling throttled by the browser).
+
+### Lessons
+- Under MySQL's REPEATABLE READ, a lock taken after the transaction's first plain read does not make later plain reads fresh. Lock the rows that guard a check before any plain read, or read the guarded data with `FOR UPDATE`.
+- A mutation that is "caught" suspiciously fast deserves the same look as a survivor.
+- Livewire turns an `AuthorizationException` in a test call into a 403 response: assert with `assertForbidden()`.
+- Check the width of a table at 1024px beside the menu, not only at 375px.
+
+### Decisions
+Recorded in README.md under "Approvals".
+- From the owner: the three answers above, rejection reason at least 5 characters, optional note, authority at every action, the deciders per role, the overtime day total.
+- Assumptions: a part in a period that has not started yet is approved against the projection and charged when the period opens (periods are never created ahead); after a reset or anchor change a part is charged to the period that now holds its first day; approved deductions do not move on a later reset or anchor change; a suspended requester's pending request can still be decided; whoever decided keeps read access; a view-only page does not take a free lock by itself; lock 5 minutes, heartbeat 60 seconds, view-only refresh 30 seconds; no rate limit on decisions.
+- Deviation to note: the owner's order "request, then user" is followed, while the Phase 9 note said "user row first, then request row" for Phase 10; that note is corrected. Both are deadlock-free with the current code.
+
+### Owner steps
+- Review the new Indonesian texts.
 - Nothing else: the migration and the permission seeder were run on `hr_system` in this phase.

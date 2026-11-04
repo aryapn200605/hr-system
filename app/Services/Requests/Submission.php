@@ -14,10 +14,10 @@ use Illuminate\Validation\ValidationException;
  * The steps leave and overtime requests share: permission, rate limit, the requester lock with the
  * approval path check, and cancellation.
  *
- * Lock order, for every request change now and in Phase 10: the requester's user row first, then
- * the request row. Locking the user row serializes every submission of one user, so overlap and
- * balance checks read a state no other submission can change meanwhile. A cancellation only frees
- * dates and balance, so it needs the request row alone.
+ * Locks: a submission locks the requester's user row first, which serializes every submission of one
+ * user, so overlap and balance checks read a state no other submission can change meanwhile. A
+ * cancellation only frees dates and balance, so it needs the request row alone. A decision takes the
+ * request row and then the user row (App\Services\Requests\Decisions, README "Approvals").
  */
 class Submission
 {
@@ -81,7 +81,7 @@ class Submission
         $id = filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         abort_if($id === false, 404);
 
-        // The request row lock alone serializes cancels and, in Phase 10, decisions on this request.
+        // The request row lock alone serializes cancels and decisions on this request.
         $request = $model::query()->where('user_id', $actor->getKey())->lockForUpdate()->findOrFail($id);
 
         if ($request->status !== RequestStatus::Pending) {

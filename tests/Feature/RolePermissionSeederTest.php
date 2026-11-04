@@ -25,7 +25,7 @@ class RolePermissionSeederTest extends TestCase
             Role::pluck('name')->all(),
         );
         $this->assertEqualsCanonicalizing(
-            ['dashboard.view', 'users.view', 'users.create', 'users.update', 'users.suspend', 'users.invite', 'departments.manage', 'supervisors.manage', 'leave-balance.view', 'leave-balance.adjust', 'holidays.manage', 'requests.submit'],
+            ['dashboard.view', 'users.view', 'users.create', 'users.update', 'users.suspend', 'users.invite', 'departments.manage', 'supervisors.manage', 'leave-balance.view', 'leave-balance.adjust', 'holidays.manage', 'requests.submit', 'requests.decide'],
             Permission::pluck('name')->all(),
         );
     }
@@ -40,16 +40,24 @@ class RolePermissionSeederTest extends TestCase
         );
     }
 
-    public function test_approver_and_employee_can_only_view_the_dashboard_and_submit_requests(): void
+    public function test_employee_can_only_view_the_dashboard_and_submit_requests(): void
     {
         $this->seed(RolePermissionSeeder::class);
 
-        foreach ([RoleName::Approver, RoleName::Employee] as $role) {
-            $this->assertEqualsCanonicalizing(
-                ['dashboard.view', 'requests.submit'],
-                Role::findByName($role->value)->permissions->pluck('name')->all(),
-            );
-        }
+        $this->assertEqualsCanonicalizing(
+            ['dashboard.view', 'requests.submit'],
+            Role::findByName(RoleName::Employee->value)->permissions->pluck('name')->all(),
+        );
+    }
+
+    public function test_approver_can_also_decide_requests(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+
+        $this->assertEqualsCanonicalizing(
+            ['dashboard.view', 'requests.submit', 'requests.decide'],
+            Role::findByName(RoleName::Approver->value)->permissions->pluck('name')->all(),
+        );
     }
 
     public function test_it_can_run_twice_without_duplicates(): void

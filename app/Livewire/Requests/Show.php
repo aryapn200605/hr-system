@@ -86,6 +86,7 @@ class Show extends Component
     public function render(): mixed
     {
         $record = $this->record();
+        $record->load('decider');
 
         if ($record instanceof LeaveRequest) {
             $record->load(['category', 'allocations']);

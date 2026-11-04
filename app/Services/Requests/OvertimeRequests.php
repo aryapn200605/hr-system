@@ -87,6 +87,45 @@ class OvertimeRequests
     }
 
     /**
+     * For each date this overtime touches, the requester's overtime hours that fall on that date: approved,
+     * and pending (this request included). Hours across midnight count on the date they are worked.
+     * Shown to the decider instead of a daily limit (DECISIONS.md section 4).
+     *
+     * @return list<array{date: CarbonImmutable, approved: int, pending: int}>
+     */
+    public function dayTotals(OvertimeRequest $record): array
+    {
+        $first = CarbonImmutable::instance($record->first_date);
+        $last = CarbonImmutable::instance($record->last_date);
+
+        $others = OvertimeRequest::query()
+            ->where('user_id', $record->user_id)
+            ->whereIn('status', RequestStatus::blocking())
+            ->where('first_date', '<=', $last->toDateString())
+            ->where('last_date', '>=', $first->toDateString())
+            ->get(['start_at', 'end_at', 'status']);
+
+        $days = [];
+
+        for ($date = $first; $date->lte($last); $date = $date->addDay()) {
+            $totals = ['date' => $date, 'approved' => 0, 'pending' => 0];
+
+            foreach ($others as $other) {
+                $from = CarbonImmutable::instance($other->start_at)->max($date);
+                $to = CarbonImmutable::instance($other->end_at)->min($date->addDay());
+
+                if ($to->gt($from)) {
+                    $totals[$other->status === RequestStatus::Approved ? 'approved' : 'pending'] += (int) $from->diffInHours($to);
+                }
+            }
+
+            $days[] = $totals;
+        }
+
+        return $days;
+    }
+
+    /**
      * The last calendar date an overtime touches: the date of its last hour worked.
      */
     public static function lastDate(CarbonImmutable $end): CarbonImmutable

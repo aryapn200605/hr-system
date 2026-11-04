@@ -46,4 +46,9 @@ enum AuditEvent: string
     case OvertimeRequestCreated = 'overtime_request.created';
     case OvertimeRequestCancelled = 'overtime_request.cancelled';
     case RequestEvidenceUploaded = 'request.evidence_uploaded';
+    case LeaveRequestApproved = 'leave_request.approved';
+    case LeaveRequestRejected = 'leave_request.rejected';
+    case OvertimeRequestApproved = 'overtime_request.approved';
+    case OvertimeRequestRejected = 'overtime_request.rejected';
+    case RequestDecisionRefused = 'request.decision_refused';
 }

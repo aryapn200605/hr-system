@@ -4,14 +4,19 @@ namespace App\Services;
 
 use App\Enums\AuditEvent;
 use App\Enums\LeaveEntryType;
+use App\Enums\RequestStatus;
+use App\Exceptions\InsufficientLeaveBalanceException;
 use App\Models\AuditLog;
 use App\Models\LeaveBalanceEntry;
 use App\Models\LeavePeriod;
+use App\Models\LeaveRequest;
+use App\Models\LeaveRequestAllocation;
 use App\Models\User;
 use App\Policies\UserPolicy;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -23,8 +28,9 @@ use LogicException;
  * A period runs from one anniversary of the user's anchor date to the day before the next one,
  * with 12 days and no carry over. Anniversaries are counted from the anchor, never from the previous
  * period, so an anchor on 29 February falls on 28 February in other years and back on the 29th in
- * leap years. Every change locks the user row first, which serializes the daily job, manual resets
- * and adjustments of one user, so the period rows need no lock of their own.
+ * leap years. Every change locks the user row first, which serializes the daily job, manual resets,
+ * adjustments and approvals of one user. An approval also locks the periods it charges, by start date
+ * (README "Approvals", lock order).
  */
 class LeaveBalance
 {
@@ -118,7 +124,7 @@ class LeaveBalance
             $period->entitlement += $change;
             $period->save();
 
-            $this->entry($period, LeaveEntryType::Adjusted, $change, $before, $actor, $validated['reason']);
+            $this->entry($period, LeaveEntryType::Adjusted, $change, $before, $actor->getKey(), $validated['reason']);
 
             AuditLog::record(AuditEvent::LeaveBalanceAdjusted, $actor, $target, [
                 'period_id' => $period->getKey(),
@@ -157,7 +163,7 @@ class LeaveBalance
             $current->ends_on = $today->subDay();
             $current->save();
 
-            $this->entry($current, LeaveEntryType::Closed, 0, $remaining, $actor, $validated['reason']);
+            $this->entry($current, LeaveEntryType::Closed, 0, $remaining, $actor->getKey(), $validated['reason']);
 
             $anchor = CarbonImmutable::instance($target->newQuery()->findOrFail($target->getKey())->leave_anchor_date);
             $opened = $this->open($target, $today, $this->endFor($anchor, $today), $actor, $validated['reason']);
@@ -258,17 +264,186 @@ class LeaveBalance
             'used' => 0,
         ]);
 
-        $this->entry($period, LeaveEntryType::Opened, self::ENTITLEMENT, 0, $actor, $reason);
+        $this->entry($period, LeaveEntryType::Opened, self::ENTITLEMENT, 0, $actor?->getKey(), $reason);
+
+        $this->chargeDeferred($period);
 
         return $period;
     }
 
-    private function entry(LeavePeriod $period, LeaveEntryType $type, int $change, int $before, ?User $actor, ?string $reason): void
+    /**
+     * Deduct the approved parts that were waiting for this period to open (see chargeApproved()). Each
+     * ledger row names the request and, as actor, the person who approved it.
+     */
+    private function chargeDeferred(LeavePeriod $period): void
+    {
+        $allocations = $this->deferredAllocations($period->user_id, CarbonImmutable::instance($period->starts_on), CarbonImmutable::instance($period->ends_on))
+            ->orderBy('leave_request_allocations.starts_on')
+            ->orderBy('leave_request_allocations.id')
+            ->get(['leave_request_allocations.*']);
+
+        if ($allocations->isEmpty()) {
+            return;
+        }
+
+        $deciders = LeaveRequest::query()->whereKey($allocations->pluck('leave_request_id'))->pluck('decided_by', 'id');
+
+        foreach ($allocations as $allocation) {
+            $this->charge($period, $allocation, $deciders[$allocation->leave_request_id] ?? null);
+        }
+    }
+
+    /**
+     * Deduct the days of an approved leave request (DECISIONS.md sections 5 and 6), inside the caller's
+     * transaction, which already holds the request row.
+     *
+     * Lock order: the requester's user row (through sync()), then the periods to charge, by start date.
+     * Each part of the request is charged to the real period that holds the part's first day. Normally
+     * that is the period with the same start date as at submission; after a manual reset or an anchor
+     * change it is the period that now holds those dates, the same rule that counts pending days. A
+     * period that has started but was not opened yet is opened by sync() here. A closed period can be
+     * charged this way, and only this way. A part in a period that has not started yet is checked
+     * against that projected period (12 days minus other approved parts there) and charged by sync()
+     * when the period opens.
+     *
+     * @return list<array{period_starts_on: string, days: int, deferred: bool}>
+     *
+     * @throws InsufficientLeaveBalanceException
+     */
+    public function chargeApproved(User $requester, LeaveRequest $request, User $actor): array
+    {
+        $latest = $this->sync($requester);
+        $anchor = CarbonImmutable::instance(User::query()->findOrFail($requester->getKey())->leave_anchor_date);
+
+        // A pending request has no charged part yet: charging happens only here and in chargeDeferred().
+        $allocations = $request->allocations()->reorder('starts_on')->get();
+
+        /** @var array<int, list<LeaveRequestAllocation>> $charges */
+        $charges = [];
+        /** @var array<string, array{start: CarbonImmutable, end: CarbonImmutable, days: int}> $deferred */
+        $deferred = [];
+
+        foreach ($allocations as $allocation) {
+            $date = CarbonImmutable::instance($allocation->starts_on);
+
+            if ($date->gt($latest->ends_on)) {
+                [$start, $end] = $this->futureRangeHolding($anchor, $latest, $date);
+                $deferred[$start->toDateString()] ??= ['start' => $start, 'end' => $end, 'days' => 0];
+                $deferred[$start->toDateString()]['days'] += $allocation->days;
+
+                continue;
+            }
+
+            $periodId = LeavePeriod::query()
+                ->where('user_id', $requester->getKey())
+                ->where('starts_on', '<=', $date->toDateString())
+                ->where('ends_on', '>=', $date->toDateString())
+                ->value('id') ?? throw new LogicException('No leave period holds '.$date->toDateString().'.');
+
+            $charges[$periodId][] = $allocation;
+        }
+
+        $periods = LeavePeriod::query()->whereKey(array_keys($charges))->orderBy('starts_on')->lockForUpdate()->get();
+
+        foreach ($periods as $period) {
+            $days = array_sum(array_map(fn (LeaveRequestAllocation $allocation) => $allocation->days, $charges[$period->getKey()]));
+
+            if ($days > $period->remaining()) {
+                throw new InsufficientLeaveBalanceException(
+                    CarbonImmutable::instance($period->starts_on),
+                    CarbonImmutable::instance($period->ends_on),
+                    $days,
+                    max(0, $period->remaining()),
+                );
+            }
+        }
+
+        foreach ($deferred as $range) {
+            $available = self::ENTITLEMENT - $this->deferredAllocations($requester->getKey(), $range['start'], $range['end'])->sum('leave_request_allocations.days');
+
+            if ($range['days'] > $available) {
+                throw new InsufficientLeaveBalanceException($range['start'], $range['end'], $range['days'], max(0, $available));
+            }
+        }
+
+        $summary = [];
+
+        foreach ($periods as $period) {
+            foreach ($charges[$period->getKey()] as $allocation) {
+                $this->charge($period, $allocation, $actor->getKey());
+                $summary[] = ['period_starts_on' => $period->starts_on->toDateString(), 'days' => $allocation->days, 'deferred' => false];
+            }
+        }
+
+        foreach ($deferred as $key => $range) {
+            $summary[] = ['period_starts_on' => $key, 'days' => $range['days'], 'deferred' => true];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Days of approved leave waiting for a period that has not started yet, by the first day of each part.
+     * The projected next period counts them as used.
+     */
+    public function deferredDays(User $user, CarbonInterface $start, CarbonInterface $end): int
+    {
+        return (int) $this->deferredAllocations($user->getKey(), $start, $end)->sum('leave_request_allocations.days');
+    }
+
+    /**
+     * Approved parts not charged yet whose first day falls between these dates.
+     *
+     * @return Builder<LeaveRequestAllocation>
+     */
+    private function deferredAllocations(int $userId, CarbonInterface $start, CarbonInterface $end): Builder
+    {
+        return LeaveRequestAllocation::query()
+            ->join('leave_requests as lr', 'lr.id', '=', 'leave_request_allocations.leave_request_id')
+            ->where('lr.user_id', $userId)
+            ->where('lr.status', RequestStatus::Approved->value)
+            ->whereNull('leave_request_allocations.charged_at')
+            ->whereBetween('leave_request_allocations.starts_on', [$start->toDateString(), $end->toDateString()]);
+    }
+
+    /**
+     * The dates of the not yet opened period that will hold $date, counted from the anchor after the latest real period.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    private function futureRangeHolding(CarbonImmutable $anchor, LeavePeriod $latest, CarbonImmutable $date): array
+    {
+        $start = CarbonImmutable::instance($latest->ends_on)->addDay();
+        $end = $this->endFor($anchor, $start);
+
+        while ($end->lt($date)) {
+            $start = $end->addDay();
+            $end = $this->endFor($anchor, $start);
+        }
+
+        return [$start, $end];
+    }
+
+    private function charge(LeavePeriod $period, LeaveRequestAllocation $allocation, ?int $actorId): void
+    {
+        $before = $period->remaining();
+        $period->used += $allocation->days;
+        $period->save();
+
+        $this->entry($period, LeaveEntryType::Deducted, -$allocation->days, $before, $actorId, null, $allocation->leave_request_id);
+
+        $allocation->leave_period_id = $period->getKey();
+        $allocation->charged_at = now();
+        $allocation->save();
+    }
+
+    private function entry(LeavePeriod $period, LeaveEntryType $type, int $change, int $before, ?int $actorId, ?string $reason, ?int $requestId = null): void
     {
         LeaveBalanceEntry::query()->create([
             'leave_period_id' => $period->getKey(),
             'user_id' => $period->user_id,
-            'actor_id' => $actor?->getKey(),
+            'actor_id' => $actorId,
+            'leave_request_id' => $requestId,
             'type' => $type,
             'change' => $change,
             'before' => $before,

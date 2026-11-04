@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RequestStatus;
+use App\Models\Concerns\HasDecision;
 use App\Models\Concerns\HasEvidence;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class OvertimeRequest extends Model
 {
-    use HasEvidence;
+    use HasDecision, HasEvidence;
 
     /**
      * Get the attributes that should be cast.

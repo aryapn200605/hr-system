@@ -7,13 +7,16 @@ use App\Enums\RequestStatus;
 use App\Models\LeaveRequest;
 use App\Models\OvertimeRequest;
 use App\Models\User;
+use App\Services\Requests\Deciders;
 
 /**
- * Who may do what with leave and overtime requests. In Phase 9 only the requester sees a request;
- * Phase 10 adds the people who may decide it.
+ * Who may do what with leave and overtime requests. The requester sees their own requests in My
+ * requests; the people who may decide a request now, and whoever decided it, see it in Approvals.
  */
 class RequestPolicy
 {
+    public function __construct(private Deciders $deciders) {}
+
     /**
      * Determine whether the actor may open My requests and submit. Whether the request has someone
      * to decide it is App\Services\Requests\ApprovalPath's question.
@@ -33,8 +36,30 @@ class RequestPolicy
         return $this->view($actor, $request) && $request->status === RequestStatus::Pending;
     }
 
+    /**
+     * Determine whether the actor may open the Approvals inbox.
+     */
+    public function decideAny(User $actor): bool
+    {
+        return $actor->hasPermissionTo(PermissionName::RequestsDecide);
+    }
+
+    /**
+     * Determine whether the actor may open the request in Approvals: they may decide it now (whatever
+     * its status, so a second supervisor learns who decided first), or they decided it themself.
+     */
+    public function review(User $actor, LeaveRequest|OvertimeRequest $request): bool
+    {
+        if (! $this->decideAny($actor)) {
+            return false;
+        }
+
+        return $request->decided_by === $actor->getKey()
+            || $this->deciders->allows($actor, $request->user()->with('roles')->firstOrFail());
+    }
+
     public function downloadEvidence(User $actor, LeaveRequest|OvertimeRequest $request): bool
     {
-        return $this->view($actor, $request) && $request->hasEvidence();
+        return $request->hasEvidence() && ($this->view($actor, $request) || $this->review($actor, $request));
     }
 }
