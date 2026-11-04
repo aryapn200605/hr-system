@@ -10,6 +10,7 @@ use App\Enums\UserStatus;
 use App\Exceptions\AccountProtectionException;
 use App\Models\User;
 use App\Policies\UserPolicy;
+use App\Services\SupervisorGuard;
 use Closure;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,7 +31,12 @@ class Index extends Component
 
     private const SEARCH_COLUMNS = ['name', 'username', 'email'];
 
-    private const FILTERS = ['search', 'roleFilter', 'statusFilter', 'perPage'];
+    private const FILTERS = ['search', 'roleFilter', 'statusFilter', 'supervisorFilter', 'perPage'];
+
+    /**
+     * The only value of the supervisor filter besides "any".
+     */
+    private const NO_SUPERVISOR = 'none';
 
     #[Url(except: '')]
     public string $search = '';
@@ -40,6 +46,9 @@ class Index extends Component
 
     #[Url(as: 'status', except: '')]
     public string $statusFilter = '';
+
+    #[Url(as: 'supervisor', except: '')]
+    public string $supervisorFilter = '';
 
     #[Url(as: 'per_page', except: '10')]
     public string $perPage = '10';
@@ -170,7 +179,7 @@ class Index extends Component
             $user->changeRole($role, Auth::user());
 
             $this->closeDialogs();
-            $this->dispatch('toast', message: $user->name.' is now '.$role->value.'.', tone: 'success');
+            $this->dispatch('toast', message: __(':name is now :role.', ['name' => $user->name, 'role' => $role->label()]), tone: 'success');
         });
     }
 
@@ -259,6 +268,10 @@ class Index extends Component
             $this->statusFilter = '';
         }
 
+        if ($this->supervisorFilter !== self::NO_SUPERVISOR) {
+            $this->supervisorFilter = '';
+        }
+
         if (! in_array($this->perPage, self::PER_PAGE_OPTIONS, true)) {
             $this->perPage = self::PER_PAGE_OPTIONS[0];
         }
@@ -273,9 +286,13 @@ class Index extends Component
         $term = trim($this->search);
 
         return User::query()
-            ->select(['id', 'name', 'username', 'email', 'status', 'two_factor_enrolled_at', 'last_login_at', 'created_at'])
+            ->select(['id', 'name', 'username', 'email', 'status', 'department_id', 'two_factor_enrolled_at', 'last_login_at', 'created_at'])
             ->selectRaw('password is not null as activated')
-            ->with(['roles.permissions', 'permissions'])
+            ->selectSub(
+                app(SupervisorGuard::class)->activeSupervisors()->selectRaw('count(*) > 0')->whereColumn('su.subordinate_id', 'users.id'),
+                'supervised',
+            )
+            ->with(['roles.permissions', 'permissions', 'department:id,name'])
             ->when($term !== '', function (Builder $query) use ($term) {
                 $pattern = '%'.addcslashes($term, '\\%_').'%';
 
@@ -290,6 +307,7 @@ class Index extends Component
                 fn (Builder $roles) => $roles->where('name', $this->roleFilter),
             ))
             ->when($this->statusFilter !== '', fn (Builder $query) => $query->where('status', $this->statusFilter))
+            ->when($this->supervisorFilter === self::NO_SUPERVISOR, fn (Builder $query) => $query->lackingSupervisor())
             ->orderByDesc('id')
             ->paginate((int) $this->perPage);
     }

@@ -101,6 +101,34 @@ class UserPolicy
     }
 
     /**
+     * Determine whether the actor may add, remove and move this user's supervisors.
+     */
+    public function manageSupervisors(User $actor, User $target): bool
+    {
+        return $actor->hasPermissionTo(PermissionName::SupervisorsManage)
+            && $this->holdsEverythingOf($actor, $target);
+    }
+
+    /**
+     * Determine whether the actor may see this user's leave balance and its ledger.
+     */
+    public function viewLeaveBalance(User $actor, User $target): bool
+    {
+        return $actor->hasPermissionTo(PermissionName::LeaveBalanceView);
+    }
+
+    /**
+     * Determine whether the actor may adjust or reset this user's balance or change their anchor date.
+     * Nobody changes their own: another HR Admin must do it.
+     */
+    public function adjustLeaveBalance(User $actor, User $target): bool
+    {
+        return $actor->hasPermissionTo(PermissionName::LeaveBalanceAdjust)
+            && ! $actor->is($target)
+            && $this->holdsEverythingOf($actor, $target);
+    }
+
+    /**
      * The roles whose every permission the actor already holds, read from the database.
      * Nobody can hand out more than they have, whatever the role is called.
      *

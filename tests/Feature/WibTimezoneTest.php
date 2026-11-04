@@ -32,6 +32,10 @@ class WibTimezoneTest extends TestCase
     private const ADDED_AFTER_WIB = [
         'languages' => ['created_at', 'updated_at'],
         'translations' => ['created_at', 'updated_at'],
+        'departments' => ['created_at', 'updated_at'],
+        'supervisor_user' => ['created_at'],
+        'leave_periods' => ['created_at', 'updated_at'],
+        'leave_balance_entries' => ['created_at'],
     ];
 
     protected function setUp(): void

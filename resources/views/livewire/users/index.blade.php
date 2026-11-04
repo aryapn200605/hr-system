@@ -15,7 +15,7 @@
     @endif
 
     <x-ui.card>
-        <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-2 lg:grid-cols-5">
             <x-ui.input :label="__('Search')" id="filter-search" type="search" maxlength="100" :placeholder="__('Name, username or email')" wire:model.live.debounce.300ms="search" />
 
             <x-ui.select :label="__('Role')" id="filter-role" wire:model.live="roleFilter">
@@ -30,6 +30,11 @@
                 @foreach ($statuses as $option)
                     <option value="{{ $option->value }}">{{ $option->label() }}</option>
                 @endforeach
+            </x-ui.select>
+
+            <x-ui.select :label="__('Supervisor')" id="filter-supervisor" wire:model.live="supervisorFilter">
+                <option value="">{{ __('Any') }}</option>
+                <option value="none">{{ __('No supervisor') }}</option>
             </x-ui.select>
 
             <x-ui.select :label="__('Rows per page')" id="filter-per-page" wire:model.live="perPage">
@@ -50,6 +55,7 @@
                             <th scope="col">{{ __('Full name') }}</th>
                             <th scope="col">{{ __('Username') }}</th>
                             <th scope="col">{{ __('Email') }}</th>
+                            <th scope="col">{{ __('Department') }}</th>
                             <th scope="col">{{ __('Role') }}</th>
                             <th scope="col">{{ __('Status') }}</th>
                             <th scope="col">{{ __('2FA') }}</th>
@@ -65,7 +71,13 @@
                             <td class="font-medium text-slate-900">{{ $row->name }}</td>
                             <td>{{ $row->username }}</td>
                             <td>{{ $row->email }}</td>
-                            <td><x-ui.role-badge :user="$row" /></td>
+                            <td>{{ $row->department?->name ?? '—' }}</td>
+                            <td>
+                                <x-ui.role-badge :user="$row" />
+                                @if ($row->needsSupervisor() && $row->status !== \App\Enums\UserStatus::Suspended && ! $row->supervised)
+                                    <x-ui.badge tone="amber" class="ml-1" data-no-supervisor>{{ __('No supervisor') }}</x-ui.badge>
+                                @endif
+                            </td>
                             <td><x-ui.status-badge :status="$row->status" /></td>
                             <td>
                                 @if ($row->hasCompletedTwoFactorEnrollment())

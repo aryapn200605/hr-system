@@ -4,7 +4,8 @@
  * One competitor in AuthConcurrencyTest. It runs in its own PHP process with its own
  * database connection, waits for the agreed moment and prints the outcome.
  *
- * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email|prune|seed-translations> <user id> <code, invitation id, actor id or email> <start time>
+ * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email|prune|seed-translations|move|attach|detach|adjust|reset|sync-leave>
+ *        <user id> <code, invitation id, actor id, email or "actor id:argument"> <start time>
  */
 
 use App\Actions\UpdateOwnIdentity;
@@ -13,6 +14,8 @@ use App\Exceptions\AccountProtectionException;
 use App\Models\AccountInvitation;
 use App\Models\RecoveryCode;
 use App\Models\User;
+use App\Services\LeaveBalance;
+use App\Services\Supervisors;
 use App\Support\TwoFactor;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
@@ -46,6 +49,13 @@ if (in_array($mode, ['suspend', 'demote'], true)) {
     $actor->getAllPermissions();
 }
 
+// Organization modes pass "<actor id>:<argument>" as the code.
+if (in_array($mode, ['move', 'attach', 'detach', 'adjust', 'reset'], true)) {
+    [$actorId, $argument] = explode(':', $code) + [1 => ''];
+    $actor = User::findOrFail($actorId);
+    $actor->getAllPermissions();
+}
+
 $reachedBarrier = microtime(true) < (float) $startAt;
 
 while (microtime(true) < (float) $startAt) {
@@ -70,6 +80,12 @@ try {
         ]) === ['email'],
         'prune' => Artisan::call('app:prune-expired-tokens') === 0,
         'seed-translations' => Artisan::call('db:seed', ['--class' => TranslationSeeder::class, '--force' => true]) === 0,
+        'move' => app(Supervisors::class)->move($actor, $user, $argument, null) > 0,
+        'attach' => app(Supervisors::class)->attach($actor, $user, $argument) === null,
+        'detach' => app(Supervisors::class)->detach($actor, $user, $argument) === null,
+        'adjust' => app(LeaveBalance::class)->adjust($actor, $user, $argument, 'Concurrent adjustment test.') !== null,
+        'reset' => app(LeaveBalance::class)->reset($actor, $user, 'Concurrent reset test.') !== null,
+        'sync-leave' => app(LeaveBalance::class)->sync($user) !== null,
     };
 } catch (AccountProtectionException) {
     $won = false;

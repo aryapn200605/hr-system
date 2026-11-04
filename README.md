@@ -15,7 +15,7 @@
 - Before any check that needs a service, `http://hr-system.test/up` must answer and MySQL must accept a connection on 127.0.0.1. If either is down, work that needs it stops until the owner starts Laragon.
 - Build assets with `npm run build` so Apache serves them. No Vite dev server is left running.
 - After changing views, run `php artisan view:clear`. A stale compiled view once kept the plain-text part of an email in English after its template had changed.
-- Browser checks run as a puppeteer script outside the project, in `C:\laragon	mp\browser-check` (puppeteer 25.14.0, not in package.json): `node phase7.mjs <file with the activation link and password>`. Screenshots go to its `shots` folder.
+- Browser checks run as a puppeteer script outside the project, in `C:\laragon\tmp\browser-check` (puppeteer 25.14.0, not in package.json): `node phase7.mjs <file with the activation link and password>`, `node phase8.mjs <setup.json>`. Screenshots go to its `shots` folder.
 - Browser checks run on hr-system.test at 1024px and 375px. Temporary accounts there are created only through the application, with the username prefix `zz-check-`, and removed afterwards with a targeted delete, after which the counts of real accounts and their rows must match the numbers taken before.
 - The backup before an end-of-phase migration goes outside the repository, in `C:\laragon\backup\hr-system\`, and is read back before migrating. Never `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe` or truncate on `hr_system` without the owner's explicit approval.
 - Documents: CLAUDE.md (working rules), DECISIONS.md (business rules), SPEC.md (phases), PROGRESS.md (log and lessons), this README (technical decisions and commands).
@@ -23,7 +23,7 @@
 
 ## Scheduler
 
-`app:prune-expired-tokens` runs every day at 02:00 WIB through Laravel's scheduler (`routes/console.php`). The scheduler only runs while something calls `schedule:run` every minute. On this Windows machine the owner installs that once in Task Scheduler, from a Command Prompt:
+Two commands run every day through Laravel's scheduler (`routes/console.php`), at WIB times: `app:leave-periods-sync` at 00:05 (the yearly leave reset, see "Organization and leave balance") and `app:prune-expired-tokens` at 02:00. The scheduler only runs while something calls `schedule:run` every minute. On this Windows machine the owner installs that once in Task Scheduler, from a Command Prompt:
 
 ```bat
 schtasks /Create /SC MINUTE /MO 1 /TN "hr-system scheduler" /TR "\"C:\laragon\bin\php\php-8.5.12-Win32-vs17-x64\php.exe\" \"C:\laragon\www\hr-system\artisan\" schedule:run"
@@ -36,9 +36,10 @@ schtasks /Query /TN "hr-system scheduler"
 schtasks /Delete /TN "hr-system scheduler" /F
 ```
 
-The task needs MySQL, so it only does work while Laragon runs. Verified on this machine: `php artisan schedule:list` lists the command for 02:00 from any working directory, and `schedule:run` and `schedule:test` run it. The `schtasks` command itself was not run, because installing it is the owner's step. To prune by hand:
+The task needs MySQL, so it only does work while Laragon runs. Verified on this machine: `php artisan schedule:list` lists both commands from any working directory, and `schedule:run` and `schedule:test` run them. The `schtasks` command itself was not run, because installing it is the owner's step. A day the machine was off is caught up by the next leave sync. To run either by hand:
 
 ```bash
+php artisan app:leave-periods-sync
 php artisan app:prune-expired-tokens
 ```
 
@@ -126,6 +127,55 @@ After a confirmation it removes the secret, enrollment date, last timestep and r
 
 **Until they enroll again, the password alone reaches the enrollment page**, the same exposure as a first login. Check who is asking before running it, out of band. Anyone who can run this command already has the server, so it adds no new access. The audit entry cannot say who ran it, only that the system did.
 
+## Organization and leave balance
+
+Built in Phase 8. Business rules: DECISIONS.md sections 3, 5 and 9.
+
+### Permissions and pages
+
+| Permission | Allows | HR Admin |
+|---|---|---|
+| `departments.manage` | `/departments`: add, rename, deactivate and delete departments | yes |
+| `supervisors.manage` | Add and remove supervisors, Move subordinates, on `/users/{id}` | yes |
+| `leave-balance.view` | `/users/{id}/leave-balance`: periods and ledger | yes |
+| `leave-balance.adjust` | Adjust, Reset period and Change anchor date on that page | yes |
+
+Department and join date use the existing `users.update`. Every permission is checked by the route, the Livewire `boot()` and the service the action calls, so a replayed or forged Livewire request is refused too. After migrating, the owner runs `php artisan db:seed --class=RolePermissionSeeder --force` once to give HR Admin the four new permissions (idempotent).
+
+### Departments
+
+- Names are unique ignoring case, at most 100 characters, with spaces collapsed.
+- A department can be deleted only while no user has it. The restricting foreign key on `users.department_id` is the check, and its refusal becomes the message "Deactivate it instead". A used department can only be deactivated: it stays on its employees, is marked inactive, and is not offered for a new assignment. Saving an employee who keeps an inactive department is allowed.
+- The join date is for information only (1950-01-01 to one year ahead). Leave follows the anchor date.
+
+### Supervisors
+
+- `supervisor_user` holds the links (unique pair, foreign keys that cascade when a user row is deleted). A supervisor must be an ACTIVE Approver when the link is made. No self link, no duplicate, and no cycle of any length: a recursive query walks up from the new supervisor and refuses if it meets the subordinate.
+- **An active supervisor** is a linked user who is ACTIVE. Every linked supervisor is an Approver: a link is made only to an active Approver, and losing the role removes the user's links. `App\Services\SupervisorGuard::activeSupervisors()` is the one definition, used by the guard, the marker and the filter.
+- **The guard** (`SupervisorGuard::check()`): no action may leave a user who has an active supervisor now with none. SUSPENDED subordinates are not counted; PENDING ones are. It runs inside `User::save()` (every status change, so suspension), `User::changeRole()`, `User::delete()`, removing a supervisor and Move subordinates. Console and tinker code goes through the same model methods. The refusal names up to five affected users ("and N more") and says the way out: give them another supervisor, or move them.
+- **Refusals are audited** as `supervisor.guard_refused` (action, supervisor IDs, affected IDs) by `SupervisorGuard::auditing()`, after the transaction that held the change has rolled back. A nested entry point (suspend() saving the user) writes a row too, but inside the outer transaction, which rolls it back: one row stays. An entry point must not be called inside a caller's own transaction, or that transaction also decides the fate of the audit row.
+- **Locking:** `User::withinAccountLock()` (formerly `withinHrAdminLock()`) locks the HR Admin role row. Every change to supervisor links, statuses, roles and deletes runs under it, which serializes them; the guard therefore reads a state nobody else can change meanwhile.
+- **Losing the Approver role removes that user's links as a supervisor**, in the same transaction, after the guard has checked that nobody is left without an active supervisor (audited in `user.role_changed` as `supervisor_links_removed`). Becoming an Approver again does not bring them back. **A suspension keeps the links**: they stop counting while the supervisor is suspended and count again after Reactivate. A role change of a subordinate keeps their own supervisors.
+- **Approvers do not need a supervisor**: their requests will go to any HR Admin (Phase 9). They never get the "No supervisor" marker, nothing refuses them for having none, and they can still have supervisors, who are guarded like anyone's (DECISIONS.md section 9).
+- **"No supervisor" marker and filter** (User Management and the detail page): Employee and HR Admin, not SUSPENDED, without an active supervisor.
+- **Move subordinates** (on an Approver's detail page): all or the chosen subordinates move from this supervisor to another active Approver in one transaction. A subordinate who already has the new supervisor only loses the old one. Refused as a whole if the list changed meanwhile, the target is the same supervisor or one of the subordinates, or the move would close a loop. Audited as `supervisors.moved` with every subordinate ID.
+
+### Leave balance
+
+- Every user has periods (`leave_periods`: start, end, entitlement, used) and an append-only ledger (`leave_balance_entries`: period, actor or null for the system, type, change, remaining days before and after, reason). The ledger model refuses update and delete, and no code deletes a period; only deleting a user row (which no screen offers) removes its periods and ledger by foreign key cascade.
+- **A new account gets its anchor date (today in WIB) and its first period with 12 days at once**, in the transaction that creates it, through the `User` model's `creating` and `created` events. This covers the invitation flow, `app:create-admin` and every other way a user row is created, without the daily job. Existing users got their anchor date from `DATE(created_at)` (already WIB after the Phase 6 shift) and their current period from the migration `2026_11_06_100300`.
+- **A period** runs from an anniversary of the anchor date to the day before the next one. Anniversaries are counted from the anchor with `addYearsNoOverflow`, never from the previous period: an anchor on 29 February gives 28 February in other years and the 29th again in leap years. The first period is the one that contains today, with the full 12 days ([ASSUMPTION] of DECISIONS.md). No carry over: remaining days stay on the old period, which simply ends.
+- **`app:leave-periods-sync`** opens every period that should have started by today, for every user including PENDING and SUSPENDED. It is idempotent and fills each missed period in turn, so a machine that was off loses no year. The leave balance page runs the same sync for the user it shows. A rollover is audited as `leave.balance_reset` with source `schedule`.
+- **Adjust**: a whole number of days between -365 and 365 (not 0) and a reason of 10 to 1000 characters, on the current period only. The remaining days can never go below 0. Audited as `leave.balance_adjusted`.
+- **Reset period**: the current period ends yesterday and a new one with 12 days starts today, until the day before the next anniversary. The anchor does not move. Refused when the current period started today. Reason required. Audited with source `manual`.
+- **Change anchor date** (2000-01-01 to today): the current period keeps its dates. The new anchor sets the end of every period from the next one on, so that next period can be shorter (or longer) than a year. The dialog has a "use the account creation date" button. Audited as `leave.anchor_changed` with both dates.
+- **Nobody adjusts, resets or re-anchors their own balance**, an HR Admin included: another HR Admin must do it. Refused by `UserPolicy::adjustLeaveBalance()`, which the service and the page both ask.
+- **Locking:** every change locks the user's row first, so the daily job, a reset and adjustments of one user run one after another; period rows need no lock of their own.
+
+### Translation seeder lock
+
+`TranslationSeeder` now runs in one transaction that first locks the `languages` rows, so concurrent runs wait for each other. With the Phase 8 texts, four concurrent runs deadlocked on `INSERT IGNORE` more often than per-chunk retries could absorb (found by `TranslationSeederConcurrencyTest`).
+
 ## Language
 
 The interface is in English or Indonesian. Each user picks a language in My Profile; guests, users who never chose, and users whose language was deactivated get the default, `APP_FALLBACK_LOCALE` (English). Account emails go out in the recipient's language: a password reset follows the user's choice, and an invitation is always in the default language, because the invitee has not chosen yet.
@@ -200,6 +250,18 @@ The formal register uses "Anda". The same English term always gets the same Indo
 | cancel | batal |
 | save | simpan |
 | field (validation) | named by its label, for example "Nama lengkap wajib diisi." |
+| department | departemen |
+| supervisor / subordinate | atasan / bawahan |
+| No supervisor (marker) | Belum punya atasan |
+| employment (card) | data kepegawaian |
+| join date | tanggal masuk kerja |
+| leave balance | saldo cuti |
+| period / current period | periode / periode berjalan |
+| anchor date | tanggal acuan |
+| entitlement / used / remaining | jatah / terpakai / sisa |
+| adjust (a balance) | sesuaikan |
+| ledger | buku besar |
+| inactive | nonaktif |
 
 ## Mail
 

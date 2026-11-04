@@ -27,4 +27,15 @@ enum AuditEvent: string
     case PasswordChanged = 'password.changed';
     case PasswordResetDeliveryFailed = 'password_reset.delivery_failed';
     case TranslationChanged = 'translation.changed';
+    case DepartmentCreated = 'department.created';
+    case DepartmentUpdated = 'department.updated';
+    case DepartmentDeleted = 'department.deleted';
+    case EmploymentUpdated = 'employment.updated';
+    case SupervisorAttached = 'supervisor.attached';
+    case SupervisorDetached = 'supervisor.detached';
+    case SupervisorsMoved = 'supervisors.moved';
+    case SupervisorGuardRefused = 'supervisor.guard_refused';
+    case LeaveAnchorChanged = 'leave.anchor_changed';
+    case LeaveBalanceAdjusted = 'leave.balance_adjusted';
+    case LeaveBalanceReset = 'leave.balance_reset';
 }

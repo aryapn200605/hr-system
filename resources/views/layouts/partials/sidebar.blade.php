@@ -11,6 +11,10 @@
         @can(\App\Enums\PermissionName::UsersView->value)
             <x-ui.nav-link :href="route('users.index')" icon="users" :active="request()->routeIs('users.*')">{{ __('User Management') }}</x-ui.nav-link>
         @endcan
+
+        @can(\App\Enums\PermissionName::DepartmentsManage->value)
+            <x-ui.nav-link :href="route('departments.index')" icon="building" :active="request()->routeIs('departments.*')">{{ __('Departments') }}</x-ui.nav-link>
+        @endcan
     </nav>
 
     <div class="flex shrink-0 items-start gap-3 border-t border-slate-200 p-4">

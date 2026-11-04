@@ -14,7 +14,8 @@
 - Planning was redone: the phases after Phase 5 are now Phase 6 to 16, see SPEC.md "Phase map". The old "Phase 6: Docker runtime" no longer exists; Docker moved to the deferred deployment phase (Phase 16).
 - Phase 6 (Foundation cleanup): done, see "Phase 6" below.
 - Phase 7 (Language mechanism): done, see "Phase 7" below.
-- **Next: Phase 8 (Organization and leave balance).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
+- Phase 8 (Organization and leave balance): done, see "Phase 8" below.
+- **Next: Phase 9 (Requests).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -382,3 +383,53 @@ Recorded in README.md under "Language".
 
 ### Owner steps
 - Review the Indonesian wording (`database/translations/id.php`, or switch My Profile to Bahasa Indonesia). Corrections: `php artisan app:translation-set id "<English key>" "<Indonesian text>"`, and the same change in `id.php`.
+
+## Phase 8: Organization and leave balance (2026-11-04)
+
+### Done
+- Departments: table `departments` (unique name ignoring case), page `/departments` (add, rename, activate or deactivate, delete only while unused), `users.department_id` (restricting foreign key) and `users.join_date`. User Management shows a Department column.
+- Employment card on `/users/{id}`: department (inactive ones stay but cannot be given anew) and join date, action `App\Actions\UpdateEmployment`, audit `employment.updated`.
+- Supervisors: table `supervisor_user`, cards Supervisors and Subordinates on `/users/{id}`, service `App\Services\Supervisors` (attach, detach, Move subordinates), active Approver only, no self link, no duplicate, no cycle (recursive query).
+- Global guard `App\Services\SupervisorGuard`, called from `User::save()` (every status change), `changeRole()`, `delete()`, detach and move. Refusals name up to five users and are audited (`supervisor.guard_refused`) after the rollback. Losing the Approver role removes the user's links; suspension keeps them.
+- "No supervisor" marker and filter for Employee and HR Admin who are not suspended (`User::lacksSupervisor()`, scope `lackingSupervisor`). Approvers never get it.
+- Leave balance: tables `leave_periods` and `leave_balance_entries` (append-only), `users.leave_anchor_date`, service `App\Services\LeaveBalance` (sync, adjust, reset, change anchor), page `/users/{id}/leave-balance`, command `app:leave-periods-sync` scheduled daily at 00:05 WIB. A new account gets its anchor date and first period in the transaction that creates it (owner's addition b).
+- Permissions `departments.manage`, `supervisors.manage`, `leave-balance.view`, `leave-balance.adjust` (HR Admin), checked by route, component `boot()` and service. Nobody adjusts, resets or re-anchors their own balance (owner's addition a).
+- `User::withinHrAdminLock()` became `withinAccountLock()` (the same single lock on the HR Admin role row) and now also serializes supervisor changes.
+- All new sentences in English and Indonesian. The role-change toast in User Management, which Phase 7 had left as a concatenated English string, now goes through `__()`. New components `x-ui.date` and `x-ui.textarea`, icon `building`.
+- README: section "Organization and leave balance", scheduler, standard terms. The browser-check path in README held a tab character instead of `\t` and is fixed.
+
+### Verified
+- `php artisan test`: 813 passed on `hr_system_test` (742 before). New: `DepartmentTest` (12), `SupervisorTest` (27), `LeaveBalanceTest` (24), `OrganizationConcurrencyTest` (8). Changed on purpose: `RolePermissionSeederTest` (the four permissions), `WibTimezoneTest` (`ADDED_AFTER_WIB` gained the new tables), `LanguageTest` (leave ledger labels in the dynamic-label check), `tests/Support/race.php` (modes move, attach, detach, adjust, reset, sync-leave). `npm run build`, Pint, `composer audit`, `npm audit`: clean. No new packages.
+- Real races (separate processes, committed rows, 3 rounds each): two supervisors of one employee suspended at once (one wins, one active supervisor left), detach against suspend, two opposite links at once (no loop), two bulk moves from the same supervisor (one wins, everyone moved once), crossing bulk moves, two resets on the same day (one period opened), concurrent adjustments (no overspend, no lost update), concurrent daily syncs (one period).
+- Mutation check: 53 safeguards removed one at a time, each file restored and confirmed by hash, and the source tree compared with a hash list afterwards. 47 caught at first. Two mutations were faulty (they never ran the closure) and were redone correctly: caught. Of the 6 survivors, 5 were redundant code and were removed: the Approver role filter of the guard, the depth counter for nested refusal audits, the separate Approver role lock, a second per-subordinate authorization in move, and the period row lock in the leave service. One exposed a weak test (the leave balance component's own permission check), now covered. A new race test covers the lock around attach. Final code: 51 of 51 mutations caught.
+- `hr_system`: counts before (users 1, login_histories 3, audit_logs 8 with max id 30, recovery_codes 10, account_invitations 0, password_reset_tokens 0, model_has_roles 1, translations 787), `migrate:status` with the four migrations pending, backup `C:\laragon\backup\hr-system\hr_system-before-phase8-20261104-163722.sql` (201,871 bytes, "Dump completed", INSERTs for 13 tables), `migrate` ran the four migrations, `db:seed --class=RolePermissionSeeder --force` gave HR Admin the four permissions, `app:translations-missing` passes (1017 translations), `schedule:list` shows both jobs. The owner's account got anchor date 2026-11-04 (its WIB creation date) and one period 2026-11-04 to 2027-11-03 with 12 days, plus its ledger row; nothing else of it changed. (Its `locale` is `en`: the owner set it at 14:38, audit rows 29 and 30, before this phase.)
+- Puppeteer (`C:\laragon\tmp\browser-check\phase8.mjs`, with `phase8-setup.php` and `phase8-cleanup.php`) on hr-system.test: a temporary HR Admin `zz-check-p8` created through `CreateUserWithInvitation` with the owner as actor and activated through its real link with real TOTP codes; two Approvers created the same way and activated with `User::completeActivation()`; one pending Employee. 67 checks passed, 0 console errors: departments (add, duplicate in other case refused, deactivate), employment dialog (inactive department not offered), add supervisor, guard refusal with the name, removing one of two supervisors, Move subordinates with a selection, adjust (overspend refused, then saved), reset refused on the first day, anchor with the creation-date button, own balance read only, Department column and No supervisor filter, every new page and dialog at 375px (no horizontal scroll, dialogs fit and close), drawer, and the new pages in Indonesian. Screenshots were reviewed; one fix came from them ("Back to user" wrapped at 1024px).
+- Cleanup after each run: the zz-check users with their audit rows (35 in the last run), login history, recovery codes, invitations, session, role links, supervisor link, periods, ledger rows, and the two zz-check departments, deleted in one transaction that checked each count. Afterwards users 1, login_histories 3, audit_logs 8 (max id 30), recovery_codes 10, account_invitations 0, password_reset_tokens 0, model_has_roles 1, departments 0, supervisor_user 0, leave_periods 1 and leave_balance_entries 1 (the owner's, from the migration).
+
+### Bugs found
+- A refused `save()` or `delete()` left the in-memory model believing the change was saved (`exists` false, or the original status replaced). Both now restore the instance; tested.
+- `TranslationSeeder`: with the new texts, four concurrent runs deadlocked more often than the per-chunk retries could absorb. A run now holds a lock on the `languages` rows for its whole transaction.
+- The role-change toast was not translated (Phase 7 leftover).
+
+### Known issues
+- Toasts (bottom right, 5 seconds) can cover a button at the bottom of a 1024px screen, as CLAUDE.md's lessons warn: in the browser check two stacked toasts covered "Add supervisor" until they vanished. The toast component is shared UI and was not changed (no redesign); a user can close the toast or wait.
+- The first leave period of a new user and of every existing user is the one that contains today, with the full 12 days ([ASSUMPTION] of DECISIONS.md section 5).
+- `used` stays 0 until Phase 10 deducts approved leave.
+- The Indonesian texts are the agent's and await the owner's review, as in Phase 7.
+- A real keyboard and a screen reader were not tried. The scheduler task (`schtasks`) is still the owner's step.
+- Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH. Error pages keep Laravel's default look. Tables scroll sideways on a phone.
+
+### Lessons
+- A refusal thrown after `parent::save()` or `parent::delete()` rolls the row back but not the model instance: restore the instance in the catch.
+- A refusal audit written inside a nested transaction is rolled back with the outer one; only the outermost write survives, so no depth bookkeeping is needed.
+- Headless Chrome throttles a tab that is not in front: bring it to the front before driving it again.
+- In this shell, heredocs and inline scripts can turn a double backslash into a single one. Edit PHP and JS that contain backslashes with the editor tools.
+
+### Decisions
+Recorded in README.md under "Organization and leave balance".
+- Approved by the owner: the plan and its six assumptions (losing the Approver role removes links; a new anchor applies from the next period; anchor between 2000-01-01 and today with a full first period; no upper limit and never below 0; the marker for ACTIVE and PENDING users only; the guard on `User::delete()` without a delete button), plus additions a to e: no change to one's own anchor date, anchor date and first period at account creation, the Department column, the README note on Approver role versus suspension, and no marker or refusal for Approvers without a supervisor.
+- Assumptions: an adjustment is a whole number from -365 to 365 and not 0; reasons are 10 to 1000 characters (the length DECISIONS.md uses for requests); the join date runs from 1950-01-01 to one year ahead and is informational; HR Admin may manage their own supervisors (the guard still applies); department names are at most 100 characters; a scheduled rollover is audited as `leave.balance_reset` with source `schedule`; an Approver subordinate is guarded like anyone (DECISIONS.md section 9).
+
+### Owner steps
+- Review the new Indonesian texts (same way as Phase 7).
+- Optional: install the scheduler (README "Scheduler"); it now also runs the daily leave sync.

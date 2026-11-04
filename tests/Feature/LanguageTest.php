@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\AuditEvent;
+use App\Enums\LeaveEntryType;
 use App\Enums\LoginResult;
 use App\Enums\RoleName;
 use App\Enums\UserStatus;
@@ -126,6 +127,7 @@ class LanguageTest extends TestCase
             ...array_map(fn (UserStatus $s) => $s->label(), UserStatus::cases()),
             ...array_map(fn (RoleName $r) => $r->label(), RoleName::cases()),
             ...array_map(fn (LoginResult $r) => $r->label(), LoginResult::cases()),
+            ...array_map(fn (LeaveEntryType $t) => $t->label(), LeaveEntryType::cases()),
             UserAgentLabel::for(null),
         ];
 

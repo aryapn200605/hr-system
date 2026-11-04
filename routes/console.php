@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 // Times follow the application timezone (WIB).
 Schedule::command('app:prune-expired-tokens')->dailyAt('02:00')->withoutOverlapping();
+Schedule::command('app:leave-periods-sync')->dailyAt('00:05')->withoutOverlapping();

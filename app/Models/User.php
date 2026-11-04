@@ -8,6 +8,9 @@ use App\Enums\PermissionName;
 use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Exceptions\AccountProtectionException;
+use App\Exceptions\SupervisorGuardException;
+use App\Services\LeaveBalance;
+use App\Services\SupervisorGuard;
 use Database\Factories\UserFactory;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Translation\HasLocalePreference;
@@ -17,7 +20,10 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +59,21 @@ class User extends Authenticatable implements HasLocalePreference
     ];
 
     /**
+     * Every new account gets its leave anchor date (today in WIB unless set) and its first
+     * leave period at once, in the transaction that creates it, without waiting for the daily job.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $user) {
+            $user->leave_anchor_date ??= today();
+        });
+
+        static::created(function (self $user) {
+            app(LeaveBalance::class)->sync($user);
+        });
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -66,6 +87,8 @@ class User extends Authenticatable implements HasLocalePreference
             'two_factor_enrolled_at' => 'datetime',
             'two_factor_last_timestep' => 'integer',
             'last_login_at' => 'datetime',
+            'join_date' => 'date',
+            'leave_anchor_date' => 'date',
         ];
     }
 
@@ -93,6 +116,88 @@ class User extends Authenticatable implements HasLocalePreference
     {
         $query->where('status', UserStatus::Active)
             ->whereHas('roles', fn (Builder $roles) => $roles->where('name', RoleName::HrAdmin->value));
+    }
+
+    /**
+     * Scope the query to users who are active and hold the Approver role: the only users who can supervise.
+     */
+    #[Scope]
+    protected function activeApprover(Builder $query): void
+    {
+        $query->where('status', UserStatus::Active)
+            ->whereHas('roles', fn (Builder $roles) => $roles->where('name', RoleName::Approver->value));
+    }
+
+    /**
+     * @return BelongsTo<Department, $this>
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Everyone linked as this user's supervisor, whatever their status. Only active Approvers count.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function supervisors(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'supervisor_user', 'subordinate_id', 'supervisor_id');
+    }
+
+    /**
+     * @return BelongsToMany<User, $this>
+     */
+    public function subordinates(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'supervisor_user', 'supervisor_id', 'subordinate_id');
+    }
+
+    /**
+     * @return HasMany<LeavePeriod, $this>
+     */
+    public function leavePeriods(): HasMany
+    {
+        return $this->hasMany(LeavePeriod::class);
+    }
+
+    /**
+     * Whether this user's role needs a supervisor to submit requests. Approvers go to any HR Admin instead.
+     */
+    public function needsSupervisor(): bool
+    {
+        return in_array($this->roleName(), [RoleName::Employee->value, RoleName::HrAdmin->value], true);
+    }
+
+    /**
+     * Whether an active Approver supervises this user now.
+     */
+    public function hasActiveSupervisor(): bool
+    {
+        return app(SupervisorGuard::class)->activeSupervisors()->where('su.subordinate_id', $this->getKey())->exists();
+    }
+
+    /**
+     * The "No supervisor" marker: an Employee or HR Admin who is not suspended and has no active supervisor.
+     * Approvers never get it, because their requests go to any HR Admin.
+     */
+    public function lacksSupervisor(): bool
+    {
+        return $this->needsSupervisor() && $this->status !== UserStatus::Suspended && ! $this->hasActiveSupervisor();
+    }
+
+    /**
+     * Scope the query to users who would show the "No supervisor" marker.
+     */
+    #[Scope]
+    protected function lackingSupervisor(Builder $query): void
+    {
+        $query->where('users.status', '!=', UserStatus::Suspended->value)
+            ->whereHas('roles', fn (Builder $roles) => $roles->whereIn('name', [RoleName::Employee->value, RoleName::HrAdmin->value]))
+            ->whereNotExists(fn (QueryBuilder $links) => $links->selectRaw('1')
+                ->fromSub(app(SupervisorGuard::class)->activeSupervisors()->select('su.subordinate_id'), 'active_links')
+                ->whereColumn('active_links.subordinate_id', 'users.id'));
     }
 
     /**
@@ -327,7 +432,7 @@ class User extends Authenticatable implements HasLocalePreference
      */
     public static function createFirstHrAdmin(array $attributes): self
     {
-        return static::withinHrAdminLock(function () use ($attributes) {
+        return static::withinAccountLock(function () use ($attributes) {
             if (static::query()->activeHrAdmin()->lockForUpdate()->exists()) {
                 throw AccountProtectionException::activeHrAdminExists();
             }
@@ -358,23 +463,34 @@ class User extends Authenticatable implements HasLocalePreference
             throw new AuthorizationException;
         }
 
-        static::withinHrAdminLock(function () use ($role, $actor) {
+        app(SupervisorGuard::class)->auditing('role_change', $actor, $this, fn () => static::withinAccountLock(function () use ($role, $actor) {
             if ($role !== RoleName::HrAdmin) {
                 $this->ensureNotLastActiveHrAdmin();
             }
 
-            $this->roles()->sync([Role::findByName($role->value)->getKey()]);
-            $this->unsetRelation('roles');
+            $wasApprover = $this->roles()->where('name', RoleName::Approver->value)->exists();
+            $metadata = ['role' => $role->value];
 
-            AuditLog::record(AuditEvent::UserRoleChanged, $actor, $this, ['role' => $role->value]);
-        });
+            app(SupervisorGuard::class)->check([$this->getKey()], function () use ($role, $wasApprover, &$metadata) {
+                $this->roles()->sync([Role::findByName($role->value)->getKey()]);
+                $this->unsetRelation('roles');
+
+                // Only Approvers can supervise. Losing the role ends this user's links as a supervisor for good;
+                // a suspension keeps them instead (README, "Supervisors").
+                if ($wasApprover && $role !== RoleName::Approver) {
+                    $metadata['supervisor_links_removed'] = DB::table('supervisor_user')->where('supervisor_id', $this->getKey())->delete();
+                }
+            });
+
+            AuditLog::record(AuditEvent::UserRoleChanged, $actor, $this, $metadata);
+        }));
     }
 
     /**
      * Suspend the user and end everything that could still let them in: sessions, password
      * reset links and open invitations. The last active HR Admin is refused by save().
      *
-     * Takes the HR Admin lock before the user row, in the order changeRole() uses, so the two
+     * Takes the account lock before the user row, in the order changeRole() uses, so the two
      * cannot deadlock. A null actor means the system itself.
      */
     public function suspend(?self $actor = null): void
@@ -387,7 +503,7 @@ class User extends Authenticatable implements HasLocalePreference
             throw new AuthorizationException;
         }
 
-        static::withinHrAdminLock(function () use ($actor) {
+        app(SupervisorGuard::class)->auditing('suspend', $actor, $this, fn () => static::withinAccountLock(function () use ($actor) {
             $locked = static::query()->lockForUpdate()->findOrFail($this->getKey());
 
             if ($locked->status === UserStatus::Suspended) {
@@ -405,7 +521,7 @@ class User extends Authenticatable implements HasLocalePreference
             ]);
 
             DB::table('password_reset_tokens')->where('email', $this->email)->delete();
-        });
+        }));
     }
 
     /**
@@ -421,7 +537,7 @@ class User extends Authenticatable implements HasLocalePreference
             throw new AuthorizationException;
         }
 
-        static::withinHrAdminLock(function () use ($actor) {
+        static::withinAccountLock(function () use ($actor) {
             $locked = static::query()->lockForUpdate()->findOrFail($this->getKey());
 
             if ($locked->status !== UserStatus::Suspended) {
@@ -487,11 +603,21 @@ class User extends Authenticatable implements HasLocalePreference
             return parent::save($options);
         }
 
-        return static::withinHrAdminLock(function () use ($options) {
-            $this->ensureNotLastActiveHrAdmin();
+        $original = $this->original;
 
-            return parent::save($options);
-        });
+        try {
+            return app(SupervisorGuard::class)->auditing('status_change', null, $this, fn () => static::withinAccountLock(function () use ($options) {
+                $this->ensureNotLastActiveHrAdmin();
+
+                // A user who stops being active stops counting as a supervisor. The links stay and count again on reactivation.
+                return app(SupervisorGuard::class)->check([$this->getKey()], fn () => parent::save($options));
+            }));
+        } catch (SupervisorGuardException $exception) {
+            // The row was rolled back, so this instance must not believe the new status was saved.
+            $this->original = $original;
+
+            throw $exception;
+        }
     }
 
     /**
@@ -503,11 +629,19 @@ class User extends Authenticatable implements HasLocalePreference
      */
     public function delete()
     {
-        return static::withinHrAdminLock(function () {
-            $this->ensureNotLastActiveHrAdmin();
+        try {
+            return app(SupervisorGuard::class)->auditing('delete', null, $this, fn () => static::withinAccountLock(function () {
+                $this->ensureNotLastActiveHrAdmin();
 
-            return parent::delete();
-        });
+                // The supervisor links go with the row (foreign key cascade), inside this transaction.
+                return app(SupervisorGuard::class)->check([$this->getKey()], fn () => parent::delete());
+            }));
+        } catch (SupervisorGuardException $exception) {
+            // The row was rolled back, so this instance still exists.
+            $this->exists = true;
+
+            throw $exception;
+        }
     }
 
     /**
@@ -536,15 +670,16 @@ class User extends Authenticatable implements HasLocalePreference
     }
 
     /**
-     * Run a callback in a transaction holding the HR Admin role row, which serializes
-     * every change that could affect the number of active HR Admins.
+     * Run a callback in a transaction holding the HR Admin role row. It serializes every change that
+     * could affect the number of active HR Admins, and every change to who supervises whom or who can
+     * supervise (App\Services\SupervisorGuard): statuses, roles, deletes and supervisor links.
      *
      * @template TReturn
      *
      * @param  callable(): TReturn  $callback
      * @return TReturn
      */
-    private static function withinHrAdminLock(callable $callback): mixed
+    public static function withinAccountLock(callable $callback): mixed
     {
         return DB::transaction(function () use ($callback) {
             Role::query()->where('name', RoleName::HrAdmin->value)->lockForUpdate()->first();
