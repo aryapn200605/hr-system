@@ -53,7 +53,7 @@ class SessionManagementTest extends TestCase
      */
     private function page(): TestResponse
     {
-        return $this->get(route('profile.sessions'))->assertOk();
+        return $this->get(route('security.sessions'))->assertOk();
     }
 
     /**

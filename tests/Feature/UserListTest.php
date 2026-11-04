@@ -310,30 +310,6 @@ class UserListTest extends TestCase
             ->assertSee($this->admin->username);
     }
 
-    public function test_stacked_rows_label_cells_from_one_markup_with_one_named_action_menu(): void
-    {
-        $employee = $this->employee();
-
-        $html = $this->userList()->html();
-
-        foreach (['ID', 'Username', 'Email', 'Role', 'Status', '2FA', 'Last login', 'Created'] as $label) {
-            $this->assertStringContainsString('data-label="'.$label.'"', $html);
-        }
-
-        $this->assertStringContainsString('role="region" aria-label="Users"', $html);
-        $this->assertStringContainsString('aria-label="'.e('Actions for '.$employee->name).'"', $html);
-        $this->assertSame(1, substr_count($html, 'id="user-actions-'.$employee->id.'"'));
-    }
-
-    public function test_an_empty_result_says_what_to_do_and_offers_to_clear_the_filters(): void
-    {
-        $this->userList(['search' => 'no-such-user'])
-            ->assertSee('No users found')
-            ->assertSee('Clear the search box')
-            ->assertSee('Clear search and filters')
-            ->assertSeeHtml("\$wire.set('search', '', false)");
-    }
-
     public function test_an_oversized_search_is_cut(): void
     {
         $this->assertSame(100, mb_strlen($this->userList(['search' => str_repeat('a', 500)])->get('search')));

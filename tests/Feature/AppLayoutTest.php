@@ -11,9 +11,7 @@ use App\Models\LoginHistory;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ViewErrorBag;
@@ -361,29 +359,6 @@ class AppLayoutTest extends TestCase
         $this->assertStringContainsString('role="dialog"', $html);
         $this->assertStringContainsString('aria-labelledby="confirm-title"', $html);
         $this->assertStringContainsString('id="confirm-title"', $html);
-    }
-
-    public function test_dates_show_in_wib_and_keep_the_instant(): void
-    {
-        $html = Blade::render('<x-ui.datetime :value="$value" />', ['value' => Carbon::parse('2026-10-30 20:15:00', 'UTC')]);
-
-        $this->assertStringContainsString('31 Oct 2026, 03:15 WIB', $html);
-        $this->assertStringContainsString('datetime="2026-10-30T20:15:00+00:00"', $html);
-    }
-
-    public function test_a_compact_date_keeps_the_full_time_in_its_title(): void
-    {
-        $html = Blade::render('<x-ui.datetime :value="$value" compact />', ['value' => Carbon::parse('2026-10-30 20:15:00', 'UTC')]);
-
-        $this->assertStringContainsString('>31 Oct 2026</time>', $html);
-        $this->assertStringContainsString('title="31 Oct 2026, 03:15 WIB"', $html);
-    }
-
-    public function test_no_view_labels_a_time_as_utc(): void
-    {
-        foreach (File::allFiles(resource_path('views')) as $view) {
-            $this->assertStringNotContainsString('UTC', $view->getContents(), $view->getRelativePathname());
-        }
     }
 
     public function test_a_table_and_empty_state_render_their_content(): void

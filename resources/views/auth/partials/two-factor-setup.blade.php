@@ -1,7 +1,7 @@
-<div class="mb-4 w-fit rounded-sm border border-rule bg-white p-2">{!! $qrCode !!}</div>
+<div class="mb-4 flex justify-center rounded-lg border border-slate-200 bg-white p-2">{!! $qrCode !!}</div>
 
-<p class="text-sm text-muted">Or enter this key manually:</p>
-<p class="mb-6 font-mono text-sm wrap-anywhere text-ink">{{ implode(' ', str_split($secret, 4)) }}</p>
+<p class="text-sm text-slate-600">Or enter this key manually:</p>
+<p class="mb-6 font-mono text-sm text-slate-900">{{ implode(' ', str_split($secret, 4)) }}</p>
 
 <form method="POST" action="{{ $action }}" class="space-y-4">
     @csrf

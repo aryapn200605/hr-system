@@ -1,1 +1,0 @@
-<x-layouts::error title="Something went wrong">The request could not be completed because of a problem on our side. Try again in a few minutes. If it keeps happening, tell your HR Admin.</x-layouts::error>

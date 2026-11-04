@@ -33,7 +33,7 @@ class Show extends Component
      */
     public function render(): mixed
     {
-        $user = User::query()->with(['roles', 'department', 'supervisors:id,name'])->findOrFail($this->userId);
+        $user = User::query()->with('roles')->findOrFail($this->userId);
 
         return view('livewire.users.show', ['user' => $user])
             ->title($user->name)

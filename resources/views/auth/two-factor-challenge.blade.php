@@ -9,8 +9,8 @@
         <x-ui.button type="submit" block>Verify</x-ui.button>
     </form>
 
-    <details class="mt-6 border-t border-rule pt-4" @if ($errors->has('recovery_code')) open @endif>
-        <summary class="cursor-pointer rounded-sm text-sm font-medium text-ink">Use a recovery code</summary>
+    <details class="mt-6 border-t border-slate-200 pt-4" @if ($errors->has('recovery_code')) open @endif>
+        <summary class="cursor-pointer rounded text-sm font-medium text-slate-800">Use a recovery code</summary>
 
         <form method="POST" action="{{ route('two-factor.recovery.store') }}" class="mt-4 space-y-4">
             @csrf
@@ -21,7 +21,7 @@
         </form>
     </details>
 
-    <form method="POST" action="{{ route('two-factor.cancel') }}" class="mt-6">
+    <form method="POST" action="{{ route('two-factor.cancel') }}" class="mt-6 text-center">
         @csrf
         <x-ui.button type="submit" variant="link">Cancel</x-ui.button>
     </form>

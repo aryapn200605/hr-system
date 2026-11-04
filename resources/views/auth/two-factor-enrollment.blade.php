@@ -3,7 +3,7 @@
 
     @include('auth.partials.two-factor-setup', ['action' => route('two-factor.enrollment.store')])
 
-    <form method="POST" action="{{ route('two-factor.cancel') }}" class="mt-6">
+    <form method="POST" action="{{ route('two-factor.cancel') }}" class="mt-6 text-center">
         @csrf
         <x-ui.button type="submit" variant="link">Cancel</x-ui.button>
     </form>

@@ -26,24 +26,4 @@ enum AuditEvent: string
     case InvitationDeliveryFailed = 'invitation.delivery_failed';
     case PasswordChanged = 'password.changed';
     case PasswordResetDeliveryFailed = 'password_reset.delivery_failed';
-    case DepartmentCreated = 'department.created';
-    case DepartmentUpdated = 'department.updated';
-    case DepartmentDeactivated = 'department.deactivated';
-    case DepartmentReactivated = 'department.reactivated';
-    case DepartmentDeleted = 'department.deleted';
-    case SupervisorAssigned = 'supervisor.assigned';
-    case SupervisorRemoved = 'supervisor.removed';
-    case SupervisorsMoved = 'supervisors.moved';
-    case SupervisorGuardRefused = 'supervisor_guard.refused';
-    case LeaveBalanceAdjusted = 'leave_balance.adjusted';
-    case LeaveBalanceReset = 'leave_balance.reset';
-    case LeaveAnchorChanged = 'leave_balance.anchor_changed';
-    case LeaveRequestCreated = 'leave_request.created';
-    case LeaveRequestCancelled = 'leave_request.cancelled';
-    case OvertimeRequestCreated = 'overtime_request.created';
-    case OvertimeRequestCancelled = 'overtime_request.cancelled';
-    case RequestEvidenceUploaded = 'request_evidence.uploaded';
-    case PublicHolidayCreated = 'public_holiday.created';
-    case PublicHolidayUpdated = 'public_holiday.updated';
-    case PublicHolidayDeleted = 'public_holiday.deleted';
 }

@@ -1,250 +1,11 @@
-# HR System
-
-An internal HR foundation: authentication with mandatory TOTP two-factor login, invitation-based activation, role-based access, user management, a dashboard, profile and security settings, and an audit trail. On top of it: departments, supervisor relations, yearly leave balances, public holidays, and leave and overtime requests. Approvals come in a later stage. Requirements are in SPEC.md, business decisions in DECISIONS.md (which wins over any SRS) and the work log in PROGRESS.md.
-
-## Stack
-
-- PHP 8.5.12, Laravel 13.39, Livewire 4 (Alpine comes with it), Tailwind CSS 4, Vite 8
-- MySQL 8.0 for the app and for tests. No SQLite anywhere.
-- spatie/laravel-permission 8.3, pragmarx/google2fa 9.1, bacon/bacon-qr-code 3.1
-- IBM Plex Sans from `@fontsource-variable/ibm-plex-sans`, shipped in the build
-
-## Prerequisites
-
-Windows with Laragon, providing Apache 2.4, PHP 8.5.12 and MySQL 8.0, plus Composer 2, Node 22 and npm 10. Laragon's PHP is not in PATH for Git Bash, so the commands below are written for Git Bash with the full path, and Composer runs from its phar:
-
-```bash
-PHP=/c/laragon/bin/php/php-8.5.12-Win32-vs17-x64/php.exe
-```
-
-```bash
-COMPOSER=/c/laragon/bin/composer/composer.phar
-```
-
-Required PHP extensions, all on in Laragon: bcmath, curl, gd, intl, mbstring, openssl, pdo_mysql, sodium, zip.
-
-## Setup with Laragon
-
-The project lives at `C:\laragon\www\hr-system` and Laragon serves it at `http://hr-system.test`, with Document Root and Auto Virtual Hosts configured in Laragon. Start Apache and MySQL in Laragon first, and create two empty databases, `hr_system` and `hr_system_test`.
-
-```bash
-cp .env.example .env
-```
-
-```bash
-$PHP $COMPOSER install
-```
-
-```bash
-npm ci
-```
-
-```bash
-$PHP artisan key:generate
-```
-
-Set `DB_USERNAME` and `DB_PASSWORD` in `.env`, then:
-
-```bash
-$PHP artisan migrate --seed
-```
-
-```bash
-npm run build
-```
-
-Open `http://hr-system.test`. Apache serves `public/`, so no `artisan serve` is needed. Run `npm run build` again after changing CSS or Blade classes.
-
-Seeders create roles and permissions only, never users.
-
-### First HR Admin
-
-Run this once after migrating. It seeds roles and permissions, asks for the account details with hidden password input, and refuses if an active HR Admin already exists.
-
-```bash
-$PHP artisan app:create-admin
-```
-
-The account is ACTIVE with 2FA enrollment incomplete, so the first login forces enrollment. There is no public admin registration page.
-
-## Environment variables
-
-`.env.example` has every variable. These are the ones specific to this project or that need attention:
-
-| Variable | Meaning |
-| --- | --- |
-| `APP_URL` | `http://hr-system.test` locally. Links in emails use it. |
-| `APP_DEBUG` | **Must be false in production.** While it is true, a 500 shows Laravel's debug page and not the application's error page. |
-| `DB_*` | MySQL at 127.0.0.1. Tests override the database name in phpunit.xml. |
-| `SESSION_DRIVER` | Must stay `database`: ending a session deletes its row. |
-| `SESSION_ENCRYPT` | `true`. |
-| `SESSION_SECURE_COOKIE` | `false` for local HTTP, **`true` wherever HTTPS is used**. |
-| `INVITATION_EXPIRE_MINUTES` | Invitation lifetime, default 4320 (3 days). |
-| `REQUEST_EVIDENCE_MAX_KB` | Largest evidence file, default 5120 (5 MB). PHP's own `upload_max_filesize` and `post_max_size` must be at least this. |
-| `MAIL_*` | See "SMTP" below. `MAIL_TIMEOUT` limits how long a request waits for the transport. |
-
-## Running tests
-
-Tests use `hr_system_test`, set in phpunit.xml, and never touch `hr_system`. Do not run them while a local server is using `hr_system_test`, because they reset it.
-
-```bash
-$PHP artisan test --compact
-```
-
-```bash
-$PHP artisan test --filter=ErrorPagesTest
-```
-
-```bash
-$PHP vendor/bin/pint --test
-```
-
-## Scheduled cleanup
-
-`routes/console.php` schedules three daily jobs, in WIB. **Nothing runs them until the operating system calls the scheduler.** Add `schedule:run` to Windows Task Scheduler or cron, once a minute. This has not been set up on this machine.
-
-```bash
-$PHP artisan schedule:list
-```
-
-```bash
-$PHP artisan schedule:run
-```
-
-- `auth:clear-resets` removes expired rows from `password_reset_tokens`.
-- `app:prune-invitations` removes dead invitations, and takes `--days` (default 90).
-- `app:reset-leave-balances`, at 00:10, closes leave periods that have ended and opens the next ones. It is safe to run any number of times. If the scheduler misses days, the next run catches up period by period. `{username}` limits it to one user, and `{username} --now` starts a new period for that user today.
-
-## SMTP
-
-Local development uses `MAIL_MAILER=log`. For a real server set `MAIL_MAILER=smtp` with `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME`, `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME`. **This path has not been tested against a real SMTP server**, see "Manual checks by the owner".
-
-## Moving a database to WIB
-
-The application now runs on WIB: `app.timezone` is `Asia/Jakarta` and the MySQL connection sets `+07:00`, an offset because this MySQL has no named zones loaded. Stored times written before this change are in UTC wall clock, so one migration moves them by +7 hours. It covers 21 columns in 9 tables, listed in the migration. Epoch columns (sessions, cache, jobs) and `users.two_factor_last_timestep` are not touched, as TOTP counts from the epoch.
-
-**`hr_system` has not been migrated. The owner runs this, once.** Until then `http://hr-system.test` fails, because the code expects the new columns and tables.
-
-**Warnings:**
-
-- Take the backup first. The rollback below loses departments, supervisors and balances.
-- The shift is right only because MySQL runs on +07:00 here. These are `TIMESTAMP` columns, so on a server in UTC the connection setting alone moves them and a shift would add 7 hours twice. The migration checks this, refuses, and changes nothing. A fresh, empty database needs no shift and passes on any server.
-- Keep the site down from before the migration until after the seeder: between the code change and the shift, open invitations and reset links look 7 hours older.
-- Never run `migrate:fresh` here. It erases the 2 real users.
-- Audit rows change too, on purpose. This is the only write to them that the model does not refuse.
-
-Back up. The file holds password hashes and encrypted secrets, so keep it out of the repository:
-
-```bash
-/c/laragon/bin/mysql/mysql-8.0.30-winx64/bin/mysqldump.exe -h 127.0.0.1 -u root -p --single-transaction hr_system > hr_system-before-wib.sql
-```
-
-Then, in order:
-
-```bash
-$PHP artisan down
-```
-
-```bash
-$PHP artisan migrate
-```
-
-```bash
-$PHP artisan db:seed --class=RolePermissionSeeder
-```
-
-```bash
-$PHP artisan up
-```
-
-The seeder adds the four new permissions to HR Admin and touches no user. Logged-in sessions survive, as they are epoch based.
-
-To go back, before returning to older code. This undoes the shift and **drops departments, supervisors and balances**:
-
-```bash
-$PHP artisan migrate:rollback --step=5
-```
-
-Check afterwards: the last login in User Management should read as the real time in WIB, 7 hours later than it did before.
-
-## Adding requests to a database
-
-Requests add four tables and three permissions. **`hr_system` has not been migrated. The owner runs this**, after the WIB steps above if those are still open. It changes no existing rows, and the three leave categories come with the migration.
-
-```bash
-$PHP artisan down
-```
-
-```bash
-$PHP artisan migrate
-```
-
-```bash
-$PHP artisan db:seed --class=RolePermissionSeeder
-```
-
-```bash
-$PHP artisan up
-```
-
-The seeder gives every role `requests.create` and HR Admin `holidays.manage` and `requests.view-any`. Without it nobody sees My requests.
-
-To change a leave category, edit `Database\Seeders\LeaveCategorySeeder` and run it. It is safe to repeat, and it leaves `is_active` as it finds it:
-
-```bash
-$PHP artisan db:seed --class=LeaveCategorySeeder
-```
-
-Evidence files live in `storage/app/private/evidence`. **Back this folder up with the database**: a request without its file cannot get it back. It holds personal documents, so it must never be under `public/` or in the repository.
-
-Going back with `migrate:rollback --step=4` drops requests and holidays, and leaves the files on disk.
-
-## Docker runtime: postponed
-
-Not done, and not verified. Docker is not usable on the development machine right now, so at the owner's instruction Phase 6 was finished without it. There is no Dockerfile, no compose file and no runtime-specific environment mechanism yet.
-
-Still to do from SPEC.md Phase 6: a minimal Dockerfile and docker-compose.yml with PHP 8.5.12 and the required extensions, the built-in server on port 8000, the project directory mounted, DB host `host.docker.internal`, no containers for MySQL, Redis, Nginx or Apache, a documented way to switch environment without editing config by hand, a decision on keeping `vendor` consistent between the two runtimes, and README instructions for both modes. The forgot password timing should be measured again on that runtime.
-
-## Security notes
-
-- Passwords, TOTP secrets, authentication codes, invitation tokens and recovery codes are never logged or shown again. Invitation tokens and recovery codes are stored hashed and the TOTP secret encrypted.
-- `APP_DEBUG=false` and `SESSION_SECURE_COOKIE=true` are required outside local development.
-- Protect `storage/logs` and web server access logs: see "Mail".
-- Rotating `APP_KEY` means re-enrolling every user: see "Recovery codes and APP_KEY".
-- Authorization is always on the server. Menus and role labels only reflect it.
-
-## Git workflow
-
-Work happens on `main` in one commit per phase or group of changes. Check `git status` and the staged diff before each commit, and never commit `.env`. No force push, and no push without the owner's permission.
-
-## Known limitations
-
-These are accepted for now and were left unchanged on purpose:
-
-- Session end needs no re-authentication, so a stolen session can log the real user out. They can log back in and change the password.
-- After `app:reset-two-factor`, the password alone reaches enrollment until the user enrolls again.
-- A forgot password transport failure reaches the audit log only, because the response must look the same for every address.
-- The forgot password timing was measured on Laragon's Apache with mod_php and the `log` mailer. It must be measured again on the production web server.
-- There is no email verification, so a mistyped new email is not detected.
-
-Also known:
-
-- Between 640px and 1279px the User Management table scrolls inside its own region, with the Actions column stuck to the right edge. At 1280px and up it fits, with long names and emails cut and the full text in a tooltip and on the detail page.
-- Below 640px tables become cards using `display: block`, so a screen reader announces each cell's label and value instead of table navigation.
-- Password spraying is limited only per identifier and IP pair, as account lockout is out of scope.
-- An account suspended before activation stays SUSPENDED for good. See "Addition outside SPEC.md: Reactivate".
-
-## Manual checks by the owner
-
-None of these has passed yet. They need a person or a service this project could not reach:
-
-- [ ] Scan the QR code with the real Google Authenticator and Microsoft Authenticator apps, at first enrollment and at reconfiguration.
-- [ ] Send invitation, resend and password reset emails through a real SMTP server, and open them in a real mail client.
-- [ ] Use the application with a physical keyboard, mainly User Management, Security Settings and the mobile drawer. Automated key presses passed, see PROGRESS.md.
-- [ ] Use it with a real screen reader (NVDA or VoiceOver), including the phone card layout.
-- [ ] Use it on a real phone. Phone widths were checked by viewport emulation only.
-- [ ] Set up the scheduler in Windows Task Scheduler or cron.
-- [ ] Include `storage/app/private/evidence` in backups.
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+
+<p align="center">
+<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+</p>
 
 ## Project decisions
 
@@ -272,6 +33,7 @@ None of these has passed yet. They need a person or a service this project could
 - `users.two_factor_secret` is set only when enrollment is confirmed. Until then the secret is kept encrypted in the session. Recovery codes are written straight into the POST response with `no-store` and never enter the session.
 - `SESSION_ENCRYPT=true`. `SESSION_SECURE_COOKIE` stays false for local HTTP and **must be true wherever the app is served over HTTPS**.
 - **`routes/web.php` replaces Livewire's update route** so that every Livewire action passes `EnsureFullyAuthenticated`. Livewire's own route has only the `web` group and does not reapply custom route middleware to updates. As a result Livewire cannot serve public pages: login and other guest pages use controllers and Blade. `AccessControlTest` fails if a new web route is neither behind this check nor listed as public on purpose.
+- `App\Livewire\Dashboard` is a placeholder for the login flow. The real dashboard belongs to Phase 4.
 - Users are created and invited through `App\Actions\CreateUserWithInvitation` and `App\Actions\ResendInvitation`, for Phase 4 to call. Both require a logged-in actor and check its permissions themselves. They return an `InvitationResult` whose `$sent` must be shown honestly. It holds no token.
 - Invitation tokens are 256 random bits, stored as SHA-256, so they survive `APP_KEY` rotation. Expiry is `INVITATION_EXPIRE_MINUTES`. Opening a link only starts a session state and redirects to a URL without the token, so mail scanners cannot spend it. Nothing reaches the user row until the last step, where `User::completeActivation()` locks the user, claims the invitation with one conditional update and writes password, 2FA and status in one transaction. The chosen password waits in the session, hashed and encrypted. Every step rechecks the invitation without a lock, and the transaction checks again.
 - A browser that is logged in gets a 409 page from an invitation link, which neither logs it out nor reads the token. A link must not be able to log someone out, and the two accounts must not share a session.
@@ -306,62 +68,6 @@ None of these has passed yet. They need a person or a service this project could
 - **Sessions end by deleting the row, which needs the database session driver.** A request in flight on that session read its row at the start, so `DatabaseSessionHandler::write()` only updates, which changes nothing once the row is gone. After a password change, `auth.session` is a second check.
 - **There is no way to turn 2FA off in the application**: no button and no route. SPEC.md allows it only through an explicitly authorized process, and the only such process is `app:reset-two-factor` below, which forces a new enrollment.
 - The optional audit trail viewer was skipped on purpose. It would add a seventh permission to the list SPEC.md fixes, and its metadata would need a whitelist. Audit rows are read in the database for now.
-- Error pages live in `resources/views/errors`, with `4xx` and `5xx` views for every other status. They read no session, user or database, and never print an exception or `abort()` message. Livewire requests still get JSON. If the page itself cannot render, Laravel falls back to its own default page.
-- `resources/views/welcome.blade.php` was deleted: no route used it.
-- Fonts are self-hosted through an npm package. The earlier `bunny()` entry in vite.config.js contacted fonts.bunny.net at build time and caused the `fontaine` warning. Removing it fixes both, so `fontaine` was not installed. `DesignTokensTest` fails if an external host returns to the stylesheet.
-- `app:prune-invitations` deletes only invitations that were never accepted and stopped working more than 90 days ago, because they prove nothing: the audit log keeps the creation and resend of each one, and audit rows are not touched. **Accepted invitations are kept for good**, as evidence of who invited a person and when they activated. Old audit entries can then hold an `invitation_id` with no row, which is expected, as it is plain metadata.
-- Password reset rows use the framework's own `auth:clear-resets`. Both are scheduled daily, and scheduling needs the operating system, see "Scheduled cleanup".
-- `app:reset-two-factor` records the operating system account and host as `operator` in the audit metadata. It comes from `USERNAME`, `USER` or `LOGNAME`, so it is a hint and not proof.
-- `x-ui.datetime` is the one place dates are formatted, always in WIB. `<time datetime>` keeps the instant. Tables use a compact date with the full time in a tooltip.
-- On phones `.table-stack` restyles the same table markup into cards, labelled by `data-label`, so a row's actions and their `@can` checks are never written twice.
-- Avatar initials come from a CSS pseudo-element, because they are decorative and otherwise count as visible text that the button's accessible name must contain (WCAG 2.5.3).
-- A row menu returns focus to its trigger before Livewire opens a dialog, and "Create user" no longer disables itself while loading. A disabled or hidden opener loses focus, and the dialog then returned it to `body`.
-
-- **Everything is WIB, and `TIMESTAMP` columns store it through a `+07:00` connection.** DECISIONS.md section 2 asks for WIB in the application, the connection and the display. `APP_TIMEZONE_DISPLAY` was removed, so there is one source. Leave and overtime dates of later stages are `DATE`.
-- Sessions and login history moved to My Profile, at `/profile/sessions` and `/profile/login-history`. The old addresses are gone, without a redirect. `ProfileMenuTest` fails if a route, or a Livewire or HTTP class, reaches `resetTwoFactor()`, which stays console only.
-- **Every write to `employee_supervisor` goes through `App\Support\SupervisorRelations`.** Direct `attach()` or `detach()` skips the guard.
-- **`App\Support\SupervisorGuard` is the one place that decides whether a relation may exist or end.** It runs from `User::save()` on a status change, `changeRole()`, `delete()`, and from assign, remove and move, so any future command is covered and not only the pages. Query-builder writes to `status` skip it, as they skip the last HR Admin rule. No console command suspends or demotes today, so the console path is tested with a command defined in the test.
-- All of these share `User::withinHrAdminLock()`: suspensions, role changes and supervisor changes run one at a time. These are rare HR actions, and one lock in one order cannot deadlock.
-- A guard refusal must be audited after the rollback, or the transaction takes the entry with it, so `withinHrAdminLock()` writes it after `DB::transaction()` has failed. `DB::afterRollBack()` was not used, because it is unsafe with nested transactions. A second connection was not used either, because the entry's foreign key to the locked user row would wait on our own lock.
-- A supervisor relation stays in the table when the supervisor is suspended or loses the role, and counts again when they return. Read relations through `activeSupervisor()`. Loop checks follow every link, active or not, for the same reason.
-- A suspended employee does not count as affected by the guard, as agreed with the owner: they cannot submit anything, and someone who has left must not block their supervisor's suspension.
-- The "No supervisor" marker and filter cover roles where `RoleName::needsSupervisor()` is true, which leaves out Approver, as agreed with the owner: HR Admin decides for an Approver without any relation. An Approver can still have supervisors, and the guard still applies to them.
-- A bulk move runs its guard check with the new links in place. The target was found eligible first, so the check is a second layer and not the rule itself.
-- **Leave periods touch end to end for each user**, and dates come from `leave_anchor_date`, never from the last period. A 29 February anchor resets on 28 February in common years and comes back in leap years. All balance changes take the user row lock, in `App\Support\LeaveBalances`.
-- Balances are whole days. Adjustments are relative, so two at once both count, and the limits are checked on the values under the lock. Only the open period can be adjusted. An HR Admin can adjust their own balance, as DECISIONS.md does not refuse it, and the ledger and audit log name them.
-- Reset now, agreed with the owner: the open period ends yesterday and a new one of 12 days runs from today to the next reset date. The reset date does not move, and it is refused when a period already started today. On an overdue balance it does only the overdue roll over.
-- Changing the reset date moves the end of the open period to the day before the next reset. The days in it stay, so no days are granted or taken. A reset date cannot be in the future.
-- The daily check also opens a first period for any user without one. Periods keep rolling for SUSPENDED and PENDING users, so the history has no gaps.
-- `leave_balance_entries` refuses update and delete at model level, like `audit_logs`.
-- A department in use can be deactivated. Its users keep it, and it cannot be chosen for anyone else.
-
-- **`leave_request_allocations` holds one row per working day, not one per period**, as agreed with the owner. A manual reset or a new reset date moves period boundaries after a request is made, and per-period rows could not be split again, because which days counted is frozen while holidays can change. A day's period is always read from its date, so Tahap 1 code did not change for this, and a later stage groups the rows by period. Only categories that deduct the balance have rows.
-- A request first runs the same roll over as the daily check, so a missing scheduler cannot leave it with a period that has ended. There are then only two periods a request can reach: the open one, and the next one, projected from the reset date with 12 days. A request can go no further than the end of that one, for every leave category. Overtime has no such limit.
-- Pending days never touch `used`. What is left is worked out when needed: `entitlement - used - pending days` in a real period, and `12 - pending days - approved days` in a projected one, which has no `used` yet. Cancelling frees the days at once, as there is nothing to undo. **The approval stage must decide how approved days reach a period that does not exist yet.**
-- **Every rule of DECISIONS.md section 8 that reads stored rows runs in `App\Support\RequestRules`, under the user row lock** that balance changes also take, so requests of one user run one after the other, and a request cannot slip past a roll over. All messages are about the user's own requests.
-- Overlap counts calendar days, weekends and holidays included. Overtime ending at 00:00 touches only the day before.
-- `App\Support\WorkingDays` is the one definition of a working day. `App\Support\RequestEligibility` is the one answer to who can submit, used by the pages and the server alike.
-- The leave and overtime forms are controllers with plain multipart forms, not Livewire. Livewire uploads use a public signed route and a temporary file, and these stay behind the full login. The list and the detail pages are Livewire.
-- **Evidence:** the `evidence` disk has no `serve` option and no URL, so a file leaves only through `EvidenceController`. The type comes from the content with finfo, the extension from that type, and the name is random. The original name is never stored, and a download is called `evidence-{id}.{ext}`, so a sensitive name reaches neither the database nor the audit log. Downloads are attachments with `nosniff` and a sandboxing CSP.
-- `App\Policies\RequestPolicy` decides on files: the owner, a holder of `requests.view-any`, or an active supervisor of the requester. A supervisor link gives nothing for an Approver's files, as HR Admin decides for Approvers. `requests.view-any` is an addition, so the code names a permission and not a role.
-- An unknown request ID gets the same 403 as someone else's, so nobody can learn which requests exist.
-- Cancelling is one conditional update on `status = pending`, so two cancels cannot both win. The row stays, with `cancelled_at`.
-- Status and decision columns are not mass assignable. The decision columns stay empty until the approval stage.
-- Leave category names are in English, following the interface. The codes are `annual`, `sick` and `other`.
-- A dialog stays in the page when its trigger goes away. Removing an open dialog leaves its focus trap active, which swallows every click on the page. The tests cannot see this, only a real browser.
-- Toasts sit below dialogs, as on a phone both are at the bottom of the screen, and a toast covered a dialog's buttons.
-- `datetime-local` inputs carry a `min`, because the browser counts `step` from `min`, or else from the value the form came back with: after a refused 18:30, it would refuse 18:00.
-
-### Design direction
-
-A quiet document or ledger for an internal HR tool: dense, left aligned, read top to bottom. The skill `frontend-design` was not available, so this comes from the owner's brief. Tokens live in the `@theme` block of `resources/css/app.css`. Tailwind's default palette, radii and shadows are switched off there, and `DesignTokensTest` fails if a view reaches for one.
-
-- **Color**: warm neutrals (`paper` page, `surface` for inputs and overlays, `wash` for hover, `rule` for hairlines, `rule-strong` for control borders, `ink`, `ink-soft`, `muted` for text). One accent, `accent` teal, for primary buttons, links, focus and the current page. `tone-*` colors are muted, with blue, purple and green for roles as SPEC.md asks. Status and result badges are only a small square and neutral text, and only role labels are filled.
-- **Type**: IBM Plex Sans in weights 400, 500 and 600. Page titles 24px semibold, section titles 14px semibold, body 14px, table headers and hints 12px, figures 30px medium. `tabular-nums` on tables, dates, details and counts. Recovery codes and setup keys use the system monospace stack, and no second web font.
-- **Space**: Tailwind's 4px scale. Sections are 32px apart, table cells 8px by 8px.
-- **Shape**: one radius, `rounded-sm` (3px). Sections are set off by a rule, not a box. One shadow, `shadow-overlay`, only on menus, dialogs and toasts.
-- **Motion**: no transitions. Only the loading spinner moves, and not under `prefers-reduced-motion`.
-- **Copy**: says what is true and what to do next. Empty states are text without an icon. Security messages were not changed.
 
 ### Addition outside SPEC.md: Reactivate
 
@@ -374,12 +80,12 @@ It never activates an account that has not finished activation. A PENDING accoun
 A user who lost the authenticator and every recovery code cannot pass a re-authentication, so at the user's request there is a console-only way back. It has no route or UI.
 
 ```bash
-$PHP artisan app:reset-two-factor {username}
+php artisan app:reset-two-factor {username}
 ```
 
-After a confirmation it removes the secret, enrollment date, last timestep and recovery codes, ends all sessions of that user, and writes the audit event `two_factor.reset` with a null actor and the operator. Password, status and role stay. The next login forces a new enrollment.
+After a confirmation it removes the secret, enrollment date, last timestep and recovery codes, ends all sessions of that user, and writes the audit event `two_factor.reset` with a null actor. Password, status and role stay. The next login forces a new enrollment.
 
-**Until they enroll again, the password alone reaches the enrollment page**, the same exposure as a first login. Check who is asking before running it, out of band. Anyone who can run this command already has the server, so it adds no new access. The audit entry has a null actor and names the operating system account that ran the command.
+**Until they enroll again, the password alone reaches the enrollment page**, the same exposure as a first login. Check who is asking before running it, out of band. Anyone who can run this command already has the server, so it adds no new access. The audit entry cannot say who ran it, only that the system did.
 
 ## Mail
 
@@ -392,3 +98,63 @@ Web server access logs record the first request of every link, including its tok
 Recovery codes are 80-bit random values, stored as HMAC-SHA256 under a key derived from `APP_KEY` with HKDF and the label `hr-system.recovery-codes.v1`, never under `APP_KEY` itself. The user ID is part of the hashed message. A slow hash is unnecessary at this entropy, and a keyed hash allows an indexed lookup on `(user_id, code_hash)`. Spending a code is one conditional update, so a code works once even with concurrent requests.
 
 **Rotating `APP_KEY` voids every recovery code.** It also makes every TOTP secret undecryptable, because they are encrypted with the same key, and `APP_PREVIOUS_KEYS` does not help recovery codes. Rotation therefore means re-enrolling all users, with `app:reset-two-factor` for each of them. It clears the secret without reading it, so it works after a rotation too.
+
+## First HR Admin
+
+Run this once after migrating. It seeds roles and permissions, asks for the account details with hidden password input, and refuses if an active HR Admin already exists.
+
+```bash
+php artisan app:create-admin
+```
+
+The account is ACTIVE with 2FA enrollment incomplete. There is no public admin registration page.
+
+## About Laravel
+
+Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+
+- [Simple, fast routing engine](https://laravel.com/docs/routing).
+- [Powerful dependency injection container](https://laravel.com/docs/container).
+- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
+- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
+- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
+- [Robust background job processing](https://laravel.com/docs/queues).
+- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+
+Laravel is accessible, powerful, and provides tools required for large, robust applications.
+
+## Learning Laravel
+
+Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+
+In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+
+You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+
+## Agentic Development
+
+Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+
+```bash
+composer require laravel/boost --dev
+
+php artisan boost:install
+```
+
+Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+
+## Contributing
+
+Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+
+## Code of Conduct
+
+In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+
+## Security Vulnerabilities
+
+If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+
+## License
+
+The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).

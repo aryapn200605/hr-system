@@ -1,13 +1,16 @@
-@props(['title', 'description' => null])
+@props(['title', 'description' => null, 'icon' => 'inbox'])
 
-<div {{ $attributes->class('px-4 py-10 sm:px-5') }}>
-    <p class="text-sm font-semibold text-ink">{{ $title }}</p>
+<div {{ $attributes->class('flex flex-col items-center px-4 py-10 text-center') }}>
+    <span class="flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+        <x-ui.icon :name="$icon" class="size-5" />
+    </span>
+    <p class="mt-3 text-sm font-medium text-slate-900">{{ $title }}</p>
 
     @if ($description)
-        <p class="mt-1 max-w-prose text-sm text-muted">{{ $description }}</p>
+        <p class="mt-1 max-w-sm text-sm text-slate-600">{{ $description }}</p>
     @endif
 
     @if (! $slot->isEmpty())
-        <div class="mt-3">{{ $slot }}</div>
+        <div class="mt-4">{{ $slot }}</div>
     @endif
 </div>

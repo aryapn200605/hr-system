@@ -21,15 +21,6 @@ enum RoleName: string
     }
 
     /**
-     * Determine whether this role needs a supervisor to submit requests. HR Admins decide
-     * for an Approver without any relation, so an Approver is never short of one.
-     */
-    public function needsSupervisor(): bool
-    {
-        return $this !== self::Approver;
-    }
-
-    /**
      * Get the permissions granted to this role.
      *
      * @return list<PermissionName>
@@ -38,7 +29,7 @@ enum RoleName: string
     {
         return match ($this) {
             self::HrAdmin => PermissionName::cases(),
-            self::Approver, self::Employee => [PermissionName::DashboardView, PermissionName::RequestsCreate],
+            self::Approver, self::Employee => [PermissionName::DashboardView],
         };
     }
 }

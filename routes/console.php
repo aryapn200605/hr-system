@@ -2,12 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
-
-Schedule::command('auth:clear-resets')->daily();
-Schedule::command('app:prune-invitations')->daily();
-Schedule::command('app:reset-leave-balances')->dailyAt('00:10');

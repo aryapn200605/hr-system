@@ -1,21 +1,22 @@
 <div class="space-y-6">
-    <x-ui.page-header title="User Management" description="Create accounts, change roles and control access.">
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">User Management</h1>
+            <p class="mt-2 text-sm text-slate-600">Create accounts, change roles and control access.</p>
+        </div>
+
         @can('create', \App\Models\User::class)
-            <x-slot:actions>
-                <x-ui.button size="sm" wire:click="openCreate">Create user</x-ui.button>
-            </x-slot:actions>
+            <x-ui.button size="sm" class="self-start" wire:click="openCreate" loading="openCreate">Create user</x-ui.button>
         @endcan
-    </x-ui.page-header>
+    </header>
 
     @if ($notice !== '')
         <x-ui.alert tone="warning" data-notice>{{ $notice }}</x-ui.alert>
     @endif
 
-    <x-ui.card flush>
-        <div class="grid grid-cols-2 gap-3 border-b border-rule px-4 py-3 sm:grid-cols-4 sm:px-5 xl:grid-cols-[minmax(0,3fr)_repeat(4,minmax(0,1fr))]">
-            <div class="col-span-2 sm:col-span-4 xl:col-span-1">
-                <x-ui.input label="Search" id="filter-search" type="search" maxlength="100" placeholder="Name, username or email" wire:model.live.debounce.300ms="search" />
-            </div>
+    <x-ui.card>
+        <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-2 lg:grid-cols-4">
+            <x-ui.input label="Search" id="filter-search" type="search" maxlength="100" placeholder="Name, username or email" wire:model.live.debounce.300ms="search" />
 
             <x-ui.select label="Role" id="filter-role" wire:model.live="roleFilter">
                 <option value="">All roles</option>
@@ -31,11 +32,6 @@
                 @endforeach
             </x-ui.select>
 
-            <x-ui.select label="Supervisor" id="filter-supervisor" wire:model.live="supervisorFilter">
-                <option value="">All users</option>
-                <option value="missing">No supervisor</option>
-            </x-ui.select>
-
             <x-ui.select label="Rows per page" id="filter-per-page" wire:model.live="perPage">
                 @foreach ($perPageOptions as $option)
                     <option value="{{ $option }}">{{ $option }}</option>
@@ -43,17 +39,11 @@
             </x-ui.select>
         </div>
 
-        <div wire:loading.class="opacity-60" wire:target="search,roleFilter,statusFilter,supervisorFilter,perPage,setPage,nextPage,previousPage">
+        <div wire:loading.class="opacity-60" wire:target="search,roleFilter,statusFilter,perPage,setPage,nextPage,previousPage">
             @if ($users->isEmpty())
-                <x-ui.empty-state title="No users found" description="No account matches this search. Clear the search box, or set Role and Status back to All.">
-                    <x-ui.button
-                        variant="secondary"
-                        size="sm"
-                        x-on:click="$wire.set('search', '', false); $wire.set('roleFilter', '', false); $wire.set('supervisorFilter', '', false); $wire.set('statusFilter', '')"
-                    >Clear search and filters</x-ui.button>
-                </x-ui.empty-state>
+                <x-ui.empty-state title="No users found" description="Try a different search or filter." icon="users" />
             @else
-                <x-ui.table caption="Users" stack="wide">
+                <x-ui.table caption="Users">
                     <x-slot:head>
                         <tr>
                             <th scope="col">ID</th>
@@ -65,51 +55,41 @@
                             <th scope="col">2FA</th>
                             <th scope="col">Last login</th>
                             <th scope="col">Created</th>
-                            <th scope="col" class="text-right">Actions</th>
+                            <th scope="col">Actions</th>
                         </tr>
                     </x-slot:head>
 
                     @foreach ($users as $row)
                         <tr wire:key="user-{{ $row->id }}">
-                            <td data-label="ID" class="text-muted">{{ $row->id }}</td>
-                            <td data-primary class="max-w-36 truncate font-medium text-ink 2xl:max-w-52" title="{{ $row->name }}">{{ $row->name }}</td>
-                            <td data-label="Username">{{ $row->username }}</td>
-                            {{-- Takes the room left over, so the address is cut only when there is none. --}}
-                            <td data-label="Email" data-span title="{{ $row->email }}" class="w-full max-w-0 truncate">{{ $row->email }}</td>
-                            <td data-label="Role"><x-ui.role-badge :user="$row" /></td>
-                            <td data-label="Status">
-                                <x-ui.status-badge :status="$row->status" />
-                                @if (! $row->has_active_supervisor && \App\Enums\RoleName::tryFrom((string) $row->roleName())?->needsSupervisor())
-                                    <x-ui.badge tone="amber" class="flex">No supervisor</x-ui.badge>
-                                @endif
-                            </td>
-                            <td data-label="2FA">
+                            <td>{{ $row->id }}</td>
+                            <td class="font-medium text-slate-900">{{ $row->name }}</td>
+                            <td>{{ $row->username }}</td>
+                            <td>{{ $row->email }}</td>
+                            <td><x-ui.role-badge :user="$row" /></td>
+                            <td><x-ui.status-badge :status="$row->status" /></td>
+                            <td>
                                 @if ($row->hasCompletedTwoFactorEnrollment())
                                     <x-ui.badge tone="green">Enabled</x-ui.badge>
                                 @else
                                     <x-ui.badge>Not enabled</x-ui.badge>
                                 @endif
                             </td>
-                            <td data-label="Last login">
+                            <td>
                                 @if ($row->last_login_at)
-                                    <x-ui.datetime :value="$row->last_login_at" compact />
+                                    <x-ui.datetime :value="$row->last_login_at" />
                                 @else
-                                    <span class="text-muted">Never</span>
+                                    <span class="text-slate-600">Never</span>
                                 @endif
                             </td>
-                            <td data-label="Created"><x-ui.datetime :value="$row->created_at" compact /></td>
-                            <td data-actions class="text-right">
-                                <x-ui.dropdown :id="'user-actions-'.$row->id" :label="'Actions for '.$row->name" anchored trigger-class="size-8 justify-center" class="inline-block">
+                            <td><x-ui.datetime :value="$row->created_at" /></td>
+                            <td class="text-right">
+                                <x-ui.dropdown :id="'user-actions-'.$row->id" :label="'Actions for '.$row->name" anchored trigger-class="px-2.5 py-1.5" class="inline-block">
                                     <x-slot:trigger>
-                                        <x-ui.icon name="dots" class="size-5" />
+                                        <span>Actions</span>
+                                        <x-ui.icon name="chevron-down" class="size-4" />
                                     </x-slot:trigger>
 
                                     <x-ui.dropdown-item :href="route('users.show', $row->id)" wire:navigate.off>View details</x-ui.dropdown-item>
-                                    <x-ui.dropdown-item :href="route('users.employment', $row->id)" wire:navigate.off>Employment</x-ui.dropdown-item>
-
-                                    @can(\App\Enums\PermissionName::LeaveBalanceView->value)
-                                        <x-ui.dropdown-item :href="route('users.leave-balance', $row->id)" wire:navigate.off>Leave balance</x-ui.dropdown-item>
-                                    @endcan
 
                                     @can('update', $row)
                                         <x-ui.dropdown-item wire:click="openEdit({{ $row->id }})">Edit</x-ui.dropdown-item>
@@ -131,7 +111,7 @@
                                         @endif
                                     @else
                                         @can('suspend', $row)
-                                            <x-ui.dropdown-item wire:click="openSuspend({{ $row->id }})" class="text-tone-red!">Suspend</x-ui.dropdown-item>
+                                            <x-ui.dropdown-item wire:click="openSuspend({{ $row->id }})" class="text-red-800!">Suspend</x-ui.dropdown-item>
                                         @endcan
                                     @endif
                                 </x-ui.dropdown>
@@ -143,7 +123,16 @@
         </div>
 
         @if ($users->total() > 0)
-            <x-ui.pagination :paginator="$users" />
+            <nav aria-label="Pagination" class="flex flex-col gap-3 border-t border-slate-200 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-slate-600">Showing {{ $users->firstItem() }} to {{ $users->lastItem() }} of {{ $users->total() }}</p>
+
+                @if ($users->hasPages())
+                    <div class="flex gap-2">
+                        <x-ui.button variant="secondary" size="sm" wire:click="previousPage" loading="previousPage" :disabled="$users->onFirstPage()">Previous</x-ui.button>
+                        <x-ui.button variant="secondary" size="sm" wire:click="nextPage" loading="nextPage" :disabled="! $users->hasMorePages()">Next</x-ui.button>
+                    </div>
+                @endif
+            </nav>
         @endif
     </x-ui.card>
 
@@ -176,7 +165,7 @@
                     @endforeach
                 </x-ui.select>
 
-                <p class="text-sm text-muted">An invitation with an activation link is emailed to this address.</p>
+                <p class="text-sm text-slate-600">An invitation with an activation link is emailed to this address.</p>
             @endif
         </form>
 

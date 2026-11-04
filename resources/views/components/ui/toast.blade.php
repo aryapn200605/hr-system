@@ -14,26 +14,22 @@
     }"
     @if (session('toast')) x-init="add(@js(session('toast')))" @endif
     x-on:toast.window="add($event.detail.message, $event.detail.tone)"
-    class="pointer-events-none fixed inset-x-4 bottom-4 z-45 flex flex-col gap-2 sm:left-auto sm:w-80"
+    class="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col gap-2 sm:left-auto sm:w-80"
     role="status"
     aria-live="polite"
 >
     <template x-for="toast in toasts" x-bind:key="toast.id">
         <div
-            class="pointer-events-auto flex items-start gap-2.5 rounded-sm border border-rule bg-surface px-3 py-2.5 text-sm text-ink shadow-overlay"
+            class="pointer-events-auto flex items-start justify-between gap-3 rounded-lg border border-l-4 border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 shadow-lg"
+            x-bind:class="{
+                'border-l-green-600': toast.tone === 'success',
+                'border-l-blue-600': toast.tone === 'info',
+                'border-l-amber-500': toast.tone === 'warning',
+                'border-l-red-600': toast.tone === 'danger',
+            }"
         >
-            <span
-                class="mt-1.5 size-1.5 shrink-0"
-                x-bind:class="{
-                    'bg-tone-green': toast.tone === 'success',
-                    'bg-tone-blue': toast.tone === 'info',
-                    'bg-tone-amber': toast.tone === 'warning',
-                    'bg-tone-red': toast.tone === 'danger',
-                }"
-                aria-hidden="true"
-            ></span>
-            <span class="min-w-0 flex-1" x-text="toast.message"></span>
-            <button type="button" class="cursor-pointer rounded-sm text-muted hover:text-ink" aria-label="Dismiss" x-on:click="remove(toast.id)">
+            <span x-text="toast.message"></span>
+            <button type="button" class="cursor-pointer rounded text-slate-600 hover:text-slate-900" aria-label="Dismiss" x-on:click="remove(toast.id)">
                 <x-ui.icon name="close" class="size-4" />
             </button>
         </div>
