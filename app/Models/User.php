@@ -171,6 +171,14 @@ class User extends Authenticatable implements HasLocalePreference
     }
 
     /**
+     * Whether this user's requests go to any active HR Admin instead of a supervisor (DECISIONS.md section 3).
+     */
+    public function requestsGoToHrAdmin(): bool
+    {
+        return $this->roleName() === RoleName::Approver->value;
+    }
+
+    /**
      * Whether an active Approver supervises this user now.
      */
     public function hasActiveSupervisor(): bool

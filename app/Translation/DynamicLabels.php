@@ -31,5 +31,14 @@ class DynamicLabels
         'Period opened',
         'Adjusted',
         'Closed by reset',
+        // App\Enums\RequestStatus::label()
+        'Pending approval',
+        'Approved',
+        'Rejected',
+        'Cancelled',
+        // App\Models\LeaveCategory::label(), names from Database\Seeders\LeaveCategorySeeder
+        'Annual leave',
+        'Sick leave',
+        'Other leave',
     ];
 }

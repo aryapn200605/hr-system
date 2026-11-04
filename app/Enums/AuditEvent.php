@@ -38,4 +38,12 @@ enum AuditEvent: string
     case LeaveAnchorChanged = 'leave.anchor_changed';
     case LeaveBalanceAdjusted = 'leave.balance_adjusted';
     case LeaveBalanceReset = 'leave.balance_reset';
+    case HolidayCreated = 'holiday.created';
+    case HolidayUpdated = 'holiday.updated';
+    case HolidayDeleted = 'holiday.deleted';
+    case LeaveRequestCreated = 'leave_request.created';
+    case LeaveRequestCancelled = 'leave_request.cancelled';
+    case OvertimeRequestCreated = 'overtime_request.created';
+    case OvertimeRequestCancelled = 'overtime_request.cancelled';
+    case RequestEvidenceUploaded = 'request.evidence_uploaded';
 }

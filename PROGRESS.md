@@ -15,7 +15,8 @@
 - Phase 6 (Foundation cleanup): done, see "Phase 6" below.
 - Phase 7 (Language mechanism): done, see "Phase 7" below.
 - Phase 8 (Organization and leave balance): done, see "Phase 8" below.
-- **Next: Phase 9 (Requests).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
+- Phase 9 (Requests): done, see "Phase 9" below.
+- **Next: Phase 10 (Approvals).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -433,3 +434,53 @@ Recorded in README.md under "Organization and leave balance".
 ### Owner steps
 - Review the new Indonesian texts (same way as Phase 7).
 - Optional: install the scheduler (README "Scheduler"); it now also runs the daily leave sync.
+
+## Phase 9: Requests (2026-11-04)
+
+### Plan (Step 0)
+Tables `leave_categories`, `holidays`, `leave_requests`, `leave_request_allocations`, `overtime_requests`; permissions `requests.submit` (all three roles) and `holidays.manage` (HR Admin); routes `/requests`, `/requests/{leave|overtime}/{id}`, `/requests/{type}/{id}/evidence`, `/holidays`; lock order user row then request row; private `evidence` disk. The owner decided the two open questions in the phase prompt: project the next period from the anchor with 12 days and stop at the end of that next period; available = entitlement − used − pending allocations, with `used` untouched until Phase 10. Also from the owner: Approvers need an active HR Admin, Employee and HR Admin need an active supervisor.
+
+### Done
+- Leave categories (reference table, `LeaveCategorySeeder` upserts `annual`, `sick`, `other` by code), holidays page with audit, `WorkingDays` (Monday to Friday minus holidays).
+- Leave requests: every rule of DECISIONS.md section 8 on the server in one transaction, working days and the deducting flag frozen, allocation per period with the next period projected, horizon at the end of the next period.
+- Overtime requests: whole WIB hours, at most 12, across midnight, overlap only on hours that really overlap, refused on dates of pending or approved leave (and the other way round).
+- Evidence: pdf/jpg/png checked from the content with `finfo`, `EVIDENCE_MAX_KB` (default 5120, also the Livewire upload limit), random names on the private `evidence` disk, download through `EvidenceController` only, a file removed again when its request is refused.
+- Pages: My requests (balance card with the current and the projected next period, Leave/Overtime tabs, status filter, both forms in dialogs, buttons disabled with the reason when there is no approval path), detail page with cancel, Holidays. Menu entries My requests and Holidays. All texts in English and Indonesian (101 new keys; 7 dynamic labels registered).
+- Audit: request created and cancelled, evidence uploaded (type and size only), holiday created, updated and deleted. No reason text, no file name.
+- Submissions limited to 10 per minute per user.
+- README: section "Requests", new standard terms, `EVIDENCE_MAX_KB` in `.env.example`.
+
+### Verified
+- `php artisan test`: 940 passed on `hr_system_test` (813 before). New: `LeaveRequestTest`, `OvertimeRequestTest`, `RequestEvidenceTest`, `HolidayTest`, `RequestPagesTest`, `RequestConcurrencyTest`. Changed on purpose: `RolePermissionSeederTest` (two permissions; Approver and Employee also get `requests.submit`), `WibTimezoneTest` (`ADDED_AFTER_WIB` gained the five tables), `LanguageTest` (request statuses and categories in the dynamic-label check), `tests/Support/race.php` (modes leave, overtime, cancel-leave, cancel-overtime).
+- Real races (separate processes, committed rows, 3 rounds where it applies): four overlapping leave submissions by one user (one wins), two submissions that together exceed the balance (one wins, 8 days allocated), leave against overtime on the same date (one wins), three overlapping overtime submissions (one wins), double cancel of a leave and an overtime request (each cancelled once, one audit row each).
+- Mutation check: 77 safeguards removed one at a time, each file restored and confirmed by hash, and the source tree compared with a hash list afterwards (only the four files changed on purpose differed). 69 caught at first. Of the 8 survivors, 3 exposed weak tests (cancel without the permission, a user without a role, the end-before-start message), now caught; 3 were redundant code, now removed (the user row lock in cancel, `Rule::unique` on holiday dates that the unique index answers with the same message, `abort_if` in the holidays page's `find()`); the safeguard added after the browser check (`resetErrorBag` for a new file) was mutated too and is caught. **One survivor is kept on purpose:** removing `\` from an uploaded file name, because PHP on Windows already treats it as a separator, while a Linux server does not.
+- `npm run build`, Pint, `composer audit`, `npm audit`: clean. No new packages.
+- `hr_system`: counts before (users 2, login_histories 5, audit_logs 19 with max id 323, recovery_codes 20, account_invitations 1, model_has_roles 2, departments 2, supervisor_user 1, leave_periods 2, leave_balance_entries 2, translations 1017), `migrate:status` with the three migrations pending, backup `C:\laragon\backup\hr-system\hr_system-before-phase9-20261104-183037.sql` (309,057 bytes, "Dump completed", INSERTs for 18 tables), `migrate` ran the three migrations, `db:seed --class=RolePermissionSeeder --force` (role grants 12 to 16), `app:translations-missing` passes (1219 translations), `view:clear`.
+- Puppeteer (`C:\laragon\tmp\browser-check\phase9.mjs`, with `phase9-setup.php` and `phase9-cleanup.php`) on hr-system.test: a temporary HR Admin `zz-check-p9` created through `CreateUserWithInvitation` with the owner as actor and activated through its real link with real TOTP codes, and an Approver `zz-check-p9-a1` activated with `User::completeActivation()` and linked as its supervisor through `Supervisors::attach()` mid-run. 66 checks passed, 0 console errors: disabled buttons with the reason before the link, holiday add (empty name refused), edit and delete, leave across that holiday counted as 4 working days, short reason refused, a text file named .pdf refused, a real PDF uploaded and downloaded as an attachment, balance card 4 pending and 8 available, overlap refused, overtime across midnight (13 hours refused, 8 accepted), overtime on a leave date refused, detail, Keep request, cancel, a stale second tab told "no longer pending", frozen days after deleting the holiday, every new page and dialog at 375px without horizontal scroll, the drawer, the pages and a validation message in Indonesian. Screenshots were reviewed.
+- Cleanup after each of the three runs: the zz-check users with their audit rows, login history, recovery codes, invitations, sessions, role links, supervisor link, requests, allocations, periods, ledger rows and evidence files, in one transaction that checked each count. Afterwards every count matched the numbers before; holidays, requests and evidence files 0. The 9 temporary upload files of the runs in `storage/app/private/livewire-tmp` were removed by hand.
+
+### Bugs found
+- The unique index name of `leave_request_allocations` was over MySQL's 64 characters, so the first full run failed in every test (fixed with a short name).
+- Livewire 4 uses `$slots` in views: the balance card rendered empty while other assertions passed. Found by a page test; the variable is now `$periods`.
+- The browser check showed the old "must be a PDF" error after a valid file replaced a rejected one. A new file now clears its field's error.
+
+### Known issues
+- Requests are visible only to their requester; deciders see nothing until Phase 10.
+- `used` stays 0; approval deducts in Phase 10, which must also map projected allocations to real periods and recheck them.
+- A rejected temporary upload and Livewire's `.json` metadata of uploads stay in `livewire-tmp` until Livewire's own 24-hour cleanup.
+- The Indonesian texts are the agent's and await the owner's review.
+- Not tested: an evidence file at the real 5 MB limit through the browser (only through tests with a smaller limit), and the `\` cleaning on Windows (the kept survivor). A real keyboard and a screen reader were not tried. Request tables scroll sideways on a phone, like other tables.
+
+### Lessons
+- Read the first error of a failed run first: one bad index name failed 811 tests and took 27 minutes.
+- Do not name a Livewire view variable `$slots`.
+- MySQL JSON columns return keys sorted: compare audit metadata with `assertEquals`, not `assertSame`.
+
+### Decisions
+Recorded in README.md under "Requests".
+- From the owner: the projected next period with 12 days and the horizon at its end; available = entitlement − used − pending; Approvers need an active HR Admin, Employee and HR Admin an active supervisor.
+- Assumptions: the horizon applies to every leave category; overtime starts at most one year ahead; an overtime touches the dates from its start to its last hour worked (18:00 to 00:00 touches one date); pending allocations count in the period that holds the date their part starts; holidays from 2000-01-01 to the end of the year after next; 10 submissions per minute per user; the pending status is shown as "Pending approval" because "Pending" is the account status; categories are upserted by code and never deleted; a non-deducting request gets no allocation rows; the projected next period is not stored in Phase 9.
+
+### Owner steps
+- Review the new Indonesian texts (`database/translations/id.php`, or switch My Profile to Bahasa Indonesia).
+- Nothing else: the migration and the permission seeder were run on `hr_system` in this phase.

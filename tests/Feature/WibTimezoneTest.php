@@ -36,6 +36,11 @@ class WibTimezoneTest extends TestCase
         'supervisor_user' => ['created_at'],
         'leave_periods' => ['created_at', 'updated_at'],
         'leave_balance_entries' => ['created_at'],
+        'leave_categories' => ['created_at', 'updated_at'],
+        'holidays' => ['created_at', 'updated_at'],
+        'leave_requests' => ['cancelled_at', 'created_at', 'updated_at'],
+        'leave_request_allocations' => ['created_at', 'updated_at'],
+        'overtime_requests' => ['start_at', 'end_at', 'cancelled_at', 'created_at', 'updated_at'],
     ];
 
     protected function setUp(): void

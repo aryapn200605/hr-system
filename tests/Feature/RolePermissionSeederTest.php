@@ -25,7 +25,7 @@ class RolePermissionSeederTest extends TestCase
             Role::pluck('name')->all(),
         );
         $this->assertEqualsCanonicalizing(
-            ['dashboard.view', 'users.view', 'users.create', 'users.update', 'users.suspend', 'users.invite', 'departments.manage', 'supervisors.manage', 'leave-balance.view', 'leave-balance.adjust'],
+            ['dashboard.view', 'users.view', 'users.create', 'users.update', 'users.suspend', 'users.invite', 'departments.manage', 'supervisors.manage', 'leave-balance.view', 'leave-balance.adjust', 'holidays.manage', 'requests.submit'],
             Permission::pluck('name')->all(),
         );
     }
@@ -40,13 +40,13 @@ class RolePermissionSeederTest extends TestCase
         );
     }
 
-    public function test_approver_and_employee_can_only_view_the_dashboard(): void
+    public function test_approver_and_employee_can_only_view_the_dashboard_and_submit_requests(): void
     {
         $this->seed(RolePermissionSeeder::class);
 
         foreach ([RoleName::Approver, RoleName::Employee] as $role) {
-            $this->assertSame(
-                ['dashboard.view'],
+            $this->assertEqualsCanonicalizing(
+                ['dashboard.view', 'requests.submit'],
                 Role::findByName($role->value)->permissions->pluck('name')->all(),
             );
         }

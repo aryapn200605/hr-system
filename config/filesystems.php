@@ -38,6 +38,15 @@ return [
             'report' => false,
         ],
 
+        // Request evidence. Private: no URL, no serving. Files are read only through the authorizing controller.
+        'evidence' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/evidence'),
+            'serve' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

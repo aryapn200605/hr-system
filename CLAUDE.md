@@ -68,3 +68,5 @@ Read at the start of every phase, in this order:
 - MySQL reports 0 changed rows when an UPDATE writes the same value; tests with frozen time can hide this.
 - A missing icon or view can make a whole suite slow and noisy; fix the first error before reading the rest.
 - Run the dev tests against `hr_system_test` only, and race processes without `RefreshDatabase`.
+- Livewire 4 reserves `$slots` in views; a view variable with that name renders nothing.
+- MySQL limits index names to 64 characters; name long composite indexes yourself.

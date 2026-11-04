@@ -4,7 +4,7 @@
  * One competitor in AuthConcurrencyTest. It runs in its own PHP process with its own
  * database connection, waits for the agreed moment and prints the outcome.
  *
- * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email|prune|seed-translations|move|attach|detach|adjust|reset|sync-leave>
+ * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email|prune|seed-translations|move|attach|detach|adjust|reset|sync-leave|leave|overtime|cancel-leave|cancel-overtime>
  *        <user id> <code, invitation id, actor id, email or "actor id:argument"> <start time>
  */
 
@@ -15,6 +15,8 @@ use App\Models\AccountInvitation;
 use App\Models\RecoveryCode;
 use App\Models\User;
 use App\Services\LeaveBalance;
+use App\Services\Requests\LeaveRequests;
+use App\Services\Requests\OvertimeRequests;
 use App\Services\Supervisors;
 use App\Support\TwoFactor;
 use Illuminate\Contracts\Console\Kernel;
@@ -56,6 +58,12 @@ if (in_array($mode, ['move', 'attach', 'detach', 'adjust', 'reset'], true)) {
     $actor->getAllPermissions();
 }
 
+// Request modes act as the user themself. Leave passes "start,end,category", overtime "start,end".
+if (in_array($mode, ['leave', 'overtime'], true)) {
+    $parts = explode(',', $code);
+    $user->getAllPermissions();
+}
+
 $reachedBarrier = microtime(true) < (float) $startAt;
 
 while (microtime(true) < (float) $startAt) {
@@ -86,6 +94,10 @@ try {
         'adjust' => app(LeaveBalance::class)->adjust($actor, $user, $argument, 'Concurrent adjustment test.') !== null,
         'reset' => app(LeaveBalance::class)->reset($actor, $user, 'Concurrent reset test.') !== null,
         'sync-leave' => app(LeaveBalance::class)->sync($user) !== null,
+        'leave' => app(LeaveRequests::class)->submit($user, ['starts_on' => $parts[0], 'ends_on' => $parts[1], 'category' => $parts[2], 'reason' => 'Concurrent request test.']) !== null,
+        'overtime' => app(OvertimeRequests::class)->submit($user, ['start_at' => $parts[0], 'end_at' => $parts[1], 'reason' => 'Concurrent request test.']) !== null,
+        'cancel-leave' => app(LeaveRequests::class)->cancel($user, $code) !== null,
+        'cancel-overtime' => app(OvertimeRequests::class)->cancel($user, $code) !== null,
     };
 } catch (AccountProtectionException) {
     $won = false;

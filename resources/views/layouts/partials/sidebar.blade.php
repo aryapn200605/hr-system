@@ -7,6 +7,10 @@
     <nav aria-label="{{ $navLabel }}" class="flex-1 space-y-1 overflow-y-auto p-3">
         <x-ui.nav-link :href="route('dashboard')" icon="home" :active="request()->routeIs('dashboard')">{{ __('Home') }}</x-ui.nav-link>
 
+        @can(\App\Enums\PermissionName::RequestsSubmit->value)
+            <x-ui.nav-link :href="route('requests.index')" icon="clipboard" :active="request()->routeIs('requests.*')">{{ __('My requests') }}</x-ui.nav-link>
+        @endcan
+
         {{-- Only a marker. Every page behind this menu checks the permission on the server itself. --}}
         @can(\App\Enums\PermissionName::UsersView->value)
             <x-ui.nav-link :href="route('users.index')" icon="users" :active="request()->routeIs('users.*')">{{ __('User Management') }}</x-ui.nav-link>
@@ -14,6 +18,10 @@
 
         @can(\App\Enums\PermissionName::DepartmentsManage->value)
             <x-ui.nav-link :href="route('departments.index')" icon="building" :active="request()->routeIs('departments.*')">{{ __('Departments') }}</x-ui.nav-link>
+        @endcan
+
+        @can(\App\Enums\PermissionName::HolidaysManage->value)
+            <x-ui.nav-link :href="route('holidays.index')" icon="calendar" :active="request()->routeIs('holidays.*')">{{ __('Holidays') }}</x-ui.nav-link>
         @endcan
     </nav>
 

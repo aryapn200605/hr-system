@@ -176,6 +176,55 @@ Department and join date use the existing `users.update`. Every permission is ch
 
 `TranslationSeeder` now runs in one transaction that first locks the `languages` rows, so concurrent runs wait for each other. With the Phase 8 texts, four concurrent runs deadlocked on `INSERT IGNORE` more often than per-chunk retries could absorb (found by `TranslationSeederConcurrencyTest`).
 
+## Requests
+
+Built in Phase 9. Business rules: DECISIONS.md sections 4, 8 and 9, plus the owner's Phase 9 decisions on projected periods and pending balance.
+
+### Permissions and pages
+
+| Permission | Allows | Roles |
+|---|---|---|
+| `requests.submit` | `/requests` (My requests), `/requests/{leave\|overtime}/{id}` (detail and cancel), evidence download | HR Admin, Approver, Employee |
+| `holidays.manage` | `/holidays`: add, edit and delete holidays | HR Admin |
+
+Checked by the route, the Livewire `boot()` and the service. After migrating, run `php artisan db:seed --class=RolePermissionSeeder --force` once (idempotent) so every role gets its new permission. A request is visible only to its requester in this phase (`App\Policies\RequestPolicy`); someone else's request, by URL or by forged Livewire call, is a 404. Phase 10 adds the people who decide.
+
+### Approval path
+
+`App\Services\Requests\ApprovalPath` is the one check, used by the page (buttons disabled with the reason) and by the services (inside the transaction, from the database): the requester is ACTIVE; an Employee or HR Admin has at least one active supervisor; an Approver needs at least one active HR Admin. The message names nobody.
+
+### Leave requests
+
+- Categories come from `leave_categories` (`annual` deducts balance, `sick` and `other` do not), kept by `Database\Seeders\LeaveCategorySeeder`, which upserts by code and never deletes. There is no screen. A request freezes `deducts_balance` and `working_days` at submission, so a later category or holiday change does not alter it.
+- Working days are Monday to Friday minus `holidays` (`App\Services\Requests\WorkingDays`, the one definition).
+- Rules (all on the server, in one transaction): start not before today (WIB), end not before start, at least one working day, active category, reason 10 to 1000 characters, no overlap with the user's pending or approved leave, no date touched by the user's pending or approved overtime.
+- **Balance:** a deducting request is split over the current period and the next one (`leave_request_allocations`, one row per period part). The next period never exists in advance (`LeaveBalance::sync()` opens a period only once it starts), so it is always **projected from the anchor date with 12 days** (`leave_period_id` null; Phase 10 maps it to the real row). Each part must fit in that period's **entitlement − used − pending allocations**. `used` does not change in Phase 9.
+- **Horizon:** the end date may not be after the last day of the next period. This applies to every category ([ASSUMPTION]).
+- Pending allocations are counted by the date their part starts, not by the stored period start, so a manual reset or anchor change after submission still counts them in the period that now holds those dates.
+
+### Overtime requests
+
+- `start_at` and `end_at` are DATETIME in WIB, whole hours (the form offers 00:00 to 23:00; a forged :30 is refused), end after start, at most 12 hours, may cross midnight. The start date is not before today and not more than one year ahead ([ASSUMPTION]).
+- No overlap with the user's pending or approved overtime; touching ends are allowed.
+- **Touched dates** (`first_date`, `last_date`) run from the start to the last hour worked, so 18:00 to 00:00 touches one date ([ASSUMPTION]). Overtime on a date of pending or approved leave is refused, and leave on a date touched by such overtime is refused.
+
+### Evidence
+
+- Optional on both types: pdf, jpg or png, at most `EVIDENCE_MAX_KB` (default 5120, also Livewire's temporary upload limit in `config/livewire.php`). **The type is read from the file's content with `finfo`**, never from the name or the browser's claim, and the stored extension follows the real type.
+- Stored on the `evidence` disk (`storage/app/private/evidence`, not served, no URL) under 40 random characters. The uploaded name is kept, cleaned of path, control and quote characters, only as the download name. A file whose request is then refused is deleted again.
+- Downloaded only through `EvidenceController` (`requests.evidence`), with `Content-Disposition: attachment`, `nosniff`, a sandbox CSP and `no-store`. Livewire's temporary uploads stay in `storage/app/private/livewire-tmp` and are cleaned after 24 hours by Livewire; the form deletes its own when it resets.
+
+### Cancel, locking and limits
+
+- The requester cancels a pending request from its detail page. A page opened before the request was cancelled or decided shows the reason instead of the dialog, and a second cancel is refused with the status.
+- **Lock order for every request change, now and in Phase 10: the requester's user row first, then the request row.** Every submission and cancellation of one user runs one after another, so the overlap and balance checks read a state nobody can change meanwhile. The user row lock is the first statement of the transaction.
+- Submissions are limited to 10 per minute per user (`config/requests.php`).
+- Audit: `leave_request.created` (category, dates, days, allocations), `overtime_request.created` (times, hours), `leave_request.cancelled`, `overtime_request.cancelled`, `request.evidence_uploaded` (type and size), `holiday.created`, `holiday.updated`, `holiday.deleted`. No reason text and no file name.
+
+### Holidays
+
+`/holidays`, permission `holidays.manage`: one holiday per date, name up to 100 characters, dates from 2000-01-01 to the end of the year after next ([ASSUMPTION]). A change affects only requests submitted afterwards.
+
 ## Language
 
 The interface is in English or Indonesian. Each user picks a language in My Profile; guests, users who never chose, and users whose language was deactivated get the default, `APP_FALLBACK_LOCALE` (English). Account emails go out in the recipient's language: a password reset follows the user's choice, and an invitation is always in the default language, because the invitee has not chosen yet.
@@ -262,6 +311,14 @@ The formal register uses "Anda". The same English term always gets the same Indo
 | adjust (a balance) | sesuaikan |
 | ledger | buku besar |
 | inactive | nonaktif |
+| request / my requests | pengajuan / pengajuan saya |
+| leave (request type) / overtime | izin / lembur |
+| annual leave / sick leave / other leave | cuti tahunan / sakit / izin lainnya |
+| pending approval / approved / rejected / cancelled | menunggu persetujuan / disetujui / ditolak / dibatalkan |
+| working days | hari kerja |
+| holiday | hari libur |
+| evidence | bukti |
+| projected (period) | proyeksi |
 
 ## Mail
 

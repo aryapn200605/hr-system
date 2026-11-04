@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\AuditEvent;
 use App\Enums\LeaveEntryType;
 use App\Enums\LoginResult;
+use App\Enums\RequestStatus;
 use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Livewire\Profile\Show;
@@ -18,6 +19,7 @@ use App\Support\UserAgentLabel;
 use App\Translation\DatabaseLoader;
 use App\Translation\DynamicLabels;
 use Carbon\CarbonImmutable;
+use Database\Seeders\LeaveCategorySeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\TranslationSeeder;
 use Illuminate\Database\QueryException;
@@ -128,6 +130,8 @@ class LanguageTest extends TestCase
             ...array_map(fn (RoleName $r) => $r->label(), RoleName::cases()),
             ...array_map(fn (LoginResult $r) => $r->label(), LoginResult::cases()),
             ...array_map(fn (LeaveEntryType $t) => $t->label(), LeaveEntryType::cases()),
+            ...array_map(fn (RequestStatus $s) => $s->label(), RequestStatus::cases()),
+            ...array_column(LeaveCategorySeeder::CATEGORIES, 'name'),
             UserAgentLabel::for(null),
         ];
 

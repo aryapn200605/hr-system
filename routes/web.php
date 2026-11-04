@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Auth\TwoFactorEnrollmentController;
+use App\Http\Controllers\EvidenceController;
 use App\Http\Controllers\Security\AuthenticatorController;
 use App\Http\Controllers\Security\ConfirmationController;
 use App\Http\Controllers\Security\IdentityController;
@@ -15,9 +16,12 @@ use App\Http\Controllers\Security\RecoveryCodeController;
 use App\Http\Middleware\EnsurePendingLogin;
 use App\Livewire\Dashboard;
 use App\Livewire\Departments\Index as DepartmentIndex;
+use App\Livewire\Holidays\Index as HolidayIndex;
 use App\Livewire\Profile\LoginActivity;
 use App\Livewire\Profile\Sessions;
 use App\Livewire\Profile\Show as ProfileShow;
+use App\Livewire\Requests\Index as RequestIndex;
+use App\Livewire\Requests\Show as RequestShow;
 use App\Livewire\Security\Index as SecurityIndex;
 use App\Livewire\Users\Index as UserIndex;
 use App\Livewire\Users\LeaveBalance as UserLeaveBalance;
@@ -80,6 +84,23 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
     Route::livewire('/departments', DepartmentIndex::class)
         ->middleware('can:'.PermissionName::DepartmentsManage->value)
         ->name('departments.index');
+
+    Route::livewire('/holidays', HolidayIndex::class)
+        ->middleware('can:'.PermissionName::HolidaysManage->value)
+        ->name('holidays.index');
+
+    Route::middleware('can:'.PermissionName::RequestsSubmit->value)->group(function () {
+        Route::livewire('/requests', RequestIndex::class)->name('requests.index');
+        Route::livewire('/requests/{type}/{id}', RequestShow::class)
+            ->whereIn('type', ['leave', 'overtime'])
+            ->whereNumber('id')
+            ->name('requests.show');
+        // A controller: the file is streamed, and the policy decides who may read it.
+        Route::get('/requests/{type}/{id}/evidence', [EvidenceController::class, 'show'])
+            ->whereIn('type', ['leave', 'overtime'])
+            ->whereNumber('id')
+            ->name('requests.evidence');
+    });
 
     // These act only on the logged-in user, so they take no ID and need no permission.
     Route::livewire('/profile', ProfileShow::class)->name('profile.show');
