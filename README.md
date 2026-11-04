@@ -7,11 +7,20 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Local workflow (Laragon)
+
+- The app runs on Laragon's Apache at **http://hr-system.test**. Check things there, not with `php artisan serve` or `php -S`. If Laragon, Apache or MySQL is not running, ask the owner to start it; the agent does not start or configure Laragon.
+- `hr_system` is the development database behind hr-system.test and holds the owner's real accounts. `hr_system_test` is only for `php artisan test`. Never run the suite against `hr_system`.
+- Migrating `hr_system` happens at the end of a phase, after a verified `mysqldump` backup outside the repository, with `php artisan migrate` only. The steps the owner must run are written at the end of each phase in PROGRESS.md.
+- Build assets with `npm run build` so Apache serves them.
+- Documents: CLAUDE.md (working rules), DECISIONS.md (business rules), SPEC.md (phases), PROGRESS.md (log and lessons), this README (technical decisions and commands).
+- Docker and server deployment are deferred (SPEC.md Phase 15 and 16).
+
 ## Project decisions
 
 - MySQL is the only database, for the app and for tests. The skeleton's SQLite connection, fallbacks and setup script were removed.
 - Tests run on a separate MySQL database, `hr_system_test`, set in phpunit.xml, and must never touch `hr_system`.
-- Laragon's php.ini and configuration are changed by the user only.
+- Laragon's php.ini and configuration are changed by the user only. The agent never starts, stops or reconfigures Laragon.
 - The skeleton's AGENTS.md and CLAUDE.md (generic Laravel Boost guidance) were not copied. The project's own CLAUDE.md is the only agent guide.
 - Alpine comes from Livewire and is not imported in resources/js/app.js.
 - RBAC uses spatie/laravel-permission 8.3 (requires PHP ^8.3 and Laravel 12 or 13), with teams off. Role and permission names live only in `App\Enums\RoleName` and `App\Enums\PermissionName`.

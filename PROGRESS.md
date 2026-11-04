@@ -10,7 +10,22 @@
 - Phase 4a (UI layout, components, dashboard, restyled public pages): done, see "Phase 4a" below.
 - Phase 4b (User Management): done, see "Phase 4b" below.
 - Phase 5 (Profile and security settings): done, see "Phase 5" below.
-- Next: Phase 6 (Docker runtime, documentation, final verification). Not started.
+- **Reset on 2026-11-04 (or earlier):** the owner reverted the repository to this stable Phase 5 state. Everything built after it was discarded: the Docker skip and redesign attempt, the "layout fix and visual rework", and the first attempts at Phases for employees, requests and approvals (WIB shift, departments, supervisors, balance, requests, decisions). Their lessons are kept in "Lessons carried over" below and in CLAUDE.md; their business decisions are in DECISIONS.md.
+- Planning was redone: the phases after Phase 5 are now Phase 6 to 16, see SPEC.md "Phase map". The old "Phase 6: Docker runtime" no longer exists; Docker moved to the deferred deployment phase (Phase 16).
+- **Next: Phase 6 (Foundation cleanup).** Not started. Its Step 0 must first confirm the repository state with `git log` and `git status` (expected commit 216c571) and compare `php artisan migrate:status` on `hr_system` with the code, because the database may have been migrated by the discarded work.
+- Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
+
+## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
+Do not repeat these. They were found by real-browser and real-process checks after all unit tests had passed.
+- `@js()` is not compiled inside a Blade component attribute (End session and "use account creation date" buttons held literal text).
+- `createFromFormat()` without `!` stored the seconds of the current time in an hour-only field.
+- Toasts covered the "Keep request" button at 375px, and a dialog removed from the DOM while open left a focus trap that blocked every click. Render dialogs always and hide only the trigger.
+- A time input's `step` base follows the current value; `min` keeps it on a full hour.
+- A missing icon caused many errors and slowed the whole suite; read the first error first.
+- A manual reset that found a late balance period cancelled its own rollover; periods must be computed from the anchor date.
+- MySQL `TIMESTAMP` columns follow the session zone; the +7 hour shift is only right when the server and connection are +07:00. The migration must refuse otherwise, and the anchor date must be filled after the shift.
+- `php -S` must run from `public/`; this no longer applies because all checks use Laragon's hr-system.test.
+- The earlier "menjorok ke kiri" layout bug came from `max-w-*` containers without `mx-auto`, not from the Tailwind theme.
 
 ## Phase 0: Inspect and initialize (2026-10-30)
 
@@ -157,7 +172,7 @@ Recorded in README.md under "Project decisions" and "Recovery codes and APP_KEY"
 
 ### Known issues
 - Web server access logs record a link's first request, including its token. Tokens are single use and expire. See README.md.
-- The timing check used the `log` mailer on mod_php. It has not been measured on the Phase 6 Docker runtime or behind a buffering proxy, where the client may wait for the deferred work. If so, the agreed fallback is a queue job carrying only the email address.
+- The timing check used the `log` mailer on mod_php. It has not been measured on a Docker runtime (deferred, Phase 16) or behind a buffering proxy, where the client may wait for the deferred work. If so, the agreed fallback is a queue job carrying only the email address.
 - A forgot password transport failure reaches the audit log only, because the response must look the same for every address. Nothing shows it to the user or an admin yet.
 - A failed resend leaves no working link until the next resend. The result reports it.
 - `activation.two-factor` shows recovery codes in the POST response, so a browser refresh loses them. The account is active by then and the authenticator still works, and there is no regeneration page yet.
