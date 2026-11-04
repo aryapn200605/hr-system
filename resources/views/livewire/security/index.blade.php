@@ -1,6 +1,5 @@
 <div class="space-y-6">
     @include('security.partials.page-header', ['title' => 'Security Settings'])
-    @include('security.partials.nav')
 
     @if ($recoveryCodesLeft <= 2)
         <x-ui.alert tone="warning">Few recovery codes are left. Regenerate them so you are not locked out if you lose your authenticator.</x-ui.alert>

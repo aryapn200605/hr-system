@@ -370,7 +370,7 @@ class ReauthenticationTest extends TestCase
         $this->post(route('logout'));
         $this->startNextRequest();
 
-        foreach (['security.confirm', 'security.index', 'security.sessions', 'security.login-history', 'profile.show', 'security.password'] as $route) {
+        foreach (['security.confirm', 'security.index', 'profile.sessions', 'profile.login-history', 'profile.show', 'security.password'] as $route) {
             $this->get(route($route))->assertRedirect(route('login'));
         }
 

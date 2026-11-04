@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Security;
+namespace App\Livewire\Profile;
 
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -17,11 +17,11 @@ class LoginActivity extends Component
      */
     public function render(): mixed
     {
-        return view('livewire.security.login-activity', [
+        return view('livewire.profile.login-activity', [
             'logins' => Auth::user()->loginHistories()->latest('occurred_at')->latest('id')->paginate(self::PER_PAGE),
         ])->title('Login history')->layoutData(['breadcrumbs' => [
             ['label' => 'Home', 'href' => route('dashboard')],
-            ['label' => 'Security Settings', 'href' => route('security.index')],
+            ['label' => 'My Profile', 'href' => route('profile.show')],
             ['label' => 'Login history'],
         ]]);
     }

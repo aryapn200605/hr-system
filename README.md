@@ -12,9 +12,33 @@
 - The app runs on Laragon's Apache at **http://hr-system.test**. Check things there, not with `php artisan serve` or `php -S`. If Laragon, Apache or MySQL is not running, ask the owner to start it; the agent does not start or configure Laragon.
 - `hr_system` is the development database behind hr-system.test and holds the owner's real accounts. `hr_system_test` is only for `php artisan test`. Never run the suite against `hr_system`.
 - Migrating `hr_system` happens at the end of a phase, after a verified `mysqldump` backup outside the repository, with `php artisan migrate` only. The steps the owner must run are written at the end of each phase in PROGRESS.md.
-- Build assets with `npm run build` so Apache serves them.
+- Before any check that needs a service, `http://hr-system.test/up` must answer and MySQL must accept a connection on 127.0.0.1. If either is down, work that needs it stops until the owner starts Laragon.
+- Build assets with `npm run build` so Apache serves them. No Vite dev server is left running.
+- Browser checks run on hr-system.test at 1024px and 375px. Temporary accounts there are created only through the application, with the username prefix `zz-check-`, and removed afterwards with a targeted delete, after which the counts of real accounts and their rows must match the numbers taken before.
+- The backup before an end-of-phase migration goes outside the repository, in `C:\laragon\backup\hr-system\`, and is read back before migrating. Never `migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe` or truncate on `hr_system` without the owner's explicit approval.
 - Documents: CLAUDE.md (working rules), DECISIONS.md (business rules), SPEC.md (phases), PROGRESS.md (log and lessons), this README (technical decisions and commands).
-- Docker and server deployment are deferred (SPEC.md Phase 15 and 16).
+- Docker, VPS, Nginx and server deployment are deferred to SPEC.md Phase 16, which the owner starts. Nothing in this repository runs on Docker yet.
+
+## Scheduler
+
+`app:prune-expired-tokens` runs every day at 02:00 WIB through Laravel's scheduler (`routes/console.php`). The scheduler only runs while something calls `schedule:run` every minute. On this Windows machine the owner installs that once in Task Scheduler, from a Command Prompt:
+
+```bat
+schtasks /Create /SC MINUTE /MO 1 /TN "hr-system scheduler" /TR "\"C:\laragon\bin\php\php-8.5.12-Win32-vs17-x64\php.exe\" \"C:\laragon\www\hr-system\artisan\" schedule:run"
+```
+
+Check and remove it with:
+
+```bat
+schtasks /Query /TN "hr-system scheduler"
+schtasks /Delete /TN "hr-system scheduler" /F
+```
+
+The task needs MySQL, so it only does work while Laragon runs. Verified on this machine: `php artisan schedule:list` lists the command for 02:00 from any working directory, and `schedule:run` and `schedule:test` run it. The `schtasks` command itself was not run, because installing it is the owner's step. To prune by hand:
+
+```bash
+php artisan app:prune-expired-tokens
+```
 
 ## Project decisions
 
@@ -76,6 +100,10 @@
 - A session ID is a credential, so pages only hold an HMAC handle under a key derived from `APP_KEY`, and `App\Support\ActiveSessions` looks a handle up among the user's own other sessions. Ending a session needs no re-authentication, because it protects the user. Devices are named from the user agent with `App\Support\UserAgentLabel`, a hint with no new dependency, as a client can send anything.
 - **Sessions end by deleting the row, which needs the database session driver.** A request in flight on that session read its row at the start, so `DatabaseSessionHandler::write()` only updates, which changes nothing once the row is gone. After a password change, `auth.session` is a second check.
 - **There is no way to turn 2FA off in the application**: no button and no route. SPEC.md allows it only through an explicitly authorized process, and the only such process is `app:reset-two-factor` below, which forces a new enrollment.
+- **Every time is WIB (Asia/Jakarta)** from Phase 6 on. `config/app.php` sets the zone with no environment variable, so there is one source of truth, and the MySQL connection is set to `+07:00` as an offset, because Laragon's MySQL has empty time zone tables. Dates show with the label "WIB" from the `T` format in `x-ui.datetime`.
+- Times written before Phase 6 were UTC strings. The migration `2026_11_04_100000_shift_timestamps_to_wib` moves 21 TIMESTAMP columns forward seven hours in one transaction, and back on rollback. It refuses to run unless the application, the connection and the MySQL server are all at +07:00. Its column list came from `information_schema`, and `WibTimezoneTest` fails when a TIMESTAMP or DATETIME column exists that is in neither that list nor the test's list of columns added after the switch. **A new time column goes in that test's `ADDED_AFTER_WIB`.** Epoch columns are not shifted: `sessions.last_activity`, cache and job times, and `users.two_factor_last_timestep`, because TOTP counts from the Unix epoch.
+- The sessions list and login history belong to My Profile at `/profile/sessions` and `/profile/login-history`. The old `/security/...` routes were removed without a redirect. Security Settings keeps 2FA status, password, recovery codes and the authenticator.
+- `app:prune-expired-tokens` deletes reset tokens that expired more than `AUTH_PRUNE_RETENTION_DAYS` days ago (default 30, at least 1), and invitations that expired, were accepted or were revoked more than that long ago. An open invitation never matches, and users are never deleted. It writes no audit entry, because it removes only rows that can no longer be used. A retention below 1 day is refused, so a just-accepted invitation is never pruned while its activation finishes.
 - The optional audit trail viewer was skipped on purpose. It would add a seventh permission to the list SPEC.md fixes, and its metadata would need a whitelist. Audit rows are read in the database for now.
 
 ### Addition outside SPEC.md: Reactivate

@@ -1,5 +1,6 @@
 <div class="space-y-6">
     @include('security.partials.page-header', ['title' => 'My Profile', 'description' => 'Your account details.'])
+    @include('profile.partials.nav')
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <x-ui.card title="Account information">

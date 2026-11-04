@@ -152,6 +152,68 @@ class ProfilePageTest extends TestCase
         $this->assertSame('Rina Karyawan', $this->user->fresh()->name);
     }
 
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function profilePages(): array
+    {
+        return [
+            'details' => ['profile.show', 'Details'],
+            'sessions' => ['profile.sessions', 'Active sessions'],
+            'login history' => ['profile.login-history', 'Login history'],
+        ];
+    }
+
+    #[DataProvider('profilePages')]
+    public function test_each_profile_page_has_the_profile_tabs_and_breadcrumbs(string $route, string $label): void
+    {
+        $html = $this->actingAs($this->user)->get(route($route))->assertOk()->getContent();
+
+        foreach (['profile.show', 'profile.sessions', 'profile.login-history'] as $tab) {
+            $this->assertStringContainsString('href="'.route($tab).'"', $html);
+        }
+
+        $this->assertMatchesRegularExpression('/aria-current="page"[^>]*>\s*'.preg_quote($label, '/').'\s*</', $html);
+        $this->assertStringNotContainsString('href="'.url('/security/sessions').'"', $html);
+
+        preg_match('/<nav aria-label="Breadcrumb".*?<\/nav>/s', $html, $breadcrumb);
+        $crumbs = array_map('trim', array_map('strip_tags', explode('</li>', $breadcrumb[0] ?? '')));
+
+        $expected = $route === 'profile.show' ? ['Home', 'My Profile'] : ['Home', 'My Profile', $label];
+        $this->assertSame($expected, array_values(array_filter($crumbs)));
+
+        if ($route !== 'profile.show') {
+            $this->assertStringContainsString('href="'.route('profile.show').'" class="truncate', $breadcrumb[0]);
+        }
+    }
+
+    public function test_the_old_security_routes_are_gone_without_a_redirect(): void
+    {
+        $this->actingAs($this->user);
+
+        $this->get('/security/sessions')->assertNotFound();
+        $this->get('/security/login-history')->assertNotFound();
+        $this->assertFalse(app('router')->has('security.sessions'));
+        $this->assertFalse(app('router')->has('security.login-history'));
+    }
+
+    public function test_the_security_page_no_longer_lists_sessions_or_login_history(): void
+    {
+        $this->actingAs($this->user)->get(route('security.index'))
+            ->assertOk()
+            ->assertDontSee(route('profile.sessions'))
+            ->assertDontSee(route('profile.login-history'));
+    }
+
+    public function test_no_route_can_reset_or_disable_two_factor(): void
+    {
+        foreach (app('router')->getRoutes() as $route) {
+            $text = strtolower($route->uri().' '.$route->getName().' '.$route->getActionName());
+
+            $this->assertDoesNotMatchRegularExpression('/two[-_.]?factor.*(reset|disable|remove|destroy)|(reset|disable|remove)[-_.]?two[-_.]?factor|2fa/', $text, $route->uri());
+        }
+    }
+
     public function test_the_page_links_to_the_identity_form_and_holds_no_identity_inputs(): void
     {
         $this->actingAs($this->user)->get(route('profile.show'))

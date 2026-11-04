@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Security;
+namespace App\Livewire\Profile;
 
 use App\Enums\AuditEvent;
 use App\Models\AuditLog;
@@ -55,11 +55,11 @@ class Sessions extends Component
      */
     public function render(): mixed
     {
-        return view('livewire.security.sessions', [
+        return view('livewire.profile.sessions', [
             'sessions' => ActiveSessions::listFor(Auth::user(), session()->getId()),
         ])->title('Active sessions')->layoutData(['breadcrumbs' => [
             ['label' => 'Home', 'href' => route('dashboard')],
-            ['label' => 'Security Settings', 'href' => route('security.index')],
+            ['label' => 'My Profile', 'href' => route('profile.show')],
             ['label' => 'Active sessions'],
         ]]);
     }

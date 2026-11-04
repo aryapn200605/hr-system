@@ -4,7 +4,7 @@
  * One competitor in AuthConcurrencyTest. It runs in its own PHP process with its own
  * database connection, waits for the agreed moment and prints the outcome.
  *
- * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email> <user id> <code, invitation id, actor id or email> <start time>
+ * Usage: php race.php <recovery|totp|activation|suspend|demote|regenerate|email|prune> <user id> <code, invitation id, actor id or email> <start time>
  */
 
 use App\Actions\UpdateOwnIdentity;
@@ -15,6 +15,7 @@ use App\Models\RecoveryCode;
 use App\Models\User;
 use App\Support\TwoFactor;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -67,6 +68,7 @@ try {
             'email' => $code,
             'email_confirmation' => $code,
         ]) === ['email'],
+        'prune' => Artisan::call('app:prune-expired-tokens') === 0,
     };
 } catch (AccountProtectionException) {
     $won = false;

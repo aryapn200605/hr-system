@@ -14,10 +14,10 @@ use App\Http\Controllers\Security\PasswordController;
 use App\Http\Controllers\Security\RecoveryCodeController;
 use App\Http\Middleware\EnsurePendingLogin;
 use App\Livewire\Dashboard;
+use App\Livewire\Profile\LoginActivity;
+use App\Livewire\Profile\Sessions;
 use App\Livewire\Profile\Show as ProfileShow;
 use App\Livewire\Security\Index as SecurityIndex;
-use App\Livewire\Security\LoginActivity;
-use App\Livewire\Security\Sessions;
 use App\Livewire\Users\Index as UserIndex;
 use App\Livewire\Users\Show as UserShow;
 use Illuminate\Support\Facades\Route;
@@ -73,9 +73,9 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
 
     // These act only on the logged-in user, so they take no ID and need no permission.
     Route::livewire('/profile', ProfileShow::class)->name('profile.show');
+    Route::livewire('/profile/sessions', Sessions::class)->name('profile.sessions');
+    Route::livewire('/profile/login-history', LoginActivity::class)->name('profile.login-history');
     Route::livewire('/security', SecurityIndex::class)->name('security.index');
-    Route::livewire('/security/sessions', Sessions::class)->name('security.sessions');
-    Route::livewire('/security/login-history', LoginActivity::class)->name('security.login-history');
 
     // Controllers, not Livewire: a Livewire snapshot would carry passwords, secrets and codes back and forth.
     Route::middleware('cache.headers:no_store;private')->group(function () {

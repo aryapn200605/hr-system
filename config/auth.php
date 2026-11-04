@@ -116,6 +116,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Pruning
+    |--------------------------------------------------------------------------
+    |
+    | Days an expired reset token, or an expired, accepted or revoked invitation,
+    | is kept before app:prune-expired-tokens removes it. At least 1.
+    |
+    */
+
+    'prune' => [
+        'retention_days' => (int) env('AUTH_PRUNE_RETENTION_DAYS', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Password Confirmation Timeout
     |--------------------------------------------------------------------------
     |

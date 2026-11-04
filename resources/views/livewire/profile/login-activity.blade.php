@@ -1,6 +1,6 @@
 <div class="space-y-6">
-    @include('security.partials.page-header', ['title' => 'Security Settings'])
-    @include('security.partials.nav')
+    @include('security.partials.page-header', ['title' => 'My Profile'])
+    @include('profile.partials.nav')
 
     <x-ui.card title="Login history">
         @if ($logins->isEmpty())

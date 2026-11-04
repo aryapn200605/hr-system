@@ -48,7 +48,7 @@ class SecuritySensitiveDataTest extends TestCase
 
         $pages = [];
 
-        foreach (['dashboard', 'profile.show', 'security.index', 'security.sessions', 'security.login-history', 'security.confirm'] as $route) {
+        foreach (['dashboard', 'profile.show', 'security.index', 'profile.sessions', 'profile.login-history', 'security.confirm'] as $route) {
             $pages[] = $this->get(route($route))->assertOk()->getContent();
         }
 
@@ -162,7 +162,7 @@ class SecuritySensitiveDataTest extends TestCase
     {
         $this->seedSession($this->user, 'otherdeviceotherdeviceotherdeviceotherde');
 
-        $html = $this->get(route('security.sessions'))->getContent();
+        $html = $this->get(route('profile.sessions'))->getContent();
 
         preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);
 
@@ -172,7 +172,7 @@ class SecuritySensitiveDataTest extends TestCase
 
     public function test_the_two_factor_routes_do_not_expose_the_user_id(): void
     {
-        foreach (['security.confirm', 'security.index', 'security.sessions'] as $route) {
+        foreach (['security.confirm', 'security.index', 'profile.sessions'] as $route) {
             $this->assertStringNotContainsString('/'.$this->user->id, route($route));
         }
     }

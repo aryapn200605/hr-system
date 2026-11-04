@@ -12,7 +12,8 @@
 - Phase 5 (Profile and security settings): done, see "Phase 5" below.
 - **Reset on 2026-11-04 (or earlier):** the owner reverted the repository to this stable Phase 5 state. Everything built after it was discarded: the Docker skip and redesign attempt, the "layout fix and visual rework", and the first attempts at Phases for employees, requests and approvals (WIB shift, departments, supervisors, balance, requests, decisions). Their lessons are kept in "Lessons carried over" below and in CLAUDE.md; their business decisions are in DECISIONS.md.
 - Planning was redone: the phases after Phase 5 are now Phase 6 to 16, see SPEC.md "Phase map". The old "Phase 6: Docker runtime" no longer exists; Docker moved to the deferred deployment phase (Phase 16).
-- **Next: Phase 6 (Foundation cleanup).** Not started. Its Step 0 must first confirm the repository state with `git log` and `git status` (expected commit 216c571) and compare `php artisan migrate:status` on `hr_system` with the code, because the database may have been migrated by the discarded work.
+- Phase 6 (Foundation cleanup): done, see "Phase 6" below.
+- **Next: Phase 7 (Language mechanism).** Not started.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -297,3 +298,42 @@ Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: a
 - Approved by the user: recovery code as an alternative at re-authentication, reconfiguration ends other sessions, no notice email on an email change, the audit viewer skipped, no way to disable 2FA in the application.
 - Pages touching a password, secret or code are controllers, not Livewire, so snapshots never carry them.
 - No older test changed. `AppLayoutTest` gained two tests, and `tests/Support/race.php` gained two modes and two output fields.
+## Phase 6: Foundation cleanup (2026-11-04)
+
+### Step 0 findings
+- HEAD was `7f33621` (the revert commit), not `216c571`, but `git diff 7f33621 216c571` was empty, so the tree was the Phase 5 state. The discarded work is on `archive/phase6-hr-modules`.
+- `hr_system` had 12 of 12 migrations, matching the code, and no extra tables. MySQL's global zone is SYSTEM (+07:00 on this machine) and its time zone tables are empty.
+- The owner's planning documents were committed first, on their own (`415181b`), with `DECISION.md` renamed to `DECISIONS.md` as CLAUDE.md names it.
+
+### Done
+- WIB: `config/app.php` uses `Asia/Jakarta` with no environment variable, and the MySQL connection uses `+07:00`. `APP_TIMEZONE_DISPLAY` did not exist in this tree, so nothing was removed. Dates show "WIB" from the existing `T` format.
+- Migration `2026_11_04_100000_shift_timestamps_to_wib`: +7 hours on the 21 TIMESTAMP columns listed from `information_schema`, one transaction, reversible. It refuses unless the app, the connection and the server are all at +07:00. Epoch columns are not shifted.
+- Profile: `App\Livewire\Profile\Sessions` and `LoginActivity` at `/profile/sessions` and `/profile/login-history`, with Profile tabs (Details, Active sessions, Login history) and Home > My Profile breadcrumbs. The old `/security/sessions` and `/security/login-history` routes are gone (404, no redirect). Security Settings lost its tab bar, which had only those links. Username and email self-service unchanged.
+- `app:prune-expired-tokens`, scheduled daily at 02:00 WIB without overlapping, retention `AUTH_PRUNE_RETENTION_DAYS` (default 30, at least 1). README gives the Task Scheduler commands.
+- README: Laragon workflow and database rules, Scheduler section, decisions for WIB, profile pages and pruning, Docker deferred to Phase 16 only. `.env.example` gained `AUTH_PRUNE_RETENTION_DAYS`.
+
+### Verified
+- `php artisan test`: 690 passed on `hr_system_test` (660 before). New: `WibTimezoneTest` (13), `PruneExpiredTokensTest` (13), `PruneConcurrencyTest` (1), 7 in `ProfilePageTest`. `npm run build`: succeeded. Pint: clean. `npm audit` and `composer audit`: no vulnerabilities. No new packages.
+- WIB tests: RFC 6238 vectors and replay refusal under WIB, invitation and reset-link expiry one minute either side of the limit, the app and MySQL agreeing on a written instant, the inventory against the live schema, real rows shifted forward and back on `hr_system_test` (including a value that crosses midnight, NULLs and epoch columns), rollback of all tables when the last one fails, refusal when the app or the connection is not at WIB.
+- Real race (`PruneConcurrencyTest`): 4 pruning processes and 1 activation at the same moment on committed rows. The activation wins, its invitation is kept, and only the old invitations are removed.
+- Mutation check: 25 safeguards removed one at a time, each file restored and confirmed by hash, and the source tree compared with a backup afterwards. 23 caught at first. The breadcrumb test passed without its breadcrumb (it matched the profile menu link), and is now caught. The first "no transaction" mutation was faulty (it never ran the closure); the correct one survived, so a rollback test was added and it is now caught. **One survivor is kept on purpose:** the MySQL server zone check, which cannot be tested without changing the server's global zone.
+- `hr_system` end-of-phase migration: no row was written in WIB before it (every value was still behind UTC now), backup `C:\laragon\backup\hr-system\hr_system-before-phase6-20261104-123737.sql` (30.5 KB, "Dump completed", INSERTs for 11 tables), `migrate` ran only the new migration, counts unchanged, 04:48 UTC became 11:48 WIB, `two_factor_last_timestep` untouched.
+- Real browser on hr-system.test with a temporary account `zz-check-p6`, created through `CreateUserWithInvitation` with the owner's account as actor (owner's choice), activated through the real link with password and a real TOTP code, logged in with TOTP. Checked at 1024px, 1280px and 375px: dashboard, My Profile, Active sessions, Login history, Security Settings, profile menu, every Profile tab clicked, End session and End all other sessions dialogs with a second and third device logged in by curl (both devices were redirected to login afterwards), Log out of this session. No horizontal scroll, "WIB" everywhere and no "UTC", no console errors besides the deliberate visit to the removed `/security/sessions` (404). No bug found.
+- Cleanup: the 11 audit rows, 3 login rows, 10 recovery codes, 1 invitation, 1 role link and the user were deleted in one transaction that checked each count. Afterwards users 1, login_histories 2, audit_logs 5 (max id 5), recovery_codes 10, account_invitations 0, password_reset_tokens 0, model_has_roles 1, the same as before.
+
+### Known issues
+- The browser check used the desktop app's built-in browser pane. During this phase the owner changed CLAUDE.md to require a puppeteer script instead (no permission prompts) and to stop waiting for Step 0 approval. That CLAUDE.md change is the owner's and was left uncommitted. From Phase 7 on, browser checks use puppeteer outside the project.
+- Guest rows in `sessions` (6 now, no user) come from the checks and expire with the session lifetime; they are not tied to any account.
+- `storage/logs/laravel.log` holds the check account's spent invitation link, as the `log` mailer always does. The account no longer exists.
+- The `schtasks` command was not run; installing it is the owner's step. `schedule:list`, `schedule:run` and `schedule:test` were run.
+- The test suite writes its expected mail-failure lines into the same `storage/logs/laravel.log` (unchanged from earlier phases).
+- Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH. Error pages keep Laravel's default look. The login history table scrolls sideways on a phone. "Dates shown in UTC" is fixed.
+
+### Decisions
+Recorded in README.md under "Project decisions" and "Scheduler".
+- Approved by the owner: rename DECISIONS.md and commit the planning documents separately, retention 30 days, the browser account created through the existing action.
+- Assumptions: revoked invitations count as consumed, pruning writes no audit entry, and a retention below 1 day is refused.
+- Tests changed on purpose: route names and the component namespace in `LoginHistoryPageTest`, `ReauthenticationTest`, `SecuritySensitiveDataTest` and `SessionManagementTest`. `tests/Support/race.php` gained the `prune` mode.
+
+### Owner steps
+- Optional: install the scheduler with the `schtasks` command in README "Scheduler".
