@@ -7,7 +7,7 @@ Read at the start of every phase, in this order:
 2. DECISIONS.md: business rules agreed with the owner. They replace the SRS when they differ. Items marked [ASSUMPTION] may be used but must be reported.
 3. PROGRESS.md: what is done, known issues, lessons learned.
 4. SPEC.md: read **only the phase you are working on**.
-5. README.md "Project decisions": technical decisions already made. Do not undo them silently.
+5. docs/TECHNICAL-DECISIONS.md "Project decisions" and the sections after it: technical decisions already made. Do not undo them silently. README.md (Indonesian) is the setup and daily-use guide for the owner and the team.
 
 ## Environment
 - Windows + Laragon. Project path: C:\laragon\www\hr-system (never move it).
@@ -44,7 +44,7 @@ Read at the start of every phase, in this order:
 - From Phase 7 on, every user-facing sentence goes through the translation mechanism, in both English and Indonesian, in the same change that adds it.
 - Never overwrite existing files or Git history. Check `git status` and the staged diff before each commit. Never commit .env or secrets. No force push, no reset, no push without permission.
 - Do not claim a feature is complete unless it is implemented and verified (tests, build, browser). Never fabricate results. Report what was not tested.
-- Ask only when blocked (missing credentials, destructive operation, Laragon down, a business rule that DECISIONS.md does not cover and cannot be assumed safely). Otherwise decide, record the decision in README.md, and list assumptions in PROGRESS.md.
+- Ask only when blocked (missing credentials, destructive operation, Laragon down, a business rule that DECISIONS.md does not cover and cannot be assumed safely). Otherwise decide, record the decision in docs/TECHNICAL-DECISIONS.md, and list assumptions in PROGRESS.md.
 
 ## How every phase runs
 1. **Step 0, plan first, then keep going.** Read the code, check the state, and write a short plan (tables and columns, permissions, routes, technical decisions, assumptions) at the top of your work. **Do not wait for approval and do not ask for confirmation of routine choices.** Stop and ask only when blocked: Laragon is down, a business rule is missing from DECISIONS.md that cannot be assumed safely, a destructive operation outside the rules below, or the plan would deviate from SPEC.md or DECISIONS.md. Choose sensible defaults (for example retention periods), record them as assumptions, and mention them in the final report.
@@ -53,7 +53,7 @@ Read at the start of every phase, in this order:
 3. Mutation check on the new safeguards: remove them one at a time, restore each file and confirm by hash. Survivors mean weak tests or redundant code: fix or remove, and re-run those mutations.
 4. Real verification on **hr-system.test** (after the end-of-phase migration) and in a real browser, at 1024px and 375px.
 5. Run the full test suite, `npm run build`, Pint, `composer audit`, `npm audit`.
-6. Update PROGRESS.md (done, next, known issues, decisions, assumptions) and README.md (decisions, commands, steps the owner must run). Commit locally with a descriptive message. No push.
+6. Update PROGRESS.md (done, next, known issues, decisions, assumptions), docs/TECHNICAL-DECISIONS.md (technical decisions and notes, in English) and README.md (setup, commands and steps the owner must run, in Indonesian). Commit locally with a descriptive message. No push.
 7. Stop and report in 12 lines or fewer: result, test numbers, bugs found, what was not tested, deviations from DECISIONS.md, and steps the owner must do. Do not start the next phase.
 
 ## Lessons learned (do not repeat)

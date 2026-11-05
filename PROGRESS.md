@@ -22,6 +22,7 @@
 - Symfony security patch (http-foundation, http-kernel, routing 8.1.10 → 8.1.11): done in its own commit, see "Phase 13" below.
 - Phase 13 (Email notifications): done, see "Phase 13" below. Real delivery to a mailbox is still untested (MAIL_FROM_ADDRESS is a placeholder).
 - Phase 14 (Full verification and documentation, plus DECISIONS.md section 11): done, see "Phase 14" below.
+- Documentation cleanup (2026-11-05): README.md rewritten in Indonesian; technical notes moved to docs/TECHNICAL-DECISIONS.md. See "Documentation cleanup" at the end.
 - **Next: Phase 15 (UI redesign) or Phase 16 (deployment).** Both are started by the owner only.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
@@ -78,7 +79,7 @@ Do not repeat these. They were found by real-browser and real-process checks aft
 - Laragon's PHP is not in PATH for Git Bash, so the `composer` shim there cannot find PHP. Composer was run as `php composer.phar` with the full PHP path.
 
 ### Decisions
-Recorded in README.md under "Project decisions".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Project decisions".
 - Database: MySQL only, for the app and for tests. `pdo_sqlite` is now enabled in Laragon's PHP (a shared setting), but the project does not use it.
 - Tests run against the isolated MySQL database `hr_system_test`, never the real `hr_system`.
 - Laragon configuration and php.ini are changed by the user only. Claude reports what is needed and does not edit them.
@@ -103,14 +104,14 @@ Recorded in README.md under "Project decisions".
 - `npm run build`: succeeded. Pint: clean.
 
 ### Known issues
-- The bypass limits above are documented in README.md: query-builder writes and direct `roles()` pivot calls skip the model guards, and direct database access can change audit rows.
+- The bypass limits above are documented in docs/TECHNICAL-DECISIONS.md: query-builder writes and direct `roles()` pivot calls skip the model guards, and direct database access can change audit rows.
 - The lock is covered by a test that checks the `FOR UPDATE` query. Two truly concurrent processes were not tested.
 - Hidden password input was not checked in a real terminal, only with piped input and mocked prompts. The prompts use no visible fallback, so they fail instead of showing the password.
 - Phase 3's requirements were not read, per CLAUDE.md, so account_invitations may need a further migration.
 - Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH.
 
 ### Decisions
-Recorded in README.md under "Project decisions".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Project decisions".
 - `status` is a string column cast to a PHP enum, as the user suggested, instead of the MySQL enum in the approved plan.
 - Role changes require a `users.update` actor unless the actor is null, which means the system (bootstrap command only).
 ## Phase 2: Login, TOTP, sessions, history (2026-10-30)
@@ -122,7 +123,7 @@ Recorded in README.md under "Project decisions".
 - Middleware `EnsureFullyAuthenticated` (`fully.authenticated`) and `EnsurePendingLogin` (`pending.login`).
 - Livewire's update route replaced so every action passes the full-login check. A 401 on a Livewire request sends the browser to the login page.
 - Additive migration: unique index on `recovery_codes (user_id, code_hash)`.
-- Recovery code HMAC uses a key derived from APP_KEY with HKDF and its own label. Rotation consequences are in README.md.
+- Recovery code HMAC uses a key derived from APP_KEY with HKDF and its own label. Rotation consequences are in docs/TECHNICAL-DECISIONS.md.
 - `SESSION_ENCRYPT=true` in .env and .env.example, `SESSION_SECURE_COOKIE` added to .env.example. `identifier`, `code` and `recovery_code` are never flashed.
 - Functional Blade pages and a placeholder Livewire dashboard, with the `dashboard.view` permission on its route.
 
@@ -140,14 +141,14 @@ Recorded in README.md under "Project decisions".
 - Password spraying across accounts from one IP, and guessing one account from many IPs, are limited only per identifier and IP pair, as specified. Account lockout is out of scope.
 - The first enrollment is protected by the password alone. This follows from forced enrollment at first login.
 - Used recovery codes are not replaced and there is no regeneration page yet. Phase 5 is the likely place, but it has not been read.
-- Rotating APP_KEY requires re-enrolling all users (README.md).
+- Rotating APP_KEY requires re-enrolling all users (docs/TECHNICAL-DECISIONS.md).
 - Livewire cannot serve guest pages, because its only update route requires a full login. Phase 3 pages must use controllers.
 - The 401 redirect in the layout covers pages using that layout only.
 - `resources/views/welcome.blade.php` is now unused.
 - Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH.
 
 ### Decisions
-Recorded in README.md under "Project decisions" and "Recovery codes and APP_KEY".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Project decisions" and "Recovery codes and APP_KEY".
 - HMAC-SHA256 with a derived key for recovery codes, approved by the user instead of bcrypt.
 - The typed identifier is not refilled after a failed login, because it can contain a mistyped password.
 - Tests use a separate `tests/Support/race.php` process and `AuthConcurrencyTest` does not use RefreshDatabase, whose open transaction would hide rows from other processes.
@@ -181,7 +182,7 @@ Recorded in README.md under "Project decisions" and "Recovery codes and APP_KEY"
 - `app:create-admin` was still not run. `hr_system` has 0 users and 12 of 12 migrations, plus one guest row in `sessions` from a local check of the site.
 
 ### Known issues
-- Web server access logs record a link's first request, including its token. Tokens are single use and expire. See README.md.
+- Web server access logs record a link's first request, including its token. Tokens are single use and expire. See docs/TECHNICAL-DECISIONS.md.
 - The timing check used the `log` mailer on mod_php. It has not been measured on a Docker runtime (deferred, Phase 16) or behind a buffering proxy, where the client may wait for the deferred work. If so, the agreed fallback is a queue job carrying only the email address.
 - A forgot password transport failure reaches the audit log only, because the response must look the same for every address. Nothing shows it to the user or an admin yet.
 - A failed resend leaves no working link until the next resend. The result reports it.
@@ -191,7 +192,7 @@ Recorded in README.md under "Project decisions" and "Recovery codes and APP_KEY"
 - Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH.
 
 ### Decisions
-Recorded in README.md under "Project decisions" and "Mail".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Project decisions" and "Mail".
 - A logged-in browser is shown a message and not logged out, so a link cannot end someone's session.
 - Mail is sent synchronously, never queued. `defer()` is used for forgot password, as the user approved after measuring.
 - Reset links hold no email address, so the reset form asks for it.
@@ -224,7 +225,7 @@ Recorded in README.md under "Project decisions" and "Mail".
 - Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH.
 
 ### Decisions
-Recorded in README.md under "Project decisions".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Project decisions".
 - Dropdown, modal and drawer are shown with a class binding, not `x-show`.
 - Links to pages that do not exist yet are not links at all, so no route is invented ahead of its phase.
 
@@ -249,7 +250,7 @@ Recorded in README.md under "Project decisions".
 - That check exposed one bug, fixed: the `sr-only` header of the Actions column escaped the table's overflow and made the whole page 2095px wide.
 
 ### Known issues
-- An account suspended before activation stays SUSPENDED for good: it has no password, so Reactivate refuses it, and it cannot be deleted. Inviting that person again needs a different username and email. See README.md.
+- An account suspended before activation stays SUSPENDED for good: it has no password, so Reactivate refuses it, and it cannot be deleted. Inviting that person again needs a different username and email. See docs/TECHNICAL-DECISIONS.md.
 - An admin's own username and email cannot change anywhere until Phase 5.
 - Editing the email of an ACTIVE user sends nothing to either address, because email verification is out of scope.
 - Refused attempts are not audited, only completed actions.
@@ -260,7 +261,7 @@ Recorded in README.md under "Project decisions".
 - Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH. Dates show in UTC. Error pages keep Laravel's default look.
 
 ### Decisions
-Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: Reactivate".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Project decisions" and "Addition outside SPEC.md: Reactivate".
 - Two tests from earlier phases changed. `AppLayoutTest`: User Management is now a link, as approved. `ActivationTest`: not in the approved list. `suspend()` now revokes the invitation, so that test sets the status directly to keep covering the status check alone, and a new test covers the link dying on suspend.
 
 ## Phase 5: Profile and security settings (2026-10-31)
@@ -293,7 +294,7 @@ Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: R
 - The authenticator QR code has not been scanned by a real app. The URI comes from the same code as first enrollment.
 - A request in flight could revive an ended session only by regenerating its ID during the delete. Confirming identity does not regenerate. Login cannot apply, and a password change on the ended session itself is the one remaining case. The same-ID case is tested at handler level, not with two real processes in flight.
 - Ending a session needs no re-authentication, so a stolen session can log the real user out. They can log back in and change the password.
-- A mistyped new email is not detected, because nothing is sent. See README.md.
+- A mistyped new email is not detected, because nothing is sent. See docs/TECHNICAL-DECISIONS.md.
 - Two parallel reconfigurations from two sessions both end in a valid state, but the first one's recovery codes are dead by the time they are read.
 - After `app:reset-two-factor`, the password alone reaches enrollment until the user enrolls again. The audit entry does not say who ran it.
 - A user who abandons a reconfiguration leaves its secret in that session until cancel or logout. It is unused and encrypted.
@@ -303,7 +304,7 @@ Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: R
 - Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH. Dates show in UTC. Error pages keep Laravel's default look.
 
 ### Decisions
-Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: app:reset-two-factor".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Project decisions" and "Addition outside SPEC.md: app:reset-two-factor".
 - Approved by the user: recovery code as an alternative at re-authentication, reconfiguration ends other sessions, no notice email on an email change, the audit viewer skipped, no way to disable 2FA in the application.
 - Pages touching a password, secret or code are controllers, not Livewire, so snapshots never carry them.
 - No older test changed. `AppLayoutTest` gained two tests, and `tests/Support/race.php` gained two modes and two output fields.
@@ -339,13 +340,13 @@ Recorded in README.md under "Project decisions" and "Addition outside SPEC.md: a
 - Carried over: `vite build` warns about the optional `fontaine` package. Laragon's PHP is not in PATH. Error pages keep Laravel's default look. The login history table scrolls sideways on a phone. "Dates shown in UTC" is fixed.
 
 ### Decisions
-Recorded in README.md under "Project decisions" and "Scheduler".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Project decisions" and "Scheduler".
 - Approved by the owner: rename DECISIONS.md and commit the planning documents separately, retention 30 days, the browser account created through the existing action.
 - Assumptions: revoked invitations count as consumed, pruning writes no audit entry, and a retention below 1 day is refused.
 - Tests changed on purpose: route names and the component namespace in `LoginHistoryPageTest`, `ReauthenticationTest`, `SecuritySensitiveDataTest` and `SessionManagementTest`. `tests/Support/race.php` gained the `prune` mode.
 
 ### Owner steps
-- Optional: install the scheduler with the `schtasks` command in README "Scheduler".
+- Optional: install the scheduler with the `schtasks` command in README.md section 5 (details in docs/TECHNICAL-DECISIONS.md "Scheduler").
 
 ## Phase 7: Language mechanism (2026-11-04)
 
@@ -384,7 +385,7 @@ Recorded in README.md under "Project decisions" and "Scheduler".
 - MySQL can deadlock two concurrent `INSERT IGNORE` statements on the same unique index; retry the transaction.
 
 ### Decisions
-Recorded in README.md under "Language".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Language".
 - Approved by the owner: `app:translation-set` as the console editing tool, puppeteer in `C:\laragon\tmp\browser-check`, formal Indonesian with a list of standard terms, invitations in English and password reset in the user's language, `utf8mb4_bin` keys with a case test, dynamic labels registered and checked.
 - Assumptions: sentence keys are the English text; the framework `pagination` group is not loaded (HTML entities, unused); the seeder never overwrites an existing text; stored role names stay English and only their display is translated; `users.locale` is not mass assignable.
 
@@ -433,13 +434,13 @@ Recorded in README.md under "Language".
 - In this shell, heredocs and inline scripts can turn a double backslash into a single one. Edit PHP and JS that contain backslashes with the editor tools.
 
 ### Decisions
-Recorded in README.md under "Organization and leave balance".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Organization and leave balance".
 - Approved by the owner: the plan and its six assumptions (losing the Approver role removes links; a new anchor applies from the next period; anchor between 2000-01-01 and today with a full first period; no upper limit and never below 0; the marker for ACTIVE and PENDING users only; the guard on `User::delete()` without a delete button), plus additions a to e: no change to one's own anchor date, anchor date and first period at account creation, the Department column, the README note on Approver role versus suspension, and no marker or refusal for Approvers without a supervisor.
 - Assumptions: an adjustment is a whole number from -365 to 365 and not 0; reasons are 10 to 1000 characters (the length DECISIONS.md uses for requests); the join date runs from 1950-01-01 to one year ahead and is informational; HR Admin may manage their own supervisors (the guard still applies); department names are at most 100 characters; a scheduled rollover is audited as `leave.balance_reset` with source `schedule`; an Approver subordinate is guarded like anyone (DECISIONS.md section 9).
 
 ### Owner steps
 - Review the new Indonesian texts (same way as Phase 7).
-- Optional: install the scheduler (README "Scheduler"); it now also runs the daily leave sync.
+- Optional: install the scheduler (README.md section 5; details in docs/TECHNICAL-DECISIONS.md "Scheduler"); it now also runs the daily leave sync.
 
 ## Phase 9: Requests (2026-11-04)
 
@@ -483,7 +484,7 @@ Tables `leave_categories`, `holidays`, `leave_requests`, `leave_request_allocati
 - MySQL JSON columns return keys sorted: compare audit metadata with `assertEquals`, not `assertSame`.
 
 ### Decisions
-Recorded in README.md under "Requests".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Requests".
 - From the owner: the projected next period with 12 days and the horizon at its end; available = entitlement − used − pending; Approvers need an active HR Admin, Employee and HR Admin an active supervisor.
 - Assumptions: the horizon applies to every leave category; overtime starts at most one year ahead; an overtime touches the dates from its start to its last hour worked (18:00 to 00:00 touches one date); pending allocations count in the period that holds the date their part starts; holidays from 2000-01-01 to the end of the year after next; 10 submissions per minute per user; the pending status is shown as "Pending approval" because "Pending" is the account status; categories are upserted by code and never deleted; a non-deducting request gets no allocation rows; the projected next period is not stored in Phase 9.
 
@@ -536,7 +537,7 @@ Columns `decided_by`, `decided_at`, `decision_note`, `review_locked_by`, `review
 - Check the width of a table at 1024px beside the menu, not only at 375px.
 
 ### Decisions
-Recorded in README.md under "Approvals".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Approvals".
 - From the owner: the three answers above, rejection reason at least 5 characters, optional note, authority at every action, the deciders per role, the overtime day total.
 - Assumptions: a part in a period that has not started yet is approved against the projection and charged when the period opens (periods are never created ahead); after a reset or anchor change a part is charged to the period that now holds its first day; approved deductions do not move on a later reset or anchor change; a suspended requester's pending request can still be decided; whoever decided keeps read access; a view-only page does not take a free lock by itself; lock 5 minutes, heartbeat 60 seconds, view-only refresh 30 seconds; no rate limit on decisions.
 - Deviation to note: the owner's order "request, then user" is followed, while the Phase 9 note said "user row first, then request row" for Phase 10; that note is corrected. Both are deadlock-free with the current code.
@@ -585,7 +586,7 @@ Recorded in README.md under "Approvals".
 - Not tested: a spreadsheet program opening the CSV (format checked byte by byte), a browser closing mid-download, a real keyboard and a screen reader.
 
 ### Decisions
-Recorded in README.md under "History, recap and export".
+Recorded in docs/TECHNICAL-DECISIONS.md under "History, recap and export".
 - From the owner: who sees what, the filters, 25 per page, existing detail pages and evidence rule, both recaps with approved-not-deducted and pending apart, Approved by default, CSV format, formula prefix, audit without data.
 - Permission: one new permission `requests.view-all` instead of reading a role; subordinates through the existing `requests.decide` plus the current links.
 - Assumptions: an Approver's recap includes their own balance; a request counts in the month it starts; the department is the requester's current one; "remaining" subtracts approved-not-deducted days but not pending ones; a reversed date range is swapped; malformed filters count as no filter; the year filter offers the first request's year to next year; exports are limited to 10 per minute per user; the formula prefix is an apostrophe.
@@ -629,7 +630,7 @@ Recorded in README.md under "History, recap and export".
 - Not tested: a real keyboard and a screen reader.
 
 ### Decisions
-Recorded in README.md under "Dashboard and read-only request page".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Dashboard and read-only request page".
 - From the owner: the numbers per role and their links, the read-only page for HR Admin and related Approvers, evidence only for the requester and deciders ([ASSUMPTION] from the owner).
 - Agent's choices: "remaining" on the dashboard is My requests' "available" (entitlement − used − pending), with the pending days shown under it; "last decided" is approved or rejected by `decided_at`; the "without supervisor" count follows `users.view`, the permission of the list it links to; a user who may view a row but decide it opens the existing Approvals page, not the read-only one; the read-only page shows the reason and decision note, like Approvals, but not the evidence file name to viewers.
 
@@ -649,7 +650,7 @@ Recorded in README.md under "Dashboard and read-only request page".
 
 ### Done
 - Symfony patch: commit `7ca7872`, `composer.lock` only (3 packages, 8.1.10 → 8.1.11), `composer audit` clean, 1092 tests and the build passed before the commit.
-- Request emails as described in README "Request email notifications": on submission to every current decider, on approval or rejection to the requester (if ACTIVE), minimal content, recipient's language, links on APP_URL, synchronous after the commit, failures audited and shown as a warning, never undoing the business action.
+- Request emails as described in docs/TECHNICAL-DECISIONS.md "Request email notifications": on submission to every current decider, on approval or rejection to the requester (if ACTIVE), minimal content, recipient's language, links on APP_URL, synchronous after the commit, failures audited and shown as a warning, never undoing the business action.
 - `Deciders::of()`; `RequestNotifications::failures()` for the pages; warning toasts in My requests and on the Approvals decision page.
 - 13 new texts in English and Indonesian, including "All rights reserved." for the mail footer (it was English in every Indonesian account email). Migration `2026_11_11_100000_load_notification_texts`.
 - `tests/Support/race.php` forces the `array` mailer and reports the number of emails per competitor.
@@ -668,18 +669,18 @@ Recorded in README.md under "Dashboard and read-only request page".
 - Older: the Markdown mail footer "All rights reserved." was English in Indonesian emails; now translated.
 
 ### Known issues
-- **Delivery to a real mailbox is untested:** set MAIL_FROM_ADDRESS to an address the SMTP login may send from and receive at (see README "SMTP settings").
+- **Delivery to a real mailbox is untested:** set MAIL_FROM_ADDRESS to an address the SMTP login may send from and receive at (see README.md section 6 and docs/TECHNICAL-DECISIONS.md "SMTP settings (.env)").
 - Emails are synchronous: a slow SMTP server delays the submit or decision page by up to `MAIL_TIMEOUT` per recipient (an Approver's request emails every active HR Admin in turn). Measured with the refused recipient: about 1.4 to 1.8 seconds per page.
 - The warning toast disappears after 5 seconds like every toast; the audit row stays.
 - The Indonesian texts are the agent's and await the owner's review.
 
 ### Decisions
-Recorded in README.md under "Request email notifications".
+Recorded in docs/TECHNICAL-DECISIONS.md under "Request email notifications".
 - From the owner: recipients, minimal content without reason, rejection reason or evidence, recipient's language, synchronous after commit, failure never fails the business action and is audited with class-only logging; [ASSUMPTION] no cancellation email, no opt-out, links on APP_URL.
 - Agent's choices: no decision email to a requester who is no longer ACTIVE; no decider name in the decided email; category shown for leave; secured Markdown encoding for every email; warning toasts on the pages.
 
 ### Owner steps
-- Put real values in `.env`, at least MAIL_FROM_ADDRESS (see README "SMTP settings"), then `php artisan config:clear` if the configuration is cached. Submit one request to see a real email arrive.
+- Put real values in `.env`, at least MAIL_FROM_ADDRESS (see README.md section 6 and docs/TECHNICAL-DECISIONS.md "SMTP settings (.env)"), then `php artisan config:clear` if the configuration is cached. Submit one request to see a real email arrive.
 - Review the new Indonesian texts. Nothing else: the migration was run on `hr_system` in this phase.
 
 ## Phase 14: Full verification and documentation (2026-11-05)
@@ -690,7 +691,7 @@ Recorded in README.md under "Request email notifications".
 - **Step 3:** compliance tables below; README, SPEC and PROGRESS synced.
 
 ### Done
-- DECISIONS.md section 11 (the three decisions). README "Phase 14: final decisions and verification" (behavior, lock order, authorization matrix).
+- DECISIONS.md section 11 (the three decisions). docs/TECHNICAL-DECISIONS.md "Phase 14: final decisions and verification" (behavior, lock order, authorization matrix).
 - `App\Services\Requests\SuspensionRejections`; `User::suspend()` now returns the counts; `HasDecision::deciderLabel()`, `decisionText()`, `decidedBySystem()`; the history row, CSV and the "already decided" message say "System".
 - Suspend dialog count (locked property) and a toast with the number rejected; "This decision is final…" in both decision dialogs. 6 new texts in English and Indonesian.
 - Migrations `2026_11_12_100000_add_system_reason_to_requests`, `2026_11_12_100100_load_verification_texts`.
@@ -727,7 +728,7 @@ Status: **met** (implemented and tested), **partly** (implemented, a gap is name
 | Item | Status | Evidence |
 |---|---|---|
 | 1 Minimal UI, no new library, no redesign | met | no UI package added since Phase 4; `package.json` unchanged in Phase 14 |
-| 1 Docker/VPS/deploy deferred | met | nothing in the repo runs on Docker (README "Local workflow") |
+| 1 Docker/VPS/deploy deferred | met | nothing in the repo runs on Docker (docs/TECHNICAL-DECISIONS.md "Local workflow (Laragon)") |
 | 1 All checks through hr-system.test | met | puppeteer `phase14.mjs` on hr-system.test; no other server |
 | 1 Auth, mandatory 2FA, invitation, recovery codes, self-service username/email kept | met | `LoginTest`, `TwoFactorChallengeTest`, `TwoFactorEnrollmentTest`, `InvitationTest`, `ActivationTest`, `RecoveryCodeTest`, `IdentityChangeTest`; browser: 8 accounts activated with 2FA and logged in |
 | 1 2FA reset only by console, cannot be disabled | met | `ResetTwoFactorCommandTest`; no route (authorization matrix) |
@@ -823,4 +824,18 @@ Status: **met** (implemented and tested), **partly** (implemented, a gap is name
 - To prove real email: set MAIL_FROM_ADDRESS to an address the SMTP login may send from, give one test decider (not your own account) a mailbox you can read, submit one request, and run `php artisan config:clear` if the configuration is cached.
 - Optionally rotate `storage/logs/laravel.log` (finding 6).
 - Review the 6 new Indonesian texts and the earlier ones.
-- Install the scheduler task if not done yet (README "Scheduler").
+- Install the scheduler task if not done yet (README.md section 5; details in docs/TECHNICAL-DECISIONS.md "Scheduler").
+
+## Documentation cleanup (2026-11-05)
+Documentation only: no code, test or configuration changed, no command that writes to `hr_system` was run.
+
+### Done
+- `README.md` rewritten in Indonesian for the owner and the PT team: summary and roles, versions, prerequisites, numbered installation from a fresh clone to the first 2FA login, daily use and the Windows scheduler, `.env` table (log vs SMTP, a Gmail App Password example without real credentials), permissions and approval flow, modules and rules with links to DECISIONS.md, every `app:*` command, language and translations, testing, backup and safe migration, security and operations notes, troubleshooting, folders and Git flow, other documents, and a final "Belum terverifikasi" list. The Laravel skeleton text (logo, badges, "About Laravel", "Learning Laravel", "Agentic Development", contributing, license) was removed.
+- `docs/TECHNICAL-DECISIONS.md`: every section of the old README from "Local workflow (Laragon)" to "First HR Admin" (Project decisions, Organization and leave balance, Requests, Approvals, History, Dashboard, Request email notifications, Phase 14, Language, Mail, Recovery codes and APP_KEY, First HR Admin), moved unchanged (byte-identical, checked with `diff`) under a title, a note and a table of contents.
+- References to the old README sections updated in CLAUDE.md (reading order, where to record decisions, end-of-phase step), PROGRESS.md (the "Recorded in" lines, known issues and owner steps) and SPEC.md (Phase 6 docs note). Historical "Done" lines that say what was written into README at the time were left as they were.
+
+### Verified
+- Commands checked against `php artisan list app`, `--help` of every `app:*` command, `composer.json`, `package.json`, `routes/console.php`, `.env.example`, `phpunit.xml` and the command code; `php artisan schedule:list` (both jobs); `schtasks /Create /?` and `mysqldump --help` for the options used. `http://hr-system.test/up` answered 200 and MySQL accepted a connection; nothing was written.
+
+### Not verified
+- Listed in README.md section 17: a full install on a clean machine, Laragon's automatic virtual host for a new clone, the `schtasks` task itself, real SMTP delivery (Gmail example), the MySQL time zone fix, the `mysqldump` and restore commands as written, `app:create-admin` and `app:reset-two-factor` (help and code only), adding a third language.
