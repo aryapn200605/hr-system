@@ -148,6 +148,9 @@ class RequestConcurrencyTest extends TestCase
             $this->assertSame(1, $this->wins($outcomes), "Round $round");
             $this->assertSame(self::COMPETITORS - 1, collect($outcomes)->where('invalid', true)->count(), "Round $round");
             $this->assertSame(1, LeaveRequest::query()->where('user_id', $employee->id)->count(), "Round $round");
+            // Only the winner emailed the supervisor, once (Phase 13).
+            $this->assertSame([1], collect($outcomes)->where('won', true)->pluck('mails')->all(), "Round $round");
+            $this->assertSame(0, collect($outcomes)->where('won', false)->sum('mails'), "Round $round");
         }
     }
 

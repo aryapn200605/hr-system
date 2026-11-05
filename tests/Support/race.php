@@ -35,6 +35,10 @@ require __DIR__.'/../../vendor/autoload.php';
 $app = require __DIR__.'/../../bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
 
+// A competitor never reaches a real mail server, whatever .env says: request emails go to the array
+// transport, and the count of what it holds is part of the outcome.
+config(['mail.default' => 'array']);
+
 if (DB::connection()->getDatabaseName() !== 'hr_system_test') {
     fwrite(STDERR, "Refusing to run outside hr_system_test.\n");
     exit(1);
@@ -122,4 +126,6 @@ try {
     $refused = true;
 }
 
-echo json_encode(['won' => $won, 'reached_barrier' => $reachedBarrier, 'invalid' => $invalid, 'refused' => $refused, 'codes' => $codes]);
+$mails = app('mailer')->getSymfonyTransport()->messages()->count();
+
+echo json_encode(['won' => $won, 'reached_barrier' => $reachedBarrier, 'invalid' => $invalid, 'refused' => $refused, 'codes' => $codes, 'mails' => $mails]);

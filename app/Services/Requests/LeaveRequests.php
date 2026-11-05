@@ -36,6 +36,7 @@ class LeaveRequests
         private LeaveBalance $balance,
         private WorkingDays $workingDays,
         private Evidence $evidence,
+        private RequestNotifications $notifications,
     ) {}
 
     /**
@@ -68,12 +69,17 @@ class LeaveRequests
         $stored = $this->evidence->store($evidence instanceof UploadedFile ? $evidence : null);
 
         try {
-            return DB::transaction(fn () => $this->create($actor, $validated, $stored));
+            $request = DB::transaction(fn () => $this->create($actor, $validated, $stored));
         } catch (Throwable $exception) {
             $this->evidence->discard($stored);
 
             throw $exception;
         }
+
+        // After the commit, and never able to fail the request (Phase 13).
+        $this->notifications->submitted($request, $actor);
+
+        return $request;
     }
 
     /**

@@ -39,7 +39,11 @@ class Decisions
 
     public const NOTE_MAX = 1000;
 
-    public function __construct(private Deciders $deciders, private LeaveBalance $balance) {}
+    public function __construct(
+        private Deciders $deciders,
+        private LeaveBalance $balance,
+        private RequestNotifications $notifications,
+    ) {}
 
     /**
      * @throws AuthorizationException|ValidationException
@@ -105,7 +109,7 @@ class Decisions
         $id = filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
         try {
-            return DB::transaction(function () use ($actor, $model, $id, $status, $note) {
+            $decided = DB::transaction(function () use ($actor, $model, $id, $status, $note) {
                 User::shareAccountLock();
 
                 $record = $model::query()->lockForUpdate()->find($id) ?? abort(404);
@@ -167,6 +171,11 @@ class Decisions
 
             throw ValidationException::withMessages(['decision' => $refusal->getMessage()]);
         }
+
+        // After the commit, and never able to fail the decision (Phase 13).
+        $this->notifications->decided($decided, $actor);
+
+        return $decided;
     }
 
     /**

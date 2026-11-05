@@ -376,6 +376,38 @@ Built in Phase 12. No new table and no new permission; the migration `2026_11_10
 
 The recap filters use two columns up to 1280px (`xl`), three above, so "Periode berjalan dan berikutnya" fits at 1024px.
 
+## Request email notifications
+
+Built in Phase 13. No new table and no new permission; the migration `2026_11_11_100000_load_notification_texts` only loads the texts. New audit event `request.notification_failed`.
+
+| When | To | Email | Link |
+|---|---|---|---|
+| A leave or overtime request is submitted | everyone who may decide it now (`Deciders::of()`, filtered through `Deciders::allows()`): the active Approvers linked to an Employee or HR Admin, every active HR Admin for an Approver | `RequestSubmittedMail` | `/approvals/{type}/{id}` |
+| A request is approved or rejected | the requester, if still ACTIVE | `RequestDecidedMail` | `/requests/{type}/{id}` |
+
+- **Content:** type (Leave or Overtime), category for leave, dates or WIB hours with working days or hours, the requester's name (submitted email only), the outcome (decided email only) and a button. **Never:** the reason, the decision note, the rejection reason, the evidence or its file name, the decider's name. The request is a protected property of the mailable, so the view gets only these values.
+- **Language:** the recipient's `users.locale` (`User::preferredLocale()`), for subject, HTML and text part; dates are formatted inside that language. All texts are in English and Indonesian. The mail footer "All rights reserved." is now translated too (it also appears in the account emails).
+- **Links use `APP_URL`**, never the host of the current request ([ASSUMPTION] from the owner).
+- **Markdown injection:** `Markdown::withSecuredEncoding()` is on (AppServiceProvider), so a value echoed into a Markdown email (for example a requester's own name such as `[x](https://…)`) cannot become a link or HTML. This applies to the account emails as well; their text is unchanged.
+- **Timing:** synchronous, never queued (the account email decision), called after the business transaction returned, so after its commit. A slow SMTP server makes that request wait up to `MAIL_TIMEOUT` per recipient; an Approver's request with many HR Admins waits for each in turn.
+- **Failure:** never undoes or fails the request or the decision. `MailDelivery` logs the mailable and exception class only; any other error while notifying (for example a database error while finding the deciders) is caught and logged by class only. Each failure is audited as `request.notification_failed` with `notification` (`submitted` or `decided`) and `recipient_id` (null when no recipient was reached), the requester or decider as actor and the request as subject. The page shows a warning toast next to the success toast ("…but an email to a decider could not be sent…", "…but the email to the requester could not be sent."), never a claim that the email was sent. `RequestNotifications` is bound as scoped so the page reads the failures of its own HTTP request.
+- **Not sent ([ASSUMPTION] from the owner):** no email for a cancellation, no opt-out setting. Agent's choice: no decision email to a requester who is no longer ACTIVE (they cannot sign in to open the link).
+- **Tests and race helper:** the suite uses `Mail::fake()` and the `array` mailer (phpunit.xml). `tests/Support/race.php` forces the `array` mailer in every competitor process, because those processes read `.env`, and reports how many emails each sent. The browser-check setup scripts force the `log` mailer in their CLI process for the same reason.
+
+### SMTP settings (.env)
+
+| Variable | Meaning |
+|---|---|
+| `MAIL_MAILER` | `smtp` for real delivery (`log` writes whole emails to `storage/logs/laravel.log`, local only) |
+| `MAIL_SCHEME` | `smtps` for implicit TLS (port 465), empty or `null` for STARTTLS/plain (587, 25) |
+| `MAIL_HOST`, `MAIL_PORT` | the provider's SMTP server and port |
+| `MAIL_USERNAME`, `MAIL_PASSWORD` | the SMTP login (often an app password) |
+| `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | the sender; must be an address the provider lets this login send from |
+| `MAIL_TIMEOUT` | seconds a page waits for the server per email (default 10) |
+| `APP_URL` | the address used in every email link (`http://hr-system.test` locally) |
+
+Run `php artisan config:clear` after changing `.env` if the configuration was cached.
+
 ## Language
 
 The interface is in English or Indonesian. Each user picks a language in My Profile; guests, users who never chose, and users whose language was deactivated get the default, `APP_FALLBACK_LOCALE` (English). Account emails go out in the recipient's language: a password reset follows the user's choice, and an invitation is always in the default language, because the invitee has not chosen yet.

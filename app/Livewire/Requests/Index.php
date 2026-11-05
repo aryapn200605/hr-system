@@ -9,6 +9,7 @@ use App\Models\OvertimeRequest;
 use App\Services\Requests\ApprovalPath;
 use App\Services\Requests\LeaveRequests;
 use App\Services\Requests\OvertimeRequests;
+use App\Services\Requests\RequestNotifications;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
@@ -127,6 +128,7 @@ class Index extends Component
         ], $this->evidence);
 
         $this->finish('leave', __('Leave request submitted for :count working days.', ['count' => $request->working_days]));
+        $this->warnIfUndelivered($request);
     }
 
     public function submitOvertime(): void
@@ -148,6 +150,7 @@ class Index extends Component
         }
 
         $this->finish('overtime', __('Overtime request submitted for :count hours.', ['count' => $request->hours]));
+        $this->warnIfUndelivered($request);
     }
 
     /**
@@ -193,6 +196,16 @@ class Index extends Component
         }
 
         $this->dispatch('toast', message: $message, tone: 'success');
+    }
+
+    /**
+     * The request stands either way; the requester is told when a decider's email did not go out.
+     */
+    private function warnIfUndelivered(LeaveRequest|OvertimeRequest $request): void
+    {
+        if (app(RequestNotifications::class)->failures($request) > 0) {
+            $this->dispatch('toast', message: __('The request was submitted, but an email to a decider could not be sent. Tell them yourself if it is urgent.'), tone: 'warning');
+        }
     }
 
     private function resetForms(): void

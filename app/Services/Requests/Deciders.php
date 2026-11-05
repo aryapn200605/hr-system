@@ -9,6 +9,7 @@ use App\Models\LeaveRequest;
 use App\Models\OvertimeRequest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 
@@ -44,6 +45,25 @@ class Deciders
         }
 
         return false;
+    }
+
+    /**
+     * Everyone who may decide this requester's requests now: the candidates (the linked supervisors of an
+     * Employee or HR Admin, the active HR Admins otherwise) filtered through allows(), so this list never
+     * differs from who may actually decide.
+     *
+     * @return Collection<int, User>
+     */
+    public function of(User $requester): Collection
+    {
+        // The candidates narrow the rows read; allows() decides. A requester without a path gets nobody.
+        $candidates = $requester->needsSupervisor()
+            ? User::query()->whereIn('users.id', DB::table('supervisor_user')->where('subordinate_id', $requester->getKey())->select('supervisor_id'))
+            : User::query()->activeHrAdmin();
+
+        return $candidates->with('roles')->orderBy('users.id')->get()
+            ->filter(fn (User $decider) => $this->allows($decider, $requester))
+            ->values();
     }
 
     /**

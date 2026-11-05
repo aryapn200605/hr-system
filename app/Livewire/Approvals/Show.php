@@ -8,6 +8,7 @@ use App\Models\OvertimeRequest;
 use App\Services\Requests\Decisions;
 use App\Services\Requests\LeaveRequests;
 use App\Services\Requests\OvertimeRequests;
+use App\Services\Requests\RequestNotifications;
 use App\Services\Requests\ReviewLock;
 use App\Services\Requests\ReviewLockHolder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -225,7 +226,7 @@ class Show extends Component
         $this->resetErrorBag();
 
         try {
-            $decision();
+            $record = $decision();
         } catch (ValidationException $exception) {
             if (! isset($exception->errors()['decision'])) {
                 throw $exception;
@@ -244,6 +245,11 @@ class Show extends Component
         $this->notice = '';
         $this->dispatch('close-modal', name: $modal);
         $this->dispatch('toast', message: $done, tone: 'success');
+
+        // The decision stands either way; the decider is told when the requester's email did not go out.
+        if (app(RequestNotifications::class)->failures($record) > 0) {
+            $this->dispatch('toast', message: __('The decision was saved, but the email to the requester could not be sent.'), tone: 'warning');
+        }
     }
 
     private function stop(string $modal, string $message): void

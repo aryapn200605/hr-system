@@ -19,7 +19,9 @@
 - Phase 10 (Approvals): done, see "Phase 10" below.
 - Phase 11 (History, recap, CSV export): done, see "Phase 11" below.
 - Phase 12 (Dashboard): done, see "Phase 12" below.
-- **Next: Phase 13 (Email notifications, optional).** Only if the owner confirms. Open: `composer audit` reports new Symfony advisories (see Phase 12 known issues).
+- Symfony security patch (http-foundation, http-kernel, routing 8.1.10 → 8.1.11): done in its own commit, see "Phase 13" below.
+- Phase 13 (Email notifications): done, see "Phase 13" below. Real delivery to a mailbox is still untested (MAIL_FROM_ADDRESS is a placeholder).
+- **Next: Phase 14 (Full verification and documentation).** Only when the owner starts it.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -632,4 +634,49 @@ Recorded in README.md under "Dashboard and read-only request page".
 
 ### Owner steps
 - Decide whether to run the Symfony patch update (`composer update "symfony/*"` to 8.1.11, then the full suite).
+- Review the new Indonesian texts. Nothing else: the migration was run on `hr_system` in this phase.
+
+## Phase 13: Email notifications (2026-11-05)
+
+### Plan (Step 0)
+- **Step 1, own commit (owner's approval):** `composer update symfony/http-foundation symfony/http-kernel symfony/routing` without `--with-dependencies` (that flag would also have raised two `*-contracts` packages, which the fix does not need).
+- **No new table, column or permission.** One migration loads the texts; one new audit event `request.notification_failed`.
+- `App\Services\Requests\RequestNotifications` (scoped binding), called by `LeaveRequests::submit()`, `OvertimeRequests::submit()` and `Decisions` after their transaction returns; `Deciders::of()` lists who may decide, through `allows()`. Mailables `RequestSubmittedMail` and `RequestDecidedMail` (shared `RequestMail`), Markdown views, sent with `MailDelivery` in the recipient's language. Livewire pages show a warning toast when a delivery failed.
+- `Markdown::withSecuredEncoding()`, because a requester's own name now reaches other users' emails.
+- Race processes are forced to the `array` mailer: they read `.env`, which now uses real SMTP.
+- **Tests:** recipients per role, permission and status; content without reason, note, rejection reason or evidence; language of subject, HTML and text part; links on APP_URL; after-commit; transport failure and any other error (request kept, audit, class-only log, page warning); cancellation and refusals send nothing; Markdown injection; races (overlapping submissions, concurrent decisions) send exactly one set of emails.
+
+### Done
+- Symfony patch: commit `7ca7872`, `composer.lock` only (3 packages, 8.1.10 → 8.1.11), `composer audit` clean, 1092 tests and the build passed before the commit.
+- Request emails as described in README "Request email notifications": on submission to every current decider, on approval or rejection to the requester (if ACTIVE), minimal content, recipient's language, links on APP_URL, synchronous after the commit, failures audited and shown as a warning, never undoing the business action.
+- `Deciders::of()`; `RequestNotifications::failures()` for the pages; warning toasts in My requests and on the Approvals decision page.
+- 13 new texts in English and Indonesian, including "All rights reserved." for the mail footer (it was English in every Indonesian account email). Migration `2026_11_11_100000_load_notification_texts`.
+- `tests/Support/race.php` forces the `array` mailer and reports the number of emails per competitor.
+
+### Verified
+- `php artisan test`: 1110 passed (7519 assertions) on `hr_system_test` (1092 before). New: `RequestNotificationTest` (18). Changed: `RequestConcurrencyTest` (only the winner of overlapping submissions emails, once) and `ApprovalConcurrencyTest` (four deciders at once: one decision email, from the winner's process), both with real processes.
+- Mutation check: 25 safeguards removed one at a time (the runner hashes each file first and restores it; all changed files were compared with a hash list afterwards). 22 caught at first. The 3 survivors were candidate filters in `Deciders::of()`, redundant with `allows()`: the "requester without a path" branch was removed; the linked-supervisor filter is now caught by a query-count test (no extra queries with more unrelated Approvers and HR Admins); **1 kept on purpose:** `activeHrAdmin()` as the candidate query for an Approver's request, which only narrows the rows read while `allows()` decides.
+- `hr_system`: counts before (users 2, login_histories 9, audit_logs 24 with max id 651, recovery_codes 20, account_invitations 1, model_has_roles 2, departments 2, supervisor_user 1, leave_periods 2, leave_balance_entries 2, requests 0, permissions 14, role grants 19, translations 1449, sessions 1), `migrate:status` with one migration pending, backup `C:\laragon\backup\hr-system\hr_system-before-phase13-20261105-090602.sql` (765,470 bytes, "Dump completed", INSERTs for 19 tables), `migrate` ran it, `app:translations-missing` passes (1475 translations), `view:clear`. One Indonesian text was reworded after the browser check ("permohonan" → "pengajuan", the glossary term) with `app:translation-set`, which wrote one `translation.changed` audit row (id 720, system actor).
+- Puppeteer (`C:\laragon\tmp\browser-check\phase13.mjs`, `phase13-setup.php`, `phase13-cleanup.php`) on hr-system.test: Employee, Approver (address = MAIL_FROM_ADDRESS) and HR Admin created through `CreateUserWithInvitation` with the CLI process on the `log` mailer, activated through their real links, logged in with real TOTP. The Employee submitted a leave through the page (real SMTP email 1, to the Approver, in Indonesian); the HR Admin approved the Approver's own overtime through the page (real SMTP email 2, to the Approver). The four email variants (submitted and decided, en and id) rendered from the real requests and checked at 1024 and 375px (content; no reason, note or decider; button link on APP_URL; no horizontal scroll); the link targets open for the right user and give 404 to another; pages at 375px without horizontal scroll. 0 unexpected console errors. Screenshots reviewed.
+- **Real SMTP result:** both deliveries failed with `UnexpectedResponseException`, which proved the failure path for real: request and decision saved, warning toast shown, one `request.notification_failed` audit row each, log lines with class names only. A follow-up probe without DATA (nothing sent) showed connect, login and `MAIL FROM` accepted and `RCPT TO` refused with 550: MAIL_FROM_ADDRESS is still the placeholder `hello@example.com`, a reserved domain that accepts no mail. The 4 browser checks expecting "no warning, no failure audit" therefore failed as expected; the other 41 passed.
+- Cleanup: the zz-check users with their audit rows, login history, recovery codes, invitations, sessions, role links, supervisor link, requests, periods and ledger rows, in one transaction that checked each count. Afterwards every count matched the "before" numbers except audit_logs 25 (the translation change above) and translations 1475 (the migration); the owner's two accounts are unchanged (same `updated_at`).
+- Evidence leftovers: one new test uploaded evidence without `Storage::fake()`, so every run left a file on the real private disk (39 files from today's runs, referenced by no row in `hr_system` or `hr_system_test`). Fixed in the test, files removed, and the final full run left 0 files.
+
+### Bugs found
+- The new test's evidence leftover (above), fixed.
+- Older: the Markdown mail footer "All rights reserved." was English in Indonesian emails; now translated.
+
+### Known issues
+- **Delivery to a real mailbox is untested:** set MAIL_FROM_ADDRESS to an address the SMTP login may send from and receive at (see README "SMTP settings").
+- Emails are synchronous: a slow SMTP server delays the submit or decision page by up to `MAIL_TIMEOUT` per recipient (an Approver's request emails every active HR Admin in turn). Measured with the refused recipient: about 1.4 to 1.8 seconds per page.
+- The warning toast disappears after 5 seconds like every toast; the audit row stays.
+- The Indonesian texts are the agent's and await the owner's review.
+
+### Decisions
+Recorded in README.md under "Request email notifications".
+- From the owner: recipients, minimal content without reason, rejection reason or evidence, recipient's language, synchronous after commit, failure never fails the business action and is audited with class-only logging; [ASSUMPTION] no cancellation email, no opt-out, links on APP_URL.
+- Agent's choices: no decision email to a requester who is no longer ACTIVE; no decider name in the decided email; category shown for leave; secured Markdown encoding for every email; warning toasts on the pages.
+
+### Owner steps
+- Put real values in `.env`, at least MAIL_FROM_ADDRESS (see README "SMTP settings"), then `php artisan config:clear` if the configuration is cached. Submit one request to see a real email arrive.
 - Review the new Indonesian texts. Nothing else: the migration was run on `hr_system` in this phase.

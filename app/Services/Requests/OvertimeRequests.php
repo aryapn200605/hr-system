@@ -26,7 +26,11 @@ class OvertimeRequests
 {
     public const MAX_HOURS = 12;
 
-    public function __construct(private Submission $submission, private Evidence $evidence) {}
+    public function __construct(
+        private Submission $submission,
+        private Evidence $evidence,
+        private RequestNotifications $notifications,
+    ) {}
 
     /**
      * @param  array{start_at?: mixed, end_at?: mixed, reason?: mixed}  $input  times as "Y-m-d H:i" in WIB
@@ -59,12 +63,17 @@ class OvertimeRequests
         $stored = $this->evidence->store($evidence instanceof UploadedFile ? $evidence : null);
 
         try {
-            return DB::transaction(fn () => $this->create($actor, $start, $end, $validated['reason'], $stored));
+            $request = DB::transaction(fn () => $this->create($actor, $start, $end, $validated['reason'], $stored));
         } catch (Throwable $exception) {
             $this->evidence->discard($stored);
 
             throw $exception;
         }
+
+        // After the commit, and never able to fail the request (Phase 13).
+        $this->notifications->submitted($request, $actor);
+
+        return $request;
     }
 
     /**

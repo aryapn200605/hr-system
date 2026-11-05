@@ -177,6 +177,9 @@ class ApprovalConcurrencyTest extends TestCase
             $this->assertSame(1, $this->wins($outcomes), "Round $round");
             // The losers are told who decided, which is not an error.
             $this->assertSame(3, collect($outcomes)->where('invalid', true)->count(), "Round $round");
+            // The requester got one decision email, from the winner's process (Phase 13).
+            $this->assertSame([1], collect($outcomes)->where('won', true)->pluck('mails')->all(), "Round $round");
+            $this->assertSame(0, collect($outcomes)->where('won', false)->sum('mails'), "Round $round");
 
             $request->refresh();
             $approved = $request->status === RequestStatus::Approved;
