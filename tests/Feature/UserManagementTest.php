@@ -400,7 +400,7 @@ class UserManagementTest extends TestCase
         $audit = AuditLog::where('event', AuditEvent::UserSuspended->value)->sole();
 
         $this->assertSame($this->admin->id, $audit->actor_id);
-        $this->assertSame(['sessions_ended' => 2, 'invitations_revoked' => 0], $audit->metadata);
+        $this->assertSame(['sessions_ended' => 2, 'invitations_revoked' => 0, 'leave_requests_rejected' => 0, 'overtime_requests_rejected' => 0], $audit->metadata);
     }
 
     public function test_suspending_removes_password_reset_links(): void

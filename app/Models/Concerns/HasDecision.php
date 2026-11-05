@@ -42,6 +42,47 @@ trait HasDecision
     }
 
     /**
+     * Whether the system decided this request (no decider), for example on suspension.
+     */
+    public function decidedBySystem(): bool
+    {
+        return $this->system_reason !== null;
+    }
+
+    /**
+     * Who decided, in the viewer's language: the system, the decider's name, or a removed user.
+     * Needs the decider loaded.
+     */
+    public function deciderLabel(): string
+    {
+        if ($this->decidedBySystem()) {
+            return __('System');
+        }
+
+        return $this->decider?->name ?? __('a removed user');
+    }
+
+    /**
+     * The note or rejection reason. A system decision has a fixed reason, translated for the viewer.
+     */
+    public function decisionText(): ?string
+    {
+        return match ($this->system_reason) {
+            null => $this->decision_note,
+            self::systemReasonSuspended() => __('Rejected automatically because the account was suspended.'),
+            default => __('Rejected automatically by the system.'),
+        };
+    }
+
+    /**
+     * The system_reason code of an automatic rejection when the requester is suspended.
+     */
+    public static function systemReasonSuspended(): string
+    {
+        return 'account_suspended';
+    }
+
+    /**
      * "leave" or "overtime", as in the routes.
      */
     public function routeType(): string

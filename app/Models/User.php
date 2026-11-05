@@ -10,6 +10,7 @@ use App\Enums\UserStatus;
 use App\Exceptions\AccountProtectionException;
 use App\Exceptions\SupervisorGuardException;
 use App\Services\LeaveBalance;
+use App\Services\Requests\SuspensionRejections;
 use App\Services\SupervisorGuard;
 use Database\Factories\UserFactory;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -534,8 +535,13 @@ class User extends Authenticatable implements HasLocalePreference
      *
      * Takes the account lock before the user row, in the order changeRole() uses, so the two
      * cannot deadlock. A null actor means the system itself.
+     *
+     * The user's pending requests are rejected by the system in the same transaction (DECISIONS.md
+     * section 11). Returns how many were rejected.
+     *
+     * @return array{leave: int, overtime: int}
      */
-    public function suspend(?self $actor = null): void
+    public function suspend(?self $actor = null): array
     {
         if ($actor?->is($this)) {
             throw AccountProtectionException::ownSuspension();
@@ -545,24 +551,34 @@ class User extends Authenticatable implements HasLocalePreference
             throw new AuthorizationException;
         }
 
-        app(SupervisorGuard::class)->auditing('suspend', $actor, $this, fn () => static::withinAccountLock(function () use ($actor) {
+        return app(SupervisorGuard::class)->auditing('suspend', $actor, $this, fn () => static::withinAccountLock(function () use ($actor) {
             $locked = static::query()->lockForUpdate()->findOrFail($this->getKey());
 
             if ($locked->status === UserStatus::Suspended) {
                 throw AccountProtectionException::alreadySuspended();
             }
 
+            // Read after the role and user row locks, which keep every other writer out (SuspensionRejections).
+            $rejections = app(SuspensionRejections::class);
+            $pending = $rejections->pending($this);
+
             $locked->status = UserStatus::Suspended;
             $locked->save();
 
             $this->setRawAttributes($locked->getAttributes(), true);
 
+            $rejected = $rejections->reject($pending, $actor);
+
             AuditLog::record(AuditEvent::UserSuspended, $actor, $this, [
                 'sessions_ended' => DB::table('sessions')->where('user_id', $this->getKey())->delete(),
                 'invitations_revoked' => AccountInvitation::revokeOpenFor($this),
+                'leave_requests_rejected' => $rejected['leave'],
+                'overtime_requests_rejected' => $rejected['overtime'],
             ]);
 
             DB::table('password_reset_tokens')->where('email', $this->email)->delete();
+
+            return $rejected;
         }));
     }
 

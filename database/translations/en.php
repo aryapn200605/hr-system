@@ -597,6 +597,12 @@ return [
         'Back to request history' => 'Back to request history',
         'You are viewing this request. You cannot decide it here.' => 'You are viewing this request. You cannot decide it here.',
         'Attached. Only the requester and those who may decide can download it.' => 'Attached. Only the requester and those who may decide can download it.',
+        ':count pending requests of this user (leave and overtime) will be rejected automatically. Approved requests stay approved. Reactivating the user does not restore them.' => ':count pending requests of this user (leave and overtime) will be rejected automatically. Approved requests stay approved. Reactivating the user does not restore them.',
+        ':name was suspended and signed out. :count pending requests were rejected.' => ':name was suspended and signed out. :count pending requests were rejected.',
+        'Rejected automatically because the account was suspended.' => 'Rejected automatically because the account was suspended.',
+        'Rejected automatically by the system.' => 'Rejected automatically by the system.',
+        'This decision is final. It cannot be undone or changed later.' => 'This decision is final. It cannot be undone or changed later.',
+        'This user has no pending requests.' => 'This user has no pending requests.',
     ],
     'validation' => [
         'accepted' => 'The :attribute field must be accepted.',

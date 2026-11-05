@@ -26,9 +26,10 @@ use Illuminate\Validation\ValidationException;
  *  2. the request row;
  *  3. the requester's user row, before any plain read (see decide());
  *  4. the leave periods to charge, by start date.
- * A cancellation locks only the request row, a submission and the leave balance services only the user
- * row (and then periods), and account changes the role row then user rows, so no two of them can wait
- * for each other in a circle.
+ * A cancellation takes the role row shared and then the request row (its update also checks the user row
+ * through the foreign key), a submission and the leave balance services only the user row (and then
+ * periods), and account changes the role row then user rows (a suspension then reads the user's pending
+ * requests, SuspensionRejections), so no two of them can wait for each other in a circle.
  *
  * Refusals for lack of authority or balance are audited after the rollback. A request already decided
  * or cancelled is not an error: the message says who decided it and when.
@@ -81,7 +82,7 @@ class Decisions
             ]),
             default => __('This request was already decided: :status by :name on :time.', [
                 'status' => $record->status->label(),
-                'name' => $record->decider?->name ?? __('a removed user'),
+                'name' => $record->deciderLabel(),
                 'time' => $this->time($record->decided_at),
             ]),
         };

@@ -125,7 +125,8 @@ class ApprovalConcurrencyTest extends TestCase
     /**
      * Run one process per move at the same moment and return the outcomes.
      *
-     * @param  list<array{0: string, 1: int, 2: string}>  $moves  mode, user ID, code
+     * @param  list<array{0: string, 1: int, 2: string, 3?: float}>  $moves  mode, user ID, code, and an optional
+     *                                                                       start offset in seconds, so both orders occur
      * @return list<array{won: bool, invalid: bool, refused: bool}>
      */
     private function race(array $moves): array
@@ -133,11 +134,13 @@ class ApprovalConcurrencyTest extends TestCase
         $startAt = microtime(true) + 3;
 
         $pool = Process::pool(function ($pool) use ($moves, $startAt) {
-            foreach ($moves as [$mode, $subject, $code]) {
+            foreach ($moves as $move) {
+                [$mode, $subject, $code] = $move;
+                $offset = $move[3] ?? 0.0;
                 $pool->path(base_path())->env([
                     'APP_ENV' => 'testing',
                     'DB_DATABASE' => 'hr_system_test',
-                ])->command([PHP_BINARY, 'tests/Support/race.php', $mode, (string) $subject, $code, (string) $startAt]);
+                ])->command([PHP_BINARY, 'tests/Support/race.php', $mode, (string) $subject, $code, (string) ($startAt + $offset)]);
             }
         })->start()->wait();
 
@@ -386,6 +389,94 @@ class ApprovalConcurrencyTest extends TestCase
                 $this->assertSame(RequestStatus::Pending, $request->status, "Round $round");
                 $this->assertSame($supervisors[1]->id, $request->review_locked_by, "Round $round");
             }
+        }
+    }
+
+    public function test_suspension_against_approval_ends_with_one_consistent_outcome(): void
+    {
+        // The suspension starts up to a few hundredths of a second later in some rounds, so that each side wins
+        // sometimes. The test passes whichever order occurs; the log line in the assertion says which did.
+        foreach ([0.0, 0.0, 0.01, 0.02, 0.04, 0.08] as $round => $offset) {
+            [$employee, $supervisors] = $this->team(2);
+            $admin = $this->user(RoleName::HrAdmin);
+            $leave = $this->leave($employee, 1);
+            $overtime = app(OvertimeRequests::class)->submit($employee, [
+                'start_at' => $this->monday(3)->toDateString().' 18:00',
+                'end_at' => $this->monday(3)->toDateString().' 20:00',
+                'reason' => 'Concurrent decision test.',
+            ]);
+
+            $outcomes = $this->race([
+                ['approve', $supervisors[0]->id, "leave:$leave->id"],
+                ['approve', $supervisors[1]->id, "overtime:$overtime->id"],
+                ['suspend', $employee->id, (string) $admin->id, $offset],
+            ]);
+
+            // The suspension always goes through and sends no email (DECISIONS.md section 11).
+            $this->assertTrue($outcomes[2]['won'], "Round $round");
+            $this->assertSame(0, $outcomes[2]['mails'], "Round $round");
+            $suspension = DB::table('audit_logs')->where('event', AuditEvent::UserSuspended->value)->where('subject_id', $employee->id)->sole();
+
+            foreach ([[$outcomes[0], $leave, $supervisors[0], AuditEvent::LeaveRequestApproved], [$outcomes[1], $overtime, $supervisors[1], AuditEvent::OvertimeRequestApproved]] as [$outcome, $request, $supervisor, $event]) {
+                $request->refresh();
+
+                if ($outcome['won']) {
+                    // The approval came first and stands.
+                    $this->assertSame(RequestStatus::Approved, $request->status, "Round $round");
+                    $this->assertSame($supervisor->id, $request->decided_by, "Round $round");
+                    $this->assertNull($request->system_reason, "Round $round");
+                    $approval = DB::table('audit_logs')->where('event', $event->value)->where('subject_id', $request->id)->value('id');
+                    $this->assertLessThan($suspension->id, $approval, "Round $round");
+                } else {
+                    // The automatic rejection came first; the approver was told it is decided, not refused.
+                    $this->assertTrue($outcome['invalid'], "Round $round");
+                    $this->assertFalse($outcome['refused'], "Round $round");
+                    $this->assertSame(RequestStatus::Rejected, $request->status, "Round $round");
+                    $this->assertNull($request->decided_by, "Round $round");
+                    $this->assertSame('account_suspended', $request->system_reason, "Round $round");
+                }
+            }
+
+            $approvedLeave = $leave->status === RequestStatus::Approved;
+            $this->assertSame($approvedLeave ? 5 : 0, $this->period($employee)->used, "Round $round");
+            $this->assertSame($approvedLeave ? 1 : 0, $this->deductions($employee), "Round $round");
+            $metadata = json_decode($suspension->metadata, true);
+            $this->assertSame($approvedLeave ? 0 : 1, $metadata['leave_requests_rejected'], "Round $round");
+            $this->assertSame($overtime->status === RequestStatus::Approved ? 0 : 1, $metadata['overtime_requests_rejected'], "Round $round");
+            $this->assertSame(0, LeaveRequest::query()->where('user_id', $employee->id)->where('status', RequestStatus::Pending->value)->count());
+        }
+    }
+
+    public function test_suspension_against_a_submission_and_a_cancel_leaves_nothing_pending(): void
+    {
+        foreach ([0.0, 0.0, 0.01, 0.02, 0.04, 0.08] as $round => $offset) {
+            [$employee] = $this->team(1);
+            $admin = $this->user(RoleName::HrAdmin);
+            $existing = $this->leave($employee, 1);
+            $monday = $this->monday(4);
+
+            $outcomes = $this->race([
+                ['suspend', $employee->id, (string) $admin->id, $offset],
+                ['leave', $employee->id, $monday->toDateString().','.$monday->addDay()->toDateString().',annual'],
+                ['overtime', $employee->id, $monday->addWeek()->toDateString().' 18:00,'.$monday->addWeek()->toDateString().' 20:00'],
+                ['cancel-leave', $employee->id, (string) $existing->id],
+            ]);
+
+            $this->assertTrue($outcomes[0]['won'], "Round $round");
+
+            // A submission either came first and was then rejected with the rest, or was refused.
+            foreach ([1, 2] as $i) {
+                $this->assertTrue($outcomes[$i]['won'] || $outcomes[$i]['invalid'] || $outcomes[$i]['refused'], "Round $round");
+            }
+            $this->assertSame(0, LeaveRequest::query()->where('user_id', $employee->id)->where('status', RequestStatus::Pending->value)->count(), "Round $round");
+            $this->assertSame(0, OvertimeRequest::query()->where('user_id', $employee->id)->where('status', RequestStatus::Pending->value)->count(), "Round $round");
+            $this->assertSame((int) $outcomes[1]['won'], LeaveRequest::query()->where('user_id', $employee->id)->where('id', '!=', $existing->id)->where('system_reason', 'account_suspended')->count(), "Round $round");
+            $this->assertSame((int) $outcomes[2]['won'], OvertimeRequest::query()->where('user_id', $employee->id)->where('system_reason', 'account_suspended')->count(), "Round $round");
+
+            // The existing request was cancelled first or rejected by the system, never both.
+            $existing->refresh();
+            $this->assertSame($outcomes[3]['won'] ? RequestStatus::Cancelled : RequestStatus::Rejected, $existing->status, "Round $round");
+            $this->assertSame(0, $this->period($employee)->used, "Round $round");
         }
     }
 }

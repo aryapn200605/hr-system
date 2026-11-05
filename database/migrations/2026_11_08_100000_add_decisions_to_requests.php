@@ -53,12 +53,17 @@ return new class extends Migration
         });
 
         foreach (['leave_requests', 'overtime_requests'] as $name) {
+            // The foreign keys first: MySQL uses the decided index for the decided_by key and refuses to drop
+            // the index while the key exists (found by the Phase 14 rollback check).
+            Schema::table($name, function (Blueprint $table) {
+                $table->dropForeign(['decided_by']);
+                $table->dropForeign(['review_locked_by']);
+            });
+
             Schema::table($name, function (Blueprint $table) use ($name) {
                 $table->dropIndex($name.'_status_created_index');
                 $table->dropIndex($name.'_decided_index');
-                $table->dropConstrainedForeignId('review_locked_by');
-                $table->dropConstrainedForeignId('decided_by');
-                $table->dropColumn(['decided_at', 'decision_note', 'review_locked_until']);
+                $table->dropColumn(['decided_by', 'review_locked_by', 'decided_at', 'decision_note', 'review_locked_until']);
             });
         }
     }

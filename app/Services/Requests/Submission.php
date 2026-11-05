@@ -81,7 +81,14 @@ class Submission
         $id = filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         abort_if($id === false, 404);
 
-        // The request row lock alone serializes cancels and decisions on this request.
+        // The HR Admin role row first, shared, as a decision takes it (Decisions), so a cancellation never
+        // overlaps a suspension, which rejects the pending requests under that row (SuspensionRejections).
+        // The status update also takes a shared lock on the requester's user row (the user_id foreign key's
+        // index holds the status, so InnoDB checks the parent row): request row, then user row, the order of
+        // a decision. Without the role row it deadlocked with a suspension (real-process race test).
+        User::shareAccountLock();
+
+        // The request row lock serializes cancels and decisions on this request.
         $request = $model::query()->where('user_id', $actor->getKey())->lockForUpdate()->findOrFail($id);
 
         if ($request->status !== RequestStatus::Pending) {

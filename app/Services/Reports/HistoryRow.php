@@ -44,7 +44,8 @@ final class HistoryRow
             status: RequestStatus::from($record->status),
             submittedAt: CarbonImmutable::parse($record->created_at),
             decidedBy: $record->decided_by === null ? null : (int) $record->decided_by,
-            decider: $record->decider,
+            // A system decision (on suspension) has no decider row; it shows as "System".
+            decider: ($record->system_reason ?? null) !== null ? __('System') : $record->decider,
             decidedAt: $record->decided_at === null ? null : CarbonImmutable::parse($record->decided_at),
         );
     }

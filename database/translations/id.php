@@ -597,6 +597,12 @@ return [
         'Back to request history' => 'Kembali ke riwayat pengajuan',
         'You are viewing this request. You cannot decide it here.' => 'Anda hanya melihat pengajuan ini. Keputusan tidak dapat diambil di sini.',
         'Attached. Only the requester and those who may decide can download it.' => 'Terlampir. Hanya pemohon dan pihak yang berhak memutuskan yang dapat mengunduhnya.',
+        ':count pending requests of this user (leave and overtime) will be rejected automatically. Approved requests stay approved. Reactivating the user does not restore them.' => ':count pengajuan pengguna ini yang masih menunggu (izin dan lembur) akan ditolak otomatis. Pengajuan yang sudah disetujui tetap disetujui. Mengaktifkan kembali pengguna tidak memulihkannya.',
+        ':name was suspended and signed out. :count pending requests were rejected.' => ':name telah ditangguhkan dan dikeluarkan. :count pengajuan yang menunggu ditolak.',
+        'Rejected automatically because the account was suspended.' => 'Ditolak otomatis karena akun ditangguhkan.',
+        'Rejected automatically by the system.' => 'Ditolak otomatis oleh sistem.',
+        'This decision is final. It cannot be undone or changed later.' => 'Keputusan ini final. Tidak bisa dibatalkan atau diubah nanti.',
+        'This user has no pending requests.' => 'Pengguna ini tidak punya pengajuan yang menunggu.',
     ],
     'validation' => [
         'accepted' => ':Attribute harus diterima.',

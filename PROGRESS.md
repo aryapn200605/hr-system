@@ -21,7 +21,8 @@
 - Phase 12 (Dashboard): done, see "Phase 12" below.
 - Symfony security patch (http-foundation, http-kernel, routing 8.1.10 → 8.1.11): done in its own commit, see "Phase 13" below.
 - Phase 13 (Email notifications): done, see "Phase 13" below. Real delivery to a mailbox is still untested (MAIL_FROM_ADDRESS is a placeholder).
-- **Next: Phase 14 (Full verification and documentation).** Only when the owner starts it.
+- Phase 14 (Full verification and documentation, plus DECISIONS.md section 11): done, see "Phase 14" below.
+- **Next: Phase 15 (UI redesign) or Phase 16 (deployment).** Both are started by the owner only.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -680,3 +681,146 @@ Recorded in README.md under "Request email notifications".
 ### Owner steps
 - Put real values in `.env`, at least MAIL_FROM_ADDRESS (see README "SMTP settings"), then `php artisan config:clear` if the configuration is cached. Submit one request to see a real email arrive.
 - Review the new Indonesian texts. Nothing else: the migration was run on `hr_system` in this phase.
+
+## Phase 14: Full verification and documentation (2026-11-05)
+
+### Plan (Step 0)
+- **Step 1, the owner's three decisions**, recorded first as DECISIONS.md section 11. Sick leave: the existing "today or later" rule already covers it; add tests. Final decisions: already enforced; add the "This decision is final…" sentence to both decision dialogs (en/id). Automatic rejection on suspension: new `SuspensionRejections` service called inside `User::suspend()`; one nullable column `system_reason` on both request tables (the reason is a code, translated when shown, so the viewer's language applies); no new permission, route or audit event; counts in the `user.suspended` audit row; count in the suspend dialog; real-process races against approvals, submissions and cancels.
+- **Step 2, validation:** full suite, build, Pint, audits, `app:translations-missing`; all migrations from zero, full rollback and up again on `hr_system_test`; a new mutation runner over the critical rules; all race tests together; authorization matrix as a test; read-only integrity checker; load probe on `hr_system_test` (214 users, 6,000 requests); puppeteer walk on hr-system.test as every role at 375/768/1024/1280 px with label, name, focus, contrast (WCAG formula in the page) and "English left in Indonesian pages" probes.
+- **Step 3:** compliance tables below; README, SPEC and PROGRESS synced.
+
+### Done
+- DECISIONS.md section 11 (the three decisions). README "Phase 14: final decisions and verification" (behavior, lock order, authorization matrix).
+- `App\Services\Requests\SuspensionRejections`; `User::suspend()` now returns the counts; `HasDecision::deciderLabel()`, `decisionText()`, `decidedBySystem()`; the history row, CSV and the "already decided" message say "System".
+- Suspend dialog count (locked property) and a toast with the number rejected; "This decision is final…" in both decision dialogs. 6 new texts in English and Indonesian.
+- Migrations `2026_11_12_100000_add_system_reason_to_requests`, `2026_11_12_100100_load_verification_texts`.
+- Fixes from the validation (see "Findings"): shared role lock in `Submission::cancel()`; `down()` of `2026_11_08_100000_add_decisions_to_requests`; the `local` disk is no longer served.
+- New tests: `SuspensionRejectionTest` (19), `AuthorizationMatrixTest` (3), `MigrationRollbackTest` (1), `RequestEvidenceTest::test_no_disk_serves_files_by_url`, two real-process races in `ApprovalConcurrencyTest` (the race helper takes a per-competitor start offset so both orders occur). `UserManagementTest` expects the two new audit keys.
+- Tools outside the repo, in `C:\laragon\tmp\browser-check`: `phase14-setup.php`, `phase14.mjs`, `phase14-cleanup.php`, `integrity.php` (read-only; `php integrity.php` for hr_system, `php integrity.php hr_system_test`).
+
+### Verified
+- `php artisan test`: 1136 passed (7976 assertions) on `hr_system_test` (1110 before this phase). Pint clean, `npm run build` ok, `composer audit` and `npm audit`: no advisories, `app:translations-missing`: every key (1487 translations).
+- Migrations: from zero (30), full `migrate:reset` (only the `migrations` table left), up again, on `hr_system_test`. The full rollback failed before the fix; `MigrationRollbackTest` fails with the old `down()` and passes now.
+- Mutation check (scratchpad runner; each file hashed and restored, the diff compared afterwards): 48 safeguards — supervisor guard (6), who may decide and the decision recheck and locks (9), balance deduction (4), period allocation (4), overlap and no backdating (7), automatic rejection and its locks (12), dialog and history labels (3), CSV export (6). 47 caught at first; the survivor (clearing the soft lock on automatic rejection) got a test and is caught now. The lock mutations (`cancel-role-lock`, `decision-role-lock`, reading the pending requests before the user row lock) are caught by the real-process races (a deadlock or a request left pending).
+- All 8 concurrency test classes together: 34 tests, 919 assertions, real processes, no deadlock.
+- Load probe (`hr_system_test`, 214 users, 3,000 leave and 3,000 overtime requests): list, recap, dashboard and export pages answer in 53–166 ms with 2–18 queries on a warm view cache (history export of 6,000 rows: 692 ms, 2 queries; approvals inbox ~100 ms, 13 queries). The first render after `view:clear` took up to 3.5 s (Blade compilation only).
+- `hr_system`: counts before (users 3, login_histories 10, audit_logs 36 with max id 731, recovery_codes 30, account_invitations 4, model_has_roles 3, departments 2, supervisor_user 1, leave_periods 3, leave_balance_entries 3, requests 0, translations 1475, sessions 1), `migrate:status` with 2 pending, backup `C:\laragon\backup\hr-system\hr_system-before-phase14-20261105-102405.sql` (965,858 bytes, "Dump completed", INSERTs for 19 tables), `migrate`, `app:translations-missing`, `view:clear`. Integrity check on `hr_system` before and after the browser walk: every check passes except finding 6.
+- Browser walk (`phase14.mjs`; final run 130 checks passed and 5 failed, all 5 checker mistakes, confirmed from the state dump and screenshots, and the checker is fixed): 8 zz-check accounts activated through their real links with real TOTP and logged in; HR invited a user in the UI (SMTP refused the .test address and the page said so), the newcomer activated and saw the disabled submit with its reason; department created and assigned; supervisor added, guard refusal naming the employee, bulk move, second supervisor back; anchor change, reset refused because the period started today, adjustment; leave with PDF evidence, leave across the reset split 1 + 1 by period, sick leave today and its cancellation, backdated sick leave blocked by the date field (the server rule is tested), overtime 20:00–02:00 (6 h); two approvers (view-only with the holder's name), both decision dialogs at 375 px with the final sentence, approval, "already decided by" for the second approver, a too-short rejection reason refused then a rejection; deduction 3 days with ledger = remaining, the part after the reset waiting uncharged; the Approver's own request (submitted on the CLI, see Deviations) approved by another HR Admin; the HR Admin's own request: 404 for themself and for another HR Admin, approved by their supervisor; suspension at 375 px naming 1 pending request, a toast with the count, the employee signed out, the overtime rejected by the system, approved requests untouched, counts in the audit, no decision email attempt, the approver seeing "already decided: Rejected by System" with the fixed reason; reactivation restored nothing; history, recap (both tabs), CSV (200, BOM, no reason text, "System") and dashboard as Employee, Approver and HR Admin; profile, sessions, login history and security; Indonesian on 18 pages with no English UI sentence left, "Sistem" and the Indonesian reason, the suspend and approve dialogs in Indonesian at 375 px. 0 unexpected console errors (5 expected 404s from deliberate URL checks). No horizontal scroll on any probed page at 375, 768, 1024 and 1280 px. No unlabeled form control, no nameless button or link, no positive tabindex, no missing focus ring, no text below WCAG AA contrast (colors converted through a canvas, Tailwind's oklch included). Tab order on the login and My requests pages reaches the controls in order. Screenshots reviewed: suspend dialog at 375 px, reject dialog at 375 px, the view-only page, the Indonesian system rejection, the invite dialog, the backdated sick leave.
+- Cleanup: the 8 zz-check users, the zz-check department, their audit rows, login history, recovery codes, invitations, sessions, role links, supervisor links, requests, allocations, periods, ledger rows and the evidence file, in one transaction that checked each count, then the 11 anonymous headless-browser sessions (listed first). Afterwards every count equals the "before" numbers except translations 1487 (the migration); the owner's three accounts keep the same `updated_at`.
+
+### Findings
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| 1 | Suspension against cancellation deadlocked (real-process race): a cancellation's status update takes a shared lock on the user row through the foreign-key check, the reverse of the suspension's order | high (a new bug before it shipped) | fixed: cancellation takes the role row shared first; race test and mutation |
+| 2 | Locking the pending rows through the `user_id` index deadlocked with a cancellation too | high (same) | fixed: no request row lock is needed under the role and user locks; race test and mutation |
+| 3 | A full migration rollback stopped at `2026_11_08_100000` (an index needed by a foreign key) | medium | fixed in `down()`; `MigrationRollbackTest` |
+| 4 | Laravel's signed `GET`/`PUT /storage/{path}` routes were on for the `local` disk, whose root holds the evidence folder (a signature was required, so nothing was exposed) | low | fixed: `serve => false`; test |
+| 5 | Mutation survivor: clearing the soft lock on automatic rejection was untested | low | fixed: test |
+| 6 | `storage/logs/laravel.log` holds 6 lines from 2026-10-30 test runs on `hr_system_test` where a query exception included its bindings: keyed HMAC hashes of test recovery codes (not the codes) | low | unchanged (the owner's local log, not in Git) |
+| 7 | "1 pending requests …" and similar counts have one plural form | cosmetic | known, like the existing ":count days" texts |
+| 8 | Real email delivery could not be tried: MAIL_FROM_ADDRESS now belongs to one of the owner's accounts, and the request flow would have needed that account | — | not tested |
+
+### DECISIONS.md against code and tests
+
+Status: **met** (implemented and tested), **partly** (implemented, a gap is named), **not yet** (not built), **owner** (outside the code).
+
+| Item | Status | Evidence |
+|---|---|---|
+| 1 Minimal UI, no new library, no redesign | met | no UI package added since Phase 4; `package.json` unchanged in Phase 14 |
+| 1 Docker/VPS/deploy deferred | met | nothing in the repo runs on Docker (README "Local workflow") |
+| 1 All checks through hr-system.test | met | puppeteer `phase14.mjs` on hr-system.test; no other server |
+| 1 Auth, mandatory 2FA, invitation, recovery codes, self-service username/email kept | met | `LoginTest`, `TwoFactorChallengeTest`, `TwoFactorEnrollmentTest`, `InvitationTest`, `ActivationTest`, `RecoveryCodeTest`, `IdentityChangeTest`; browser: 8 accounts activated with 2FA and logged in |
+| 1 2FA reset only by console, cannot be disabled | met | `ResetTwoFactorCommandTest`; no route (authorization matrix) |
+| 1 Language in Profile, stored in the database, English default | met | `LanguageTest`; browser: HR2 switched to Indonesian, 18 pages checked |
+| 1 Deferred: chatbot, FR25–28, redesign, audit log viewer | met (not built) | no routes (route list) |
+| 2 WIB everywhere, "WIB" label, +7 h shift migration, DATE for leave, WIB datetime for overtime | met | `WibTimezoneTest`; integrity check "time"; browser: leave dates and overtime hours stored as entered |
+| 3 Three roles, all may submit | met | `LeaveRequestTest::test_every_role_with_an_approval_path_can_submit`; browser: Employee, Approver (CLI, see note), HR Admin submitted |
+| 3 Supervisor relation many-to-many, supervisor ACTIVE Approver | met | `SupervisorTest::test_only_an_active_approver_can_supervise`; integrity "supervisors" |
+| 3 Right to decide = Approver role + relation, checked on the server | met | `ApprovalTest` (who may decide), `AuthorizationMatrixTest`; mutations decider-* caught |
+| 3 Approval flow table (Employee → supervisor, Approver → any HR Admin, HR Admin → assigned supervisor) | met | `ApprovalTest::test_every_requester_role_is_decided_by_the_right_person`; browser steps 4 and 5 |
+| 3 No self-approval | met | `ApprovalTest`; `AuthorizationMatrixTest::test_forged_livewire_actions_are_refused_on_the_server`; browser: HR Admin gets 404 on own request |
+| 3 No supervisor: cannot submit, marker and filter, disabled button with message | met | `SupervisorTest::test_the_list_marks_and_filters_users_without_a_supervisor`, `RequestPagesTest`; browser: newcomer |
+| 3 Global guard in one service, every entry point, names who is affected | met | `SupervisorTest`, `OrganizationConcurrencyTest`; mutations guard-* caught; browser: refusal names the employee |
+| 3 Bulk move, one transaction, audited | met | `SupervisorTest::test_moving_all_subordinates_in_one_transaction`; browser step 2 |
+| 4 Leave and overtime; categories table seeded idempotently | met | `LeaveRequestTest`, `RolePermissionSeederTest`/`LeaveCategorySeeder` |
+| 4 Working days Mon–Fri minus holidays; holidays by HR | met | `LeaveRequestTest::test_working_days_are_monday_to_friday_without_holidays`, `HolidayTest` |
+| 4 No backdating (today WIB and later) | met | `LeaveRequestTest`, `OvertimeRequestTest`; mutation leave-not-backdated caught |
+| 4 No overlap with pending/approved; rejected and cancelled do not count | met | `LeaveRequestTest`, `OvertimeRequestTest`; mutations overlap-* caught; integrity "no two … overlap" |
+| 4 Evidence optional, size limit, private storage | met | `RequestEvidenceTest` (incl. new `test_no_disk_serves_files_by_url`) |
+| 4 Overtime whole hours, across midnight, max 12 h, touching ends allowed, daily total shown | met | `OvertimeRequestTest`; browser: 20:00–02:00 (6 h) |
+| 4 Overtime refused on a pending/approved leave date | met | `OvertimeRequestTest::test_overtime_touching_a_leave_date_is_refused`; mutation overlap-ot-leave caught |
+| 4 Cancel while pending; rejection needs a reason | met | `LeaveRequestTest`, `ApprovalTest`; browser: cancel, reject with a short reason refused |
+| 5 12 days per year, reset without carry-over, anchor per employee | met | `LeaveBalanceTest` |
+| 5 Periods with an append-only ledger | met | `LeaveBalanceTest::test_the_ledger_is_append_only`; integrity "ledger" |
+| 5 Leave across the reset split per period; approval after reset charges the old period | met | `LeaveRequestTest::test_a_request_across_the_reset_is_split…`, `LeaveApprovalBalanceTest`; browser: 1 + 2 split |
+| 5 Daily idempotent reset plus manual HR action; manual adjustment with reason | met | `LeaveBalanceTest`; browser step 2 |
+| 5 [ASSUMPTION] full 12 days in the first year | met (assumption kept) | `LeaveBalanceTest::test_an_invited_user_gets_an_anchor_date_and_a_first_period_at_once` |
+| 6 Soft lock about 5 min with view-only mode; authoritative row-lock check; "already decided by X at Y" | met | `ApprovalTest`, `ApprovalPagesTest`, `ApprovalConcurrencyTest`; browser: two sessions |
+| 6 Race tests (two deciders, cancel vs decision) | met | `ApprovalConcurrencyTest` (all rerun together) |
+| 7 Reactivation only by HR Admin | met | `UserManagementAccessTest`, matrix |
+| 7 Audit log access not built; cancelling an approved request not built | met (not built) | no route; `SuspensionRejectionTest::test_a_decided_request_cannot_be_cancelled_or_decided_again` |
+| 7 Sessions and login history under Profile | met | `SessionManagementTest`, `LoginHistoryPageTest`; browser |
+| 8 Every validation on the server (list) | met | `LeaveRequestTest`, `OvertimeRequestTest`, `RequestEvidenceTest` |
+| 8 [ASSUMPTION] working days frozen at submission | met (assumption kept) | `LeaveRequestTest::test_a_holiday_added_later_does_not_change_the_frozen_days` |
+| 8/9 HR Admin cannot adjust their own balance | met | `LeaveBalanceTest::test_an_admin_cannot_adjust_reset_or_re_anchor_their_own_balance`, matrix; browser: no button |
+| 9 Manual reset rules, suspended subordinates not counted, marker only for Employee/HR Admin, whole days, closed periods only through approval, anchor-based dates, reset for PENDING/SUSPENDED, inactive departments, audit after rollback, routes in Profile, anchor after the WIB shift | met | `LeaveBalanceTest`, `SupervisorTest`, `DepartmentTest`, `WibTimezoneTest` |
+| 10 Laragon and database rules | met | this phase: backup, migrate, zz-check cleanup with counts |
+| 11.1 Sick leave not backdated; HR emergency sick leave is backlog | met | `SuspensionRejectionTest::test_sick_leave_cannot_start_before_today`; browser: blocked by the date field; emergency entry not built |
+| 11.2 Decisions final; dialogs say so (en/id, 375 px) | met | `SuspensionRejectionTest::test_both_decision_dialogs_say_the_decision_is_final`, `…cannot_be_cancelled_or_decided_again`; browser 375 px en and id |
+| 11.3 Automatic rejection on suspension (all sub-items) | met | `SuspensionRejectionTest` (18), `ApprovalConcurrencyTest::test_suspension_against_*` (real processes); mutations auto-reject-* caught; browser step 7 |
+
+### SPEC.md final acceptance checklist
+| Item | Status | Evidence |
+|---|---|---|
+| Laravel 13 on PHP 8.5.12, Laragon at hr-system.test, MySQL only | met | `composer.json`, phpunit.xml, this phase's checks |
+| Secure admin bootstrap | met | `CreateAdminCommandTest` |
+| Invitation, activation, mandatory TOTP | met | `InvitationTest`, `ActivationTest`, `TwoFactor*Test`; browser |
+| RBAC correct; User Management HR Admin only | met | `AuthorizationMatrixTest`, `UserManagementAccessTest` |
+| Departments, supervisors with the global guard | met | `DepartmentTest`, `SupervisorTest`; mutations; browser |
+| Leave balance with periods and yearly reset | met | `LeaveBalanceTest`; integrity check |
+| Leave and overtime requests with all validations | met | `LeaveRequestTest`, `OvertimeRequestTest`, `RequestEvidenceTest`; mutations |
+| Approvals with the two-layer lock and correct deduction | met | `ApprovalTest`, `LeaveApprovalBalanceTest`, `ApprovalConcurrencyTest`; browser |
+| History, recap and CSV export | met | `HistoryTest`, `RecapTest`, `ExportTest`; browser |
+| Dashboard with real data | met | `DashboardTest`; browser |
+| English/Indonesian switch | met | `LanguageTest`; browser (18 pages) |
+| Profile, sessions, login history | met | `ProfilePageTest`, `SessionManagementTest`, `LoginHistoryPageTest`; browser |
+| Audit logging | met | `AuditLogTest` and the audit assertions per module; integrity check |
+| WIB everywhere | met | `WibTimezoneTest`; integrity check |
+| Responsive UI | met | browser: no horizontal scroll at 375/768/1024/1280 px |
+| Tests pass, README complete, Git clean without secrets | met | suite above; README; commit of this phase (`.env` ignored) |
+| Real email delivery (Phase 13, optional) | partly | the failure path is proven for real; delivery is not |
+
+### Deviations from DECISIONS.md
+- None in behavior. In the browser walk the Approver's own request was submitted on the CLI (log mailer), because an Approver's request emails every active HR Admin, the owner's accounts included; it was decided in the browser.
+
+### Not proven
+- Delivery of a real email to a mailbox (finding 8). The SMTP failure path was exercised again for real (refused .test recipients): requests kept, warning toasts, one audit row per refused recipient, class-only log lines.
+- The daily job charging the part of a leave after the reset when that period opens (2027-11-05) was not observed live; `LeaveApprovalBalanceTest::test_a_part_in_the_next_period_is_charged_when_that_period_opens` covers it.
+- Contrast was measured on the text of the probed pages in their default state, not on hover, focus or toast states. No screen reader was used. Keyboard use was checked through tab order, not by completing whole flows with the keyboard.
+- Load was measured in-process on `hr_system_test` (no Apache, no concurrent users).
+- The Indonesian texts are the agent's and await the owner's review.
+
+### Known limitations
+- Emails are synchronous; a slow SMTP server delays the page (Phase 13).
+- Old log lines (finding 6) stay until the owner rotates `storage/logs/laravel.log`. Because `MAIL_MAILER=log` was used in earlier phases, the log also holds activation links of accounts that were removed or have activated already.
+- Requests of a suspended supervisor's subordinates keep waiting if no other decider exists (backlog: suspension policy for subordinates).
+
+### Backlog (agreed, not built)
+- HR entering an emergency sick leave for past dates.
+- Cancelling or changing a request after approval.
+- A suspension policy for the suspended user's subordinates (reassign or reject what waits for them).
+- Phase 15 UI redesign; Phase 16 deployment (VPS, Nginx, optional Docker, backup and restore, HTTPS cookies, production timing).
+- Audit log viewer (DECISIONS.md section 7, still open).
+
+### Lessons
+- An UPDATE of a column that sits in the index backing a foreign key makes InnoDB take a shared lock on the parent row. Count that lock when reasoning about lock order; only a real-process race showed it.
+- Run a full `migrate:reset` at least once per schema change; a `down()` can fail on an index that a foreign key needs.
+- `Schema::getTables()` lists every database on the MySQL server; use `SHOW TABLES` for the current one.
+- Browser probes that parse `rgb()` miss Tailwind 4's `oklch()` colors; convert through a canvas.
+
+### Owner steps
+- Nothing to migrate: `hr_system` was migrated in this phase (backup above).
+- To prove real email: set MAIL_FROM_ADDRESS to an address the SMTP login may send from, give one test decider (not your own account) a mailbox you can read, submit one request, and run `php artisan config:clear` if the configuration is cached.
+- Optionally rotate `storage/logs/laravel.log` (finding 6).
+- Review the 6 new Indonesian texts and the earlier ones.
+- Install the scheduler task if not done yet (README "Scheduler").

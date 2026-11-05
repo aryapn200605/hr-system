@@ -30,10 +30,11 @@ return [
 
     'disks' => [
 
+        // Not served (Phase 14): nothing uses its signed URLs, and its root holds the evidence folder.
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

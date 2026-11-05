@@ -206,4 +206,15 @@ class RequestEvidenceTest extends TestCase
 
         $this->assertContains('fully.authenticated', $route->gatherMiddleware());
     }
+
+    public function test_no_disk_serves_files_by_url(): void
+    {
+        // The local disk's root holds the evidence folder; Laravel's signed file routes stay off (Phase 14).
+        $this->assertFalse(app('router')->has('storage.local'));
+        $this->assertFalse(app('router')->has('storage.local.upload'));
+        $this->assertFalse(config('filesystems.disks.local.serve'));
+        $this->assertFalse(config('filesystems.disks.'.Evidence::DISK.'.serve'));
+
+        $this->actingAs($this->member(RoleName::HrAdmin))->get('/storage/evidence/anything.pdf')->assertNotFound();
+    }
 }

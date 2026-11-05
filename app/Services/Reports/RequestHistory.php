@@ -108,6 +108,7 @@ class RequestHistory
             'r.created_at',
             'r.decided_by',
             'k.name as decider',
+            'r.system_reason',
             'r.decided_at',
         ];
     }

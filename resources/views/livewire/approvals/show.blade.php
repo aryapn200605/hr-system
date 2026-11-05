@@ -138,6 +138,7 @@
         {{-- Both dialogs are always rendered; only their triggers depend on the state (CLAUDE.md lessons). --}}
         <x-ui.modal name="decision-approve" :title="__('Approve this request?')">
             <form id="decision-approve-form" class="space-y-4" wire:submit="approve">
+                <p class="font-medium text-slate-900" data-final-warning>{{ __('This decision is final. It cannot be undone or changed later.') }}</p>
                 @if ($record instanceof \App\Models\LeaveRequest && $record->deducts_balance)
                     <p>{{ __(':count working days will be deducted from the leave balance of :name.', ['count' => $record->working_days, 'name' => $requester->name]) }}</p>
                 @endif
@@ -152,6 +153,7 @@
 
         <x-ui.modal name="decision-reject" :title="__('Reject this request?')">
             <form id="decision-reject-form" class="space-y-4" wire:submit="reject">
+                <p class="font-medium text-slate-900" data-final-warning>{{ __('This decision is final. It cannot be undone or changed later.') }}</p>
                 <x-ui.textarea :label="__('Reason for rejection')" id="decision-reason" maxlength="1000" wire:model="reason" :hint="__('5 to 1000 characters. The requester sees it.')" />
             </form>
 

@@ -10,6 +10,7 @@ use App\Enums\UserStatus;
 use App\Exceptions\AccountProtectionException;
 use App\Models\User;
 use App\Policies\UserPolicy;
+use App\Services\Requests\SuspensionRejections;
 use App\Services\SupervisorGuard;
 use Closure;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -75,6 +76,13 @@ class Index extends Component
      */
     #[Locked]
     public string $confirming = '';
+
+    /**
+     * How many pending requests the suspension dialog says will be rejected. Read again at confirm;
+     * the toast gives the number that was actually rejected.
+     */
+    #[Locked]
+    public int $pendingRequests = 0;
 
     /**
      * Whether the edit dialog shows the username and email as read only. The server decides again on save.
@@ -190,6 +198,7 @@ class Index extends Component
         $this->authorize('suspend', $user);
 
         $this->openConfirmation($user, 'suspend');
+        $this->pendingRequests = app(SuspensionRejections::class)->pendingCount($user);
     }
 
     public function openReactivate(mixed $id): void
@@ -356,10 +365,12 @@ class Index extends Component
     {
         $this->authorize('suspend', $user);
 
-        $user->suspend(Auth::user());
+        $count = array_sum($user->suspend(Auth::user()));
 
         $this->closeDialogs();
-        $this->dispatch('toast', message: __(':name was suspended and signed out.', ['name' => $user->name]), tone: 'success');
+        $this->dispatch('toast', message: $count > 0
+            ? __(':name was suspended and signed out. :count pending requests were rejected.', ['name' => $user->name, 'count' => $count])
+            : __(':name was suspended and signed out.', ['name' => $user->name]), tone: 'success');
     }
 
     private function reactivate(User $user): void
@@ -437,7 +448,7 @@ class Index extends Component
 
     private function resetDialog(): void
     {
-        $this->reset(['name', 'username', 'email', 'role', 'targetId', 'targetName', 'confirming', 'identityLocked', 'notice']);
+        $this->reset(['name', 'username', 'email', 'role', 'targetId', 'targetName', 'confirming', 'pendingRequests', 'identityLocked', 'notice']);
         $this->resetValidation();
     }
 

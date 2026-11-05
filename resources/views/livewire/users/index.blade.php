@@ -210,6 +210,13 @@
     }">
         @if ($confirming === 'suspend')
             <p>{{ __('This user is signed out at once and cannot sign in. Any open invitation stops working.') }}</p>
+            <p class="mt-3" data-pending-requests="{{ $pendingRequests }}">
+                @if ($pendingRequests > 0)
+                    {{ __(':count pending requests of this user (leave and overtime) will be rejected automatically. Approved requests stay approved. Reactivating the user does not restore them.', ['count' => $pendingRequests]) }}
+                @else
+                    {{ __('This user has no pending requests.') }}
+                @endif
+            </p>
         @elseif ($confirming === 'reactivate')
             <p>{{ __('This user can sign in again with their existing password and two-factor authentication. Their role does not change.') }}</p>
         @elseif ($confirming === 'resend')

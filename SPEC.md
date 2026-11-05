@@ -2,7 +2,7 @@
 
 Scope: the foundation (authentication, TOTP 2FA, invitation-based activation, RBAC, user management, profile and security settings, audit trail) plus the HR modules agreed with the owner: employee data and supervisors, annual leave balance, leave/permission and overtime requests, approvals, history, recap, dashboard, language switch, and email notifications.
 Business rules live in DECISIONS.md and replace the SRS when they differ. This file says what to build in which phase.
-Out of scope for now: email verification, account lockout, periodic password expiry, chatbot, payroll and attendance integration, audit log viewer for users, cancelling an approved request, FR25 to FR28 of the SRS.
+Out of scope for now: email verification, account lockout, periodic password expiry, chatbot, payroll and attendance integration, audit log viewer for users, cancelling an approved request, HR entering a past sick leave, a suspension policy for the suspended user's subordinates, FR25 to FR28 of the SRS.
 Work one phase at a time. Each phase ends as described in CLAUDE.md. Add audit-log calls, translations (from Phase 7) and tests alongside each feature, not afterwards.
 Tests per phase: success path, validation failure, authorization denial, throttling where relevant, and real-process race tests at critical points.
 
@@ -11,15 +11,15 @@ Tests per phase: success path, validation failure, authorization denial, throttl
 | Phase | Name | Status |
 |---|---|---|
 | 0–5 | Foundation: init, RBAC, login/TOTP, invitation, layout and user management, profile and security | Done |
-| 6 | Foundation cleanup: WIB, profile pages, pruning, Laragon workflow | Next |
-| 7 | Language mechanism (English/Indonesian, database-backed) | Planned |
-| 8 | Organization: departments, employee data, supervisors, leave balance | Planned |
-| 9 | Requests: leave/permission and overtime submission, holidays, evidence | Planned |
-| 10 | Approvals: decisions, balance deduction, soft lock | Planned |
-| 11 | History, recap, CSV export | Planned |
-| 12 | Dashboard | Planned |
-| 13 | Email notifications (optional, small) | Planned |
-| 14 | Full verification and documentation | Planned |
+| 6 | Foundation cleanup: WIB, profile pages, pruning, Laragon workflow | Done |
+| 7 | Language mechanism (English/Indonesian, database-backed) | Done |
+| 8 | Organization: departments, employee data, supervisors, leave balance | Done |
+| 9 | Requests: leave/permission and overtime submission, holidays, evidence | Done |
+| 10 | Approvals: decisions, balance deduction, soft lock | Done |
+| 11 | History, recap, CSV export | Done |
+| 12 | Dashboard | Done |
+| 13 | Email notifications (optional, small) | Done (real delivery untested) |
+| 14 | Full verification and documentation (plus DECISIONS.md section 11) | Done |
 | 15 | UI redesign | Deferred: owner starts it |
 | 16 | Deployment (VPS, Nginx, Docker, backup, performance) | Deferred: owner starts it |
 
@@ -104,7 +104,7 @@ Tests per phase: success path, validation failure, authorization denial, throttl
 
 ---
 
-## Phase 6: Foundation cleanup
+## Phase 6: Foundation cleanup (DONE)
 Goal: make the stable Phase 5 base ready for the HR modules, and make the Laragon workflow routine.
 - **Step 0 checks (report before changing anything):** `git log` and `git status` confirm the repository is at the Phase 5 state (expected commit 216c571). `php artisan migrate:status` on `hr_system` shows no migration that the code lacks (the database may have been migrated by discarded work). If it does, report and ask; do not roll back on your own. Confirm `http://hr-system.test` and MySQL are up (see CLAUDE.md); if not, ask the owner to start Laragon. Check the layout is centered and not pushed left at 375, 1024 and 1280px.
 - **WIB:** application timezone and database connection to Asia/Jakarta (connection as `+07:00` if the MySQL timezone tables are empty). One reversible migration shifts existing time data by +7 hours. Take the column list from an inventory of every `TIMESTAMP`/datetime column, not from memory; as a hint, expect tables such as `account_invitations`, `users`, `recovery_codes`, `roles`, `permissions`, `audit_logs`, `password_reset_tokens`, `login_histories`, `failed_jobs`. Do not shift epoch columns (`sessions.last_activity`, cache, jobs) or `users.two_factor_last_timestep`. The migration refuses to run unless the MySQL server and the connection are +07:00. Prove with a real row before and after on `hr_system_test`, and with tests that TOTP (RFC 6238 vectors), replay protection, invitation expiry and reset-link expiry still work. A test fails if a new TIMESTAMP column is missing from the inventory. Replace the "UTC" label with "WIB"; remove `APP_TIMEZONE_DISPLAY` so the source of truth is one.
@@ -114,7 +114,7 @@ Goal: make the stable Phase 5 base ready for the HR modules, and make the Larago
 - Known issues from PROGRESS.md that this phase may fix if small: dates shown in UTC. Leave the others listed.
 - End of phase: migrate `hr_system` under the CLAUDE.md rules and verify the whole existing application through hr-system.test.
 
-## Phase 7: Language mechanism
+## Phase 7: Language mechanism (DONE)
 Goal: English/Indonesian switching, built before the HR modules so every later sentence is registered once, in both languages.
 - Language selector in Profile, stored on the user (`users.locale`). Guests and users without a choice use the configured default (English). [ASSUMPTION: no selector on public pages yet.]
 - UI texts are stored in the database (table keyed by locale and key), loaded through Laravel's translator so `__()` and `@lang` work, cached with a safe invalidation, and falling back to English. Adding a language means adding rows, not code.
@@ -125,7 +125,7 @@ Goal: English/Indonesian switching, built before the HR modules so every later s
 - Do not change behavior of auth flows. Validation messages use the same mechanism.
 - Authorization: only HR Admin edits translations, and only through database/console in this phase (no editing UI). [ASSUMPTION]
 
-## Phase 8: Organization and leave balance
+## Phase 8: Organization and leave balance (DONE)
 Rules: DECISIONS.md sections 3, 5, 9, 10.
 - **Departments:** master table managed by HR Admin (create, edit, deactivate; unique name; cannot be removed while used). Inactive departments stay on existing employees but cannot be assigned anew.
 - **Employee data** in User Management: department, join date, supervisors. Marker and filter "No supervisor" for Employee and HR Admin (not for Approver).
@@ -139,7 +139,7 @@ Rules: DECISIONS.md sections 3, 5, 9, 10.
 - Fill `leave_anchor_date` only after the WIB shift has been applied.
 - Real-process races: concurrent bulk moves, two resets on the same day, concurrent balance adjustments, two supervisors suspended at the same time.
 
-## Phase 9: Requests
+## Phase 9: Requests (DONE)
 Rules: DECISIONS.md sections 4, 8, 9.
 - **Leave categories:** reference table (code, name, deducts balance, active), seeded idempotently: `annual` (deducts), `sick`, `other`. No management screen.
 - **Public holidays:** table managed by HR Admin (`holidays.manage`). One function counts working days: Monday to Friday minus holidays.
@@ -151,7 +151,7 @@ Rules: DECISIONS.md sections 4, 8, 9.
 - **Audit:** creation, cancellation, evidence upload, holiday changes (no full reason text).
 - Real-process races: overlapping submissions by one user, two submissions that together exceed the balance, double cancel.
 
-## Phase 10: Approvals
+## Phase 10: Approvals (DONE)
 Rules: DECISIONS.md sections 3, 5, 6.
 - **Who may decide (one service):** Employee requests by a related ACTIVE Approver; Approver requests by any ACTIVE HR Admin; HR Admin requests by an assigned supervisor; never the requester. Evaluated at the moment of each action, not from the state at submission.
 - **Pages:** "Approvals" inbox (oldest first, filter by type, count in the menu), detail with requester, dates or hours, allocation per period, reason, evidence, the requester's remaining balance per period, and for overtime the total overtime hours that day. Approve (optional note) and Reject (reason required, at least 5 characters). A simple "Decided by me" tab.
@@ -162,18 +162,19 @@ Rules: DECISIONS.md sections 3, 5, 6.
 - **Audit:** approve, reject, refused for insufficient balance, attempts without authority.
 - Real-process races: two supervisors at once, approve versus cancel, two requests competing for the last balance, approve versus HR adjustment, decider loses authority mid-flight, soft lock takeover after expiry.
 
-## Phase 11: History, recap, export
+## Phase 11: History, recap, export (DONE)
 - **History:** employees see their own requests; supervisors see requests of related employees; HR Admin sees all; filters by employee, department, type/category, status, date range. Authorization on the server.
 - **Recap:** per employee balance and usage per period; per department and month, leave counts by category and total overtime hours. Real data only, efficient queries (no N+1).
 - **CSV export** without a new library: streamed, protected against formula injection (cells starting with `=`, `+`, `-`, `@`, tab or CR get a prefix), only what the requester may see, no sensitive columns.
 
-## Phase 12: Dashboard
+## Phase 12: Dashboard (DONE)
 Real data only, no invented numbers, clean empty states: own balance and current period, own pending requests, number waiting for my decision (if entitled), and for HR Admin the pending totals and employees without a supervisor. Keep the existing dashboard sections.
 
-## Phase 13: Email notifications (optional, keep it small)
+## Phase 13: Email notifications (optional, keep it small) (DONE)
 Email to the approver(s) when a request is submitted and to the requester when it is decided. Mailer `log` by default, SMTP through .env, translated, no sensitive data, honest handling of delivery failure that never fails the business transaction. Do this phase only if the owner confirms.
 
-## Phase 14: Full verification and documentation
+## Phase 14: Full verification and documentation (DONE)
+- First the three owner decisions of DECISIONS.md section 11: sick leave not backdated (HR emergency sick leave is backlog), decisions are final with a warning in both decision dialogs, and automatic rejection by the system of a user's pending requests on suspension (same transaction, no email, audited with counts, count in the suspend dialog, real-process race against approval).
 - Walk the whole application through hr-system.test in a real browser as each role: invitation, activation, 2FA, login, departments, supervisors, balance, requests, approvals, history, recap, export, dashboard, language switch, profile, sessions.
 - Run the full suite, mutation checks on the critical services, build, Pint, audits.
 - Sync SPEC.md, README.md and PROGRESS.md. List known limitations and the owner's manual steps (migration, scheduler, deployment notes).

@@ -97,3 +97,18 @@ Pekerjaan percobaan Phase 6 sampai 10 versi lama dibatalkan (repo dikembalikan k
 - Migrasi ke `hr_system` hanya di akhir phase, setelah tes hijau dan backup `mysqldump` yang terbukti terbaca. Hanya `migrate` biasa; `migrate:fresh`, rollback, atau `db:wipe` butuh izin eksplisit.
 - Akun uji sementara untuk cek browser memakai awalan `zz-check-` dan dibersihkan dengan bukti jumlah akun nyata tidak berubah.
 - Setelah laporan akhir phase, pemilik yang menjalankan langkah yang tertulis di README (misalnya scheduler Windows) jika diperlukan.
+
+## 11. Keputusan Phase 14 (2026-11-05)
+Dari pemilik, dicatat sebelum dikerjakan.
+1. **Cuti sakit tidak boleh mundur.** Aturan "hanya hari berjalan (WIB) dan sesudahnya" (bagian 4 dan 8) berlaku juga untuk kategori Sakit. Cuti sakit darurat yang dicatat HR untuk tanggal lampau adalah **backlog**; jangan dibuat.
+2. **Keputusan final.** Pengajuan yang sudah disetujui atau ditolak tidak bisa dibatalkan atau diubah oleh siapa pun. Dialog Setujui dan Tolak menyatakan bahwa keputusan tidak bisa dibatalkan. Pembatalan setelah disetujui tetap backlog (bagian 7).
+3. **Penolakan otomatis saat suspend.** Saat user disuspend, semua pengajuan pending miliknya (izin dan lembur) ditolak oleh sistem dalam transaksi yang sama dengan suspend:
+   - status ditolak, pemutus kosong (sistem), alasan berupa teks baku yang diterjemahkan sesuai bahasa penampil;
+   - pengajuan yang sudah disetujui tidak disentuh; alokasi saldo pending dilepas (tidak lagi dihitung); saldo tidak berubah;
+   - reaktivasi tidak memulihkan apa pun;
+   - tidak ada email untuk penolakan otomatis;
+   - audit mencatat jumlah pengajuan yang ditolak;
+   - dialog suspend menyebut jumlah pengajuan pending yang akan ditolak;
+   - user yang disuspend tetap tidak bisa mengajukan;
+   - urutan kunci konsisten dengan alur keputusan; suspend yang bersamaan dengan persetujuan berakhir konsisten (persetujuan menang dan pengajuan tetap disetujui, atau penolakan otomatis menang dan persetujuan melihat "sudah diputuskan"), tanpa deadlock dan tanpa saldo terpotong untuk pengajuan yang ditolak otomatis.
+   - Pengajuan bawahan yang menunggu keputusan user yang disuspend tidak disentuh (kebijakan suspend untuk bawahan adalah backlog).

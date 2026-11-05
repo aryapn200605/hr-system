@@ -278,7 +278,7 @@ Every decision runs in one transaction and takes its locks in this order (the ow
 3. the requester's user row, **before any plain read**: MySQL's REPEATABLE READ fixes a transaction's snapshot at its first plain read, so taking it after this lock makes every balance change of the user that committed before visible;
 4. the leave periods to charge, ordered by start date.
 
-The other writers fit this order: a cancellation locks only the request row; a submission, the daily job, adjustments and resets lock only the user row and then periods; account changes lock the role row exclusively and then user rows. No two of them can wait for each other in a circle. `ApprovalConcurrencyTest` runs the critical pairs in separate processes on committed rows (two to four supervisors at once, approve against cancel, two requests for the last days, approve against an HR adjustment, approve against a supervisor being suspended or unlinked, soft-lock takeover, soft lock against decision); a deadlock would fail the process and the test. The mutation check showed why step 3 must come before any plain read: with the snapshot taken earlier (reading the decider first), two approvals for the last days both went through when the period lock was removed, and the sum of approved parts waiting for a future period, which has no row to lock, was exposed. The period row lock (step 4) is kept as the owner asked, although with step 3 in place it is redundant (its removal is the one mutation that survives).
+The other writers fit this order: a cancellation takes the role row shared and then the request row (since Phase 14; its status update also takes a shared lock on the requester's user row, because the `user_id` foreign key is backed by the `(user_id, status, …)` index and InnoDB checks the parent row whenever that index changes); a submission, the daily job, adjustments and resets lock only the user row and then periods; account changes lock the role row exclusively and then user rows, and a suspension then reads and rejects the user's pending requests (see "Automatic rejection on suspension"). No two of them can wait for each other in a circle. `ApprovalConcurrencyTest` runs the critical pairs in separate processes on committed rows (two to four supervisors at once, approve against cancel, two requests for the last days, approve against an HR adjustment, approve against a supervisor being suspended or unlinked, soft-lock takeover, soft lock against decision); a deadlock would fail the process and the test. The mutation check showed why step 3 must come before any plain read: with the snapshot taken earlier (reading the decider first), two approvals for the last days both went through when the period lock was removed, and the sum of approved parts waiting for a future period, which has no row to lock, was exposed. The period row lock (step 4) is kept as the owner asked, although with step 3 in place it is redundant (its removal is the one mutation that survives).
 
 ### Soft lock
 
@@ -407,6 +407,43 @@ Built in Phase 13. No new table and no new permission; the migration `2026_11_11
 | `APP_URL` | the address used in every email link (`http://hr-system.test` locally) |
 
 Run `php artisan config:clear` after changing `.env` if the configuration was cached.
+
+## Phase 14: final decisions and verification
+
+Built and verified in Phase 14 (DECISIONS.md section 11). Migrations `2026_11_12_100000_add_system_reason_to_requests` (nullable `system_reason` on both request tables) and `2026_11_12_100100_load_verification_texts`. No new permission, route or audit event.
+
+### Final decisions
+- Sick leave follows the same "today (WIB) or later" rule as every category (it already did; now tested). HR entering a past sick leave is backlog.
+- An approved or rejected request cannot be cancelled, changed or decided again (already enforced; now tested together). Both decision dialogs say: "This decision is final. It cannot be undone or changed later." (English and Indonesian).
+
+### Automatic rejection on suspension
+- `User::suspend()` rejects every pending leave and overtime request of the user in the same transaction (`App\Services\Requests\SuspensionRejections`). A refused suspension (guard, last HR Admin, already suspended) rejects nothing.
+- Each rejected row: `status = rejected`, `decided_by = null`, `decided_at = now`, `decision_note = null`, `system_reason = 'account_suspended'`, soft lock cleared. Shown everywhere as decided by **"System"** with the fixed reason "Rejected automatically because the account was suspended." in the viewer's language (`HasDecision::deciderLabel()` / `decisionText()`); history and its CSV say "System" too.
+- Approved, rejected and cancelled requests are untouched; requests of the user's subordinates are untouched (backlog). The status change releases a leave request's pending allocation (only pending requests count against a period); `used` and the ledger do not change. Reactivation restores nothing. No email is sent.
+- Audit: `user.suspended` now carries `leave_requests_rejected` and `overtime_requests_rejected`; each request gets a `leave_request.rejected` / `overtime_request.rejected` row with the suspending HR Admin as actor and `system_reason` in the metadata.
+- The suspend dialog says how many pending requests will be rejected ("This user has no pending requests." when none); the success toast gives the number actually rejected. The count is a locked Livewire property.
+- **Lock order.** Suspension: HR Admin role row exclusive → user row → plain read of the pending requests (no row lock needed). Decision and cancellation: role row **shared** → request row → user row. Submission: user row → new request row. The role row keeps suspensions apart from decisions and cancellations; the user row keeps them apart from submissions. Two real deadlocks were found by the race test and fixed on the way: locking the pending rows through the `user_id` index deadlocked with a cancellation, and so did locking them by primary key, because a cancellation's status update takes a shared lock on the user row (foreign-key check, see "Lock order" under Approvals). The fix is the shared role lock in `Submission::cancel()`.
+- Race tests (`ApprovalConcurrencyTest::test_suspension_against_*`, separate processes, committed rows): suspension against two approvals (both orders occur through start offsets; the winner's outcome is consistent, no balance charged for a system rejection, the loser sees "already decided … by System") and suspension against a submission, a second submission and a cancellation (nothing left pending, no deadlock).
+
+### Hardening found in Phase 14
+- `config/filesystems.php`: the `local` disk is no longer served (`serve => false`). Laravel registered signed `GET`/`PUT /storage/{path}` routes for it, unused, and its root holds the evidence folder. Signed URLs were required (403), so nothing was exposed; the routes are now gone (`RequestEvidenceTest::test_no_disk_serves_files_by_url`).
+
+### Authorization matrix
+`tests/Feature/AuthorizationMatrixTest.php` tries every page route by URL and mounts every Livewire page component directly (what a manipulated Livewire request reaches), as a guest and as each role, and fails on any difference from this table. 302 = redirect to login, 403 = forbidden, 404 = not found (used where the existence of a record must not leak).
+
+| Route | Guest | Employee | Approver | HR Admin |
+|---|---|---|---|---|
+| /dashboard, /requests, /history, /recap, the three CSV exports, /profile, /profile/sessions, /profile/login-history, /security | 302 | 200 | 200 | 200 |
+| /users, /users/{id}, /users/{id}/leave-balance, /departments, /holidays | 302 | 403 | 403 | 200 |
+| /approvals | 302 | 403 | 200 | 200 |
+| /approvals/{type}/{id} of a subordinate's request (Approver supervises it) | 302 | 403 | 200 | 404 |
+| /approvals/{type}/{id} of an unrelated request | 302 | 403 | 404 | 404 |
+| /requests/{type}/{id} own request (others: 404) | 302 | 200 | 404 | 404 |
+| /requests/{type}/{id}/evidence own (decider may too) / unrelated | 302 | 200 / 404 | 200 / 404 | 404 / 404 |
+| /history/{type}/{id} own or subordinate / unrelated | 302 | 200 / 404 | 200 / 404 | 200 / 200 |
+| /login | 200 | 302 | 302 | 302 |
+
+Representative forged actions are refused on the server: HR Admin adjusting their own balance (403), deciding an unrelated or own request by ID (404), opening another user's request (404). An Approver's request is decided by any HR Admin; an HR Admin's request only by their supervisor. This matches DECISIONS.md sections 3, 7 and 9.
 
 ## Language
 
