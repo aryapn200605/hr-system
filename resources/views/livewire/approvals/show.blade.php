@@ -1,5 +1,4 @@
 <div
-    class="space-y-6"
     @if ($record !== null && $holdsLock) wire:poll.{{ $heartbeat }}s="heartbeat" @elseif ($record !== null && $viewOnly) wire:poll.30s @endif
     @if ($record !== null)
         {{-- Closing the tab or leaving the page lets go of the lock at once; a Livewire call would not survive the unload. --}}
@@ -7,22 +6,18 @@
         x-on:pagehide.window="if ($wire.holdsLock) navigator.sendBeacon({{ \Illuminate\Support\Js::from(route('approvals.release', ['type' => $type, 'id' => $requestId])) }}, new URLSearchParams({ _token: {{ \Illuminate\Support\Js::from(csrf_token()) }} }))"
     @endif
 >
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $title }}</h1>
-            @if ($record !== null)
-                <p class="mt-2 text-sm text-slate-600">{{ $requester->name }} · {{ __('Submitted') }} <x-ui.datetime :value="$record->created_at" /></p>
-            @endif
-        </div>
+<x-ui.page :title="$title">
+    @if ($record !== null)
+        <x-slot:subtitle>{{ $requester->name }} · {{ __('Submitted') }} <x-ui.datetime :value="$record->created_at" /></x-slot:subtitle>
+    @endif
 
-        <div class="flex shrink-0 flex-wrap gap-2 self-start">
-            <x-ui.button variant="secondary" size="sm" wire:click="close" loading="close" data-close>{{ __('Back to approvals') }}</x-ui.button>
-            @if ($record !== null && $canDecide)
-                <x-ui.button size="sm" wire:click="openApprove" loading="openApprove" data-approve>{{ __('Approve') }}</x-ui.button>
-                <x-ui.button variant="secondary" size="sm" class="text-red-800!" wire:click="openReject" loading="openReject" data-reject>{{ __('Reject') }}</x-ui.button>
-            @endif
-        </div>
-    </header>
+    <x-slot:actions>
+        <x-ui.button variant="secondary" size="sm" wire:click="close" loading="close" data-close>{{ __('Back to approvals') }}</x-ui.button>
+        @if ($record !== null && $canDecide)
+            <x-ui.button size="sm" wire:click="openApprove" loading="openApprove" data-approve>{{ __('Approve') }}</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" class="text-red-800!" wire:click="openReject" loading="openReject" data-reject>{{ __('Reject') }}</x-ui.button>
+        @endif
+    </x-slot:actions>
 
     @if ($notice !== '')
         <x-ui.alert tone="warning" data-notice>{{ $notice }}</x-ui.alert>
@@ -163,4 +158,5 @@
             </x-slot:footer>
         </x-ui.modal>
     @endif
+</x-ui.page>
 </div>

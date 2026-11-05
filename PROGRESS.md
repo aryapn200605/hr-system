@@ -23,7 +23,8 @@
 - Phase 13 (Email notifications): done, see "Phase 13" below. Real delivery to a mailbox is still untested (MAIL_FROM_ADDRESS is a placeholder).
 - Phase 14 (Full verification and documentation, plus DECISIONS.md section 11): done, see "Phase 14" below.
 - Documentation cleanup (2026-11-05): README.md rewritten in Indonesian; technical notes moved to docs/TECHNICAL-DECISIONS.md. See "Documentation cleanup" at the end.
-- **Next: Phase 15 (UI redesign) or Phase 16 (deployment).** Both are started by the owner only.
+- Phase 15a (redesign foundation and pilot page): done on branch `ui-redesign`, see "Phase 15a" at the end. Primary colour and logo are placeholders until the brand files arrive.
+- **Next: Phase 15b (form components)**, started by the owner. Phase 16 (deployment) stays deferred.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -839,3 +840,58 @@ Documentation only: no code, test or configuration changed, no command that writ
 
 ### Not verified
 - Listed in README.md section 17: a full install on a clean machine, Laragon's automatic virtual host for a new clone, the `schtasks` task itself, real SMTP delivery (Gmail example), the MySQL time zone fix, the `mysqldump` and restore commands as written, `app:create-admin` and `app:reset-two-factor` (help and code only), adding a third language.
+
+## Phase 15a: redesign foundation and pilot page (2026-11-05)
+Branch `ui-redesign` (from a clean `main` at 9a0c651), not merged. No database migration; `hr_system` touched only by the zz-check accounts, cleaned up below.
+
+### Plan (Step 0)
+- No tables, columns or permissions. One route: `GET /ui-kit` (local only). New: `UiKitController`, `x-ui.page`, `x-ui.logo`, `config('app.company')`, `THIRD-PARTY-NOTICES.md`, `design/screens/` (git-ignored). SPEC.md Phase 15 split into 15a to 15e.
+- Reference cloned read-only to `C:\laragon\tmp\ref\shadcn-admin` (commit e16c87f); nothing installed, built or run from it, nothing copied in.
+
+### Done
+- Tokens after the reference's theme (shadcn names, slate neutrals, radius scale) in `resources/css/app.css`, mapped with `@theme inline`; light only, ready for a dark block. Primary blue-700 (**placeholder, waiting for the brand colour**: `design/brand/` does not exist). Font IBM Plex Sans through the existing `bunny()` option (no package; `main` used Instrument Sans).
+- Layout shell after the reference's inset sidebar: groups General / Reports / Administration from the existing menu, fold to icons from 768 px (state in `localStorage` with try/catch, set on `<html>` before paint; tooltips; Ctrl/Cmd+B; rail), user block with a menu (name, email, role, My Profile, Security Settings, Logout), header with trigger, breadcrumbs and profile menu; the phone drawer kept.
+- `x-ui.page` (title, subtitle, actions, width default/narrow/full): the only container that sets width, `mx-auto` and padding. All 21 authenticated pages migrated without changing their content; `security/partials/page-header` removed.
+- Components restyled with the same names and properties (button, input, select, textarea, error, card, badge, table, alert, modal, dropdown, dropdown-item, toast, empty-state, stat, detail, breadcrumbs, avatar, nav-link) plus a few optional properties (see docs/TECHNICAL-DECISIONS.md "Phase 15a"). Nine icons drawn for the project.
+- `/ui-kit` gallery: 404 unless `APP_ENV=local`, in no menu.
+- Dashboard rebuilt as the pilot: figure cards with icons, last decided request beside recent logins (a list instead of a table), the login summary, account counts, security and account cards. Same data, no chart.
+- Role palette proposal: HR Admin violet (was blue), Approver teal (was purple), Employee slate (was green). Statuses stay green / amber / red; "info" is neutral.
+- 24 new texts in English and Indonesian (`en.php`/`id.php`, no migration, see Owner steps).
+
+### Verified
+- `php artisan test` on `hr_system_test`: **1163 passed** (8120 assertions; Phase 14 had 1136). New: `PageContainerTest` (20), `UiKitTest` (6), `AppLayoutTest::test_each_entry_of_a_menu_group_follows_its_own_permission`.
+- Mutation check, 11 safeguards removed one at a time, each file restored and confirmed by SHA-256: ui-kit local guard, page `mx-auto`, page max width, layout setting a width again, title escaping, the Users / Holidays / Approvals menu gates, toast `x-text`, role palette. All caught. The Users gate first **survived** (masked by its group's condition); the new menu-group test catches it.
+- Layout checker `layout.mjs` (puppeteer, own profile, http://hr-system.test), every authenticated GET route (23 with `/ui-kit`) at 375, 768, 1024, 1280, 1920 px plus folded at 1024/1280/1920: **before 110/110, after 172/172**, 0 console errors; margins equal (difference 0 px) on all 54 rows where the content area is wider than the container (before: only at 1920 px); no element past the screen; no control covered by a fixed or sticky element; at 1280 px 2256 texts on 42 pages measured by canvas, 0 below WCAG AA. (Before ran without the contrast scan; it was added for this phase.) Screenshots: `design/screens/before/` and `design/screens/after/` (`<route>[-collapsed]-<width>.png`), `report.json` in each.
+- Interactions `p15-interactions.mjs`: **42/42**, 0 console errors: fold, stored state, reload without jump, tooltip readable and on top, Ctrl+B, both menus inside the screen (open and folded), a user row menu, the gallery dialog, toasts (four tones, click-through, dismiss, under the header at 375 px), the drawer and its account menu at 375 px, the approve dialog at 375 px (opened and closed, nothing decided), and a run with `localStorage` throwing.
+- Contrast by script `contrast.mjs` from the oklch values: 37 pairs in use, all pass (white on primary 6.52, links 6.82, badges 6.78 to 9.44, alerts 8.67 to 20.17, field border 4.77, focus outline 5.26 / 4.79, status dots 4.76 to 7.56). Three reference values not adopted fail: 50% focus halo 2.20, slate-500 on muted 4.35, field border slate-200 1.23.
+- `npm run build`, Pint (`app tests config routes`), `composer audit`, `npm audit`: clean.
+- zz-check cleanup: 3 accounts and their rows deleted in one checked transaction; every count of `counts.php` equal before and after (real users, their `updated_at`, audit max id included), except `sessions`: my 3 headless guest sessions were deleted, and the 2 session rows present before the phase were gone too. My deletes targeted only zz-check user IDs and headless guest rows, so they were most likely expired sessions removed by Laravel's session garbage collection; not proven.
+
+### Bugs found
+- My migration of the approval page dropped the backslashes of `\Illuminate\Support\Js` (500 on every approval detail). Found by the layout checker and 27 tests; fixed (line identical to `main`).
+- The folded-sidebar tooltip was clipped by the sidebar's overflow (seen in a screenshot; the first check only tested its presence). Now teleported to `<body>`, and the check requires a readable width on top.
+- The checker left tables scrolled sideways in screenshots; it now resets inner scrollers.
+- While the test suite and the checker ran at the same time, Apache hit a Windows rename lock on a compiled view (one 500). Environment only; later runs were made one at a time.
+
+### Test changes
+- `AppLayoutTest` role colours (data provider and the role-change test): HR Admin blue → purple, Approver purple → teal, Employee green → gray, because the palette changed. `test_the_role_badge_reads_the_name_from_the_database` still expects gray for an unknown role; Employee is now gray too, so that tone no longer tells the two apart (the label assertions still do).
+- No other existing test changed.
+
+### Not proven
+- Real brand colours and logo (none supplied): primary, favicon and sidebar logo are placeholders or text.
+- Only the HR Admin view was measured by the layout checker; Employee and Approver menus are covered by tests, not by screenshots.
+- Hover, focus and open-menu states were not contrast-scanned (only default state, plus the computed pairs).
+- No screen reader; Safari and Firefox not tried (headless Chrome only).
+- The new Indonesian texts await the owner's review.
+
+### Deviations and notes
+- DECISIONS.md section 1 names a purple style for the redesign; the owner's Phase 15 direction asks for the company blue. Followed the direction; DECISIONS.md not edited.
+- Font: the brief says "stays IBM Plex Sans", but `main` used Instrument Sans; switched to IBM Plex Sans with the existing mechanism. The reference uses Inter and Manrope; Plex is slightly wider and has a more technical shape, so lines are a little longer.
+- New texts have no migration (no migrations this phase): the running database shows them in English until the seeder runs.
+- Toasts: from 640 px they still sit at the bottom right and may cover a button visually, but clicks pass through; on phones they sit under the header.
+
+### Owner steps
+- Review the role palette proposal and the 24 Indonesian texts.
+- Put the brand files in `design/brand/` (transparent SVG logo, icon version, colour code); 15c uses them.
+- To show the new texts in Indonesian on hr-system.test, after a backup: `php artisan db:seed --class=TranslationSeeder --force`.
+- Next: 15b (form components). Not started.

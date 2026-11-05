@@ -1,5 +1,4 @@
-<div class="space-y-6" x-data="{ handle: null }">
-    @include('security.partials.page-header', ['title' => __('My Profile')])
+<x-ui.page :title="__('My Profile')" x-data="{ handle: null }">
     @include('profile.partials.nav')
 
     <x-ui.card :title="__('Active sessions')">
@@ -58,4 +57,4 @@
             >{{ __('End session') }}</x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
-</div>
+</x-ui.page>

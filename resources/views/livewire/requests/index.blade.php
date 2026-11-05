@@ -1,16 +1,9 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ __('My requests') }}</h1>
-            <p class="mt-2 text-sm text-slate-600">{{ __('Submit leave and overtime requests and follow their status.') }}</p>
-        </div>
-
-        {{-- The buttons stay in the page and are only disabled, so the dialogs are always rendered. --}}
-        <div class="flex flex-wrap gap-2 self-start">
-            <x-ui.button size="sm" wire:click="openLeave" loading="openLeave" :disabled="$problem !== null" data-new-leave>{{ __('New leave request') }}</x-ui.button>
-            <x-ui.button variant="secondary" size="sm" wire:click="openOvertime" loading="openOvertime" :disabled="$problem !== null" data-new-overtime>{{ __('New overtime request') }}</x-ui.button>
-        </div>
-    </header>
+<x-ui.page :title="__('My requests')" :subtitle="__('Submit leave and overtime requests and follow their status.')">
+    {{-- The buttons stay in the page and are only disabled, so the dialogs are always rendered. --}}
+    <x-slot:actions>
+        <x-ui.button size="sm" wire:click="openLeave" loading="openLeave" :disabled="$problem !== null" data-new-leave>{{ __('New leave request') }}</x-ui.button>
+        <x-ui.button variant="secondary" size="sm" wire:click="openOvertime" loading="openOvertime" :disabled="$problem !== null" data-new-overtime>{{ __('New overtime request') }}</x-ui.button>
+    </x-slot:actions>
 
     @if ($problem !== null)
         <x-ui.alert tone="warning" data-no-approval-path>{{ $problem }}</x-ui.alert>
@@ -180,4 +173,4 @@
             <x-ui.button type="submit" form="overtime-form-fields" loading="submitOvertime,overtime_evidence">{{ __('Submit request') }}</x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
-</div>
+</x-ui.page>

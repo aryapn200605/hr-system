@@ -7,20 +7,24 @@
     'loading' => null,
 ])
 
+{{-- Variants after shadcn's Button: primary = default, secondary = outline, danger = destructive. --}}
 @php
     $classes = [
-        'inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
         match ($variant) {
-            'primary' => 'bg-blue-700 text-white hover:bg-blue-800',
-            'secondary' => 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50',
-            'danger' => 'bg-red-700 text-white hover:bg-red-800',
-            'ghost' => 'text-slate-700 hover:bg-slate-100',
-            'link' => 'text-blue-700 underline underline-offset-2 hover:text-blue-900',
+            'primary' => 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
+            'secondary' => 'border border-border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground',
+            'muted' => 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
+            'danger' => 'bg-destructive text-white shadow-xs hover:bg-destructive/90',
+            'ghost' => 'hover:bg-accent hover:text-accent-foreground',
+            'link' => 'text-primary underline underline-offset-4 hover:text-primary/80',
         },
         match (true) {
-            $variant === 'link' => 'text-sm',
-            $size === 'sm' => 'px-3 py-1.5 text-sm',
-            default => 'px-4 py-2.5 text-sm',
+            $variant === 'link' => '',
+            $size === 'sm' => 'h-8 gap-1.5 px-3',
+            $size === 'lg' => 'h-10 px-6',
+            $size === 'icon' => 'size-9',
+            default => 'h-9 px-4 py-2',
         },
         'w-full' => $block,
     ];

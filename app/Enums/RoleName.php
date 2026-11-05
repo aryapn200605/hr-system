@@ -26,9 +26,10 @@ enum RoleName: string
     public function tone(): string
     {
         return match ($this) {
-            self::HrAdmin => 'blue',
-            self::Approver => 'purple',
-            self::Employee => 'green',
+            // Away from the primary blue and from the status colours (green, amber, red). Phase 15a proposal.
+            self::HrAdmin => 'purple',
+            self::Approver => 'teal',
+            self::Employee => 'gray',
         };
     }
 

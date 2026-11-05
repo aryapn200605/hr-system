@@ -1,12 +1,8 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $title }}</h1>
-            <p class="mt-2 text-sm wrap-anywhere text-slate-600">{{ $requester->name }} · {{ __('Submitted') }} <x-ui.datetime :value="$record->created_at" /></p>
-        </div>
-
-        <x-ui.button variant="secondary" size="sm" class="self-start" :href="route('history.index')" data-back>{{ __('Back to request history') }}</x-ui.button>
-    </header>
+<x-ui.page :title="$title">
+    <x-slot:subtitle><span class="wrap-anywhere">{{ $requester->name }} · {{ __('Submitted') }} <x-ui.datetime :value="$record->created_at" /></span></x-slot:subtitle>
+    <x-slot:actions>
+        <x-ui.button variant="secondary" size="sm" :href="route('history.index')" data-back>{{ __('Back to request history') }}</x-ui.button>
+    </x-slot:actions>
 
     <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900" role="status" data-view-only>
         <p>{{ __('You are viewing this request. You cannot decide it here.') }}</p>
@@ -67,4 +63,4 @@
             @include('livewire.requests.partials.allocations', ['record' => $record])
         </x-ui.card>
     @endif
-</div>
+</x-ui.page>

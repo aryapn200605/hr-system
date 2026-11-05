@@ -3,11 +3,7 @@
     ['label' => __('Security Settings'), 'href' => route('security.index')],
     ['label' => __('Confirm your identity')],
 ]">
-    <div class="mx-auto max-w-md space-y-6">
-        @include('security.partials.page-header', [
-            'title' => __('Confirm your identity'),
-            'description' => __('Enter your password and a second factor to continue. This confirmation lasts for one action, for up to 10 minutes.'),
-        ])
+    <x-ui.page width="narrow" :title="__('Confirm your identity')" :subtitle="__('Enter your password and a second factor to continue. This confirmation lasts for one action, for up to 10 minutes.')">
 
         <x-ui.card class="p-5">
             <form method="POST" action="{{ route('security.confirm.store') }}" class="space-y-4">
@@ -40,5 +36,5 @@
         <p class="text-center">
             <x-ui.button :href="route('security.index')" variant="link">{{ __('Cancel') }}</x-ui.button>
         </p>
-    </div>
+    </x-ui.page>
 </x-layouts::app>

@@ -1,12 +1,7 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ __('Departments') }}</h1>
-            <p class="mt-2 text-sm text-slate-600">{{ __('Departments that can be given to employees. An inactive department stays on the employees who have it.') }}</p>
-        </div>
-
-        <x-ui.button size="sm" class="self-start" wire:click="openCreate" loading="openCreate">{{ __('Add department') }}</x-ui.button>
-    </header>
+<x-ui.page :title="__('Departments')" :subtitle="__('Departments that can be given to employees. An inactive department stays on the employees who have it.')">
+    <x-slot:actions>
+        <x-ui.button size="sm" wire:click="openCreate" loading="openCreate">{{ __('Add department') }}</x-ui.button>
+    </x-slot:actions>
 
     @if ($notice !== '')
         <x-ui.alert tone="warning" data-notice>{{ $notice }}</x-ui.alert>
@@ -81,4 +76,4 @@
             <x-ui.button variant="danger" wire:click="delete" loading="delete">{{ __('Delete department') }}</x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
-</div>
+</x-ui.page>

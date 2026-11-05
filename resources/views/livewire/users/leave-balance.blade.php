@@ -1,12 +1,7 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight wrap-anywhere text-slate-900">{{ __('Leave balance of :name', ['name' => $user->name]) }}</h1>
-            <p class="mt-2 text-sm text-slate-600">{{ __(':count days per period, reset on each anniversary of the anchor date. Remaining days do not carry over.', ['count' => \App\Services\LeaveBalance::ENTITLEMENT]) }}</p>
-        </div>
-
-        <x-ui.button variant="secondary" size="sm" class="shrink-0 self-start" :href="route('users.show', $user->id)">{{ __('Back to user') }}</x-ui.button>
-    </header>
+<x-ui.page :title="__('Leave balance of :name', ['name' => $user->name])" :subtitle="__(':count days per period, reset on each anniversary of the anchor date. Remaining days do not carry over.', ['count' => \App\Services\LeaveBalance::ENTITLEMENT])">
+    <x-slot:actions>
+        <x-ui.button variant="secondary" size="sm" :href="route('users.show', $user->id)">{{ __('Back to user') }}</x-ui.button>
+    </x-slot:actions>
 
     @if ($isSelf)
         <x-ui.alert data-self-notice>{{ __('This is your own balance. Another HR Admin must adjust or reset it, or change its anchor date.') }}</x-ui.alert>
@@ -147,4 +142,4 @@
             <x-ui.button type="submit" form="balance-anchor-fields" loading="saveAnchor">{{ __('Save anchor date') }}</x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
-</div>
+</x-ui.page>

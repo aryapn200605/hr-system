@@ -3,8 +3,7 @@
     ['label' => __('Security Settings'), 'href' => route('security.index')],
     ['label' => __('Regenerate recovery codes')],
 ]">
-    <div class="mx-auto max-w-md space-y-6">
-        @include('security.partials.page-header', ['title' => __('Regenerate recovery codes')])
+    <x-ui.page width="narrow" :title="__('Regenerate recovery codes')">
 
         <x-ui.alert tone="warning">{{ __('Every existing recovery code stops working at once. The new codes are shown only one time.') }}</x-ui.alert>
 
@@ -17,5 +16,5 @@
         <p class="text-center">
             <x-ui.button :href="route('security.index')" variant="link">{{ __('Cancel') }}</x-ui.button>
         </p>
-    </div>
+    </x-ui.page>
 </x-layouts::app>

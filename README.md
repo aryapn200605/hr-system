@@ -466,6 +466,7 @@ Perintah Laravel lain yang sering dipakai: `migrate:status`, `migrate`, `db:seed
   2. Salin `database/translations/id.php` menjadi `ms.php`, terjemahkan, lalu jalankan `php artisan db:seed --class=TranslationSeeder --force`.
   3. Aktifkan: `App\Models\Language::whereKey('ms')->update(['is_active' => true]);`, lalu `php artisan app:translations-missing` harus tidak melaporkan apa pun.
 - **Memeriksa kunci yang hilang:** `php artisan app:translations-missing` (juga dijalankan oleh tes `LanguageTest`).
+- **Teks Phase 15 (cabang `ui-redesign`):** 24 teks baru (menu sidebar berkelompok, tombol lipat sidebar, menu akun, galeri komponen) ada di `en.php` dan `id.php`, tetapi **tanpa migrasi** (Phase 15 tidak memakai migrasi database). Di database yang sudah berjalan, teks itu tampil dalam bahasa Inggris sampai pemilik menjalankan `php artisan db:seed --class=TranslationSeeder --force` (hanya menyisipkan yang belum ada) setelah backup. Database tes dan instalasi baru sudah otomatis lengkap.
 - Istilah baku Indonesia (misalnya pengajuan, atasan, saldo cuti) ada di [docs/TECHNICAL-DECISIONS.md, "Standard Indonesian terms"](docs/TECHNICAL-DECISIONS.md#standard-indonesian-terms). Teks Indonesia masih menunggu tinjauan pemilik.
 
 ## 11. Pengujian
@@ -488,7 +489,7 @@ php artisan config:clear
 php artisan test
 ```
 
-Hasil terakhir yang tercatat (Phase 14): 1136 tes lulus. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
+Hasil terakhir yang tercatat (Phase 15a, cabang `ui-redesign`): 1163 tes lulus. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
 
 **Satu berkas atau satu kelompok tes:**
 
@@ -505,6 +506,10 @@ php artisan test --filter=ConcurrencyTest
 **Uji mutasi.** Tidak ada alat di repositori. Caranya manual per phase: hapus satu pengaman (misalnya satu pengecekan izin atau satu kunci), jalankan tes terkait, pastikan tes gagal, lalu kembalikan berkas dan cocokkan hash-nya. Pengaman yang "selamat" berarti tesnya lemah atau kodenya berlebih. Hasil tiap phase dicatat di PROGRESS.md.
 
 **Pemeriksaan browser (puppeteer).** Skrip ada **di luar repositori**, di `C:\laragon\tmp\browser-check` (puppeteer 25.14.0, tidak ada di `package.json`), dan berjalan terhadap http://hr-system.test pada lebar 1024px dan 375px. Pola dari Phase 10: `php phaseN-setup.php <setup.json>`, `node phaseN.mjs <setup.json>`, lalu `php phaseN-cleanup.php`; tangkapan layar ada di folder `shots`. Akun sementara memakai awalan username `zz-check-` dan dihapus setelahnya dengan bukti jumlah akun nyata tidak berubah. Di komputer baru folder ini tidak ada.
+
+**Pemeriksa tata letak (Phase 15).** `layout.mjs` di folder yang sama membuka setiap rute yang memerlukan login pada lebar 375, 768, 1024, 1280, dan 1920px dan memeriksa: tidak ada scroll horizontal, margin kiri dan kanan wadah halaman sama, tidak ada elemen keluar layar, tidak ada galat konsol, tombol tidak tertutup elemen tetap, dan kontras teks (di 1280px). Urutannya: `php p15-setup.php p15-setup.json`, `node layout.mjs p15-setup.json activate`, `php p15-setup.php seed p15-setup.json`, lalu `node layout.mjs p15-setup.json after collapsed` dan `node p15-interactions.mjs p15-setup.json`; terakhir `php p15-cleanup.php`. Screenshot masuk ke `design/screens/<label>/` di proyek (diabaikan Git). `contrast.mjs` menghitung kontras WCAG dari nilai warna token.
+
+**Galeri komponen.** Saat `APP_ENV=local`, http://hr-system.test/ui-kit (setelah login) menampilkan semua komponen dasar dalam variannya. Di lingkungan lain alamat ini 404.
 
 **Pemeriksaan lain sebelum commit:**
 
@@ -623,7 +628,10 @@ npm audit
 | `config/requests.php` | Batas pengajuan, kunci tinjau, ekspor CSV |
 | `database/migrations`, `database/seeders` | Skema dan data dasar |
 | `database/translations` | Teks dasar `en.php` dan `id.php` |
-| `resources/views` | Blade: `layouts`, `components/ui` (komponen bersama), `livewire`, `auth`, `mail` |
+| `resources/views` | Blade: `layouts`, `components/ui` (komponen bersama; `x-ui.page` adalah satu-satunya wadah halaman), `livewire`, `auth`, `mail`, `ui-kit.blade.php` (galeri komponen) |
+| `resources/css/app.css` | Token desain (warna, radius, font) bergaya shadcn; tema terang saja |
+| `design/brand/` | Tempat berkas merek (logo SVG transparan, kode warna). Belum ada isinya; sampai ada, sidebar memakai teks nama perusahaan dan warna biru sementara |
+| `design/screens/` | Screenshot pemeriksa tata letak (diabaikan Git) |
 | `routes/web.php`, `routes/console.php` | Rute web dan jadwal scheduler |
 | `tests/Feature`, `tests/Unit`, `tests/Support/race.php` | Tes dan pembantu tes race |
 | `storage/app/private/evidence` | Berkas bukti pengajuan (privat, tidak di Git) |
@@ -632,6 +640,7 @@ npm audit
 
 **Alur Git:**
 - Cabang utama `main`. Cabang `archive/phase6-hr-modules` menyimpan pekerjaan lama yang dibatalkan; jangan dipakai.
+- Redesain (Phase 15) dikerjakan di cabang `ui-redesign` dan **tidak** digabung ke `main` tanpa keputusan pemilik.
 - Pekerjaan dilakukan per phase sesuai SPEC.md dan di-commit **lokal** dengan pesan yang jelas. Untuk percobaan, buat cabang terpisah.
 - Sebelum commit: `git status` dan periksa diff yang di-stage (`git diff --cached`). Jangan meng-commit `.env`, backup, atau rahasia.
 - **Tidak ada push tanpa izin pemilik.** Tidak ada force push dan tidak ada `git reset` yang membuang riwayat.
@@ -645,6 +654,7 @@ npm audit
 | [SPEC.md](SPEC.md) | Daftar phase dan apa yang dibangun di tiap phase, beserta statusnya. |
 | [PROGRESS.md](PROGRESS.md) | Log kemajuan per phase: yang selesai, hasil verifikasi, bug, masalah yang diketahui, langkah pemilik. |
 | [docs/TECHNICAL-DECISIONS.md](docs/TECHNICAL-DECISIONS.md) | Keputusan dan catatan teknis rinci (bahasa Inggris), dipindahkan utuh dari README lama. |
+| [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Atribusi karya pihak ketiga: desain antarmuka mulai Phase 15 mengikuti [shadcn-admin](https://github.com/satnaing/shadcn-admin) (lisensi MIT), beserta teks lisensinya. |
 
 ## 17. Belum terverifikasi
 

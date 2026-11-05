@@ -47,6 +47,15 @@ Technical decisions, commands and notes of the HR Management System, phase by ph
   - [Automatic rejection on suspension](#automatic-rejection-on-suspension)
   - [Hardening found in Phase 14](#hardening-found-in-phase-14)
   - [Authorization matrix](#authorization-matrix)
+- [Phase 15a: redesign foundation](#phase-15a-redesign-foundation)
+  - [Reference and licence](#reference-and-licence)
+  - [Tokens and font](#tokens-and-font)
+  - [Layout shell](#layout-shell)
+  - [Page container](#page-container)
+  - [Components](#components)
+  - [Palette for roles and statuses](#palette-for-roles-and-statuses)
+  - [Component gallery](#component-gallery)
+  - [Checks](#checks)
 - [Language](#language)
   - [How it works](#how-it-works)
   - [Commands](#commands)
@@ -494,6 +503,49 @@ Built and verified in Phase 14 (DECISIONS.md section 11). Migrations `2026_11_12
 | /login | 200 | 302 | 302 | 302 |
 
 Representative forged actions are refused on the server: HR Admin adjusting their own balance (403), deciding an unrelated or own request by ID (404), opening another user's request (404). An Approver's request is decided by any HR Admin; an HR Admin's request only by their supervisor. This matches DECISIONS.md sections 3, 7 and 9.
+
+## Phase 15a: redesign foundation
+
+Branch `ui-redesign` only. No database migration, no new package.
+
+### Reference and licence
+- Design reference: [satnaing/shadcn-admin](https://github.com/satnaing/shadcn-admin) (MIT), read at commit `e16c87f` from a clone outside the project (`C:\laragon\tmp\ref\shadcn-admin`); nothing in it was installed, built or run, and no file was copied in. Files read: `src/styles/theme.css` and `index.css` (tokens), `components/ui/*` (button, card, badge, input, table, alert, dialog, dropdown-menu, avatar, sidebar, sonner), `components/layout/*` (sidebar, nav group, nav user, header, main) and the dashboard page.
+- Credit and the licence text (copyright line read from the repository's `LICENSE`, compared with `diff`) are in `THIRD-PARTY-NOTICES.md`.
+- Icons stay the project's own `x-ui.icon` paths. Nine were added (panel-left, chevrons-up-down, log-out, user, shield, info, alert-triangle, check-circle, x-circle), drawn for this project, not taken from the reference or Lucide.
+
+### Tokens and font
+- `resources/css/app.css` defines the shadcn token set as CSS variables on `:root` (`background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, `sidebar-*`, `--radius` and its sm/md/lg/xl scale) and maps them to Tailwind colours with `@theme inline`, as the reference does. Light theme only; a dark theme is one more block of the same variables under a selector.
+- Primary: Tailwind blue-700, a **placeholder** until the brand colour is supplied (`design/brand/` does not exist yet).
+- Deliberate differences from the reference, each measured (see Checks): `--muted-foreground` slate-600 instead of slate-500 (4.35:1 on muted), `--input` slate-500 instead of the border colour (field borders at 1.23:1), `--ring` blue-600 used as a solid 2 px outline instead of a 50% halo (2.20:1). Added `--success` and `--warning` for status dots.
+- Font: IBM Plex Sans (400, 500, 600, 700) through the existing `bunny()` font option of `laravel-vite-plugin`, which downloads the files at build time and serves them from `public/build`; no package was added. Before this phase `main` used Instrument Sans the same way. The reference uses Inter and Manrope.
+
+### Layout shell
+- `layouts/app.blade.php` follows the reference's "inset" sidebar variant: the page sits on the sidebar colour and the content is a raised panel (`md:m-2 rounded-xl shadow-sm`).
+- Desktop (from 768 px, the reference's `md`): a 16 rem sidebar that folds to icons (3 rem plus padding). The state is the attribute `data-sidebar-state` on `<html>`, set by an inline script from `localStorage['sidebar-collapsed']` before the first paint, inside `try/catch`; without storage the sidebar starts open and folding still works for the page. A Tailwind custom variant `sidebar-collapsed:` (only from 48 rem) styles the folded state, and an Alpine store `sidebar` toggles it (header button, the rail along the edge, Ctrl/Cmd+B). Folded labels become `sr-only` (screen readers keep the names) and a tooltip anchored with Alpine's `x-anchor` names the link on hover and focus.
+- Below 768 px the menu is the existing drawer (same dialog, focus trap and close button), now 18 rem wide.
+- Menu groups follow the existing menu: General (Home, My requests, Approvals), Reports (Request history, Recap), Administration (User Management, Departments, Holidays). A group is rendered only when one of its entries is allowed; every page still checks its permission on the server.
+- The user block at the bottom of the sidebar (NavUser) opens a menu with name, email, role badge, My Profile, Security Settings and Logout. The header keeps a profile menu (avatar) on the right, as on the reference dashboard. Breadcrumbs show only the current page below 640 px.
+- Logo: `x-ui.logo` shows `public/brand/logo.svg` or `logo-icon.svg` when they exist (with the company name as alternative text) and the company name as text otherwise; the favicon link is added only when `logo-icon.svg` exists. The company name is `config('app.company')`. No logo was drawn.
+
+### Page container
+- `x-ui.page` (`title`, `subtitle`, `actions`, `width` = default 80 rem, narrow 32 rem, full) is the only place that sets a page's width, centring (`mx-auto`) and padding. `<main>` in the layout has none. Every authenticated page was migrated: the 16 Livewire pages and the 5 controller pages under Security (narrow). The old `security/partials/page-header` was removed. The page contents were not changed.
+- Livewire needs one root element: `x-ui.page` renders one `<div data-page>`; the approval page keeps its own root `<div>` because its root carries the conditional `wire:poll` and the release beacon.
+
+### Components
+- Restyled with the same names and properties, so every view keeps working: button (variants primary, secondary, danger, ghost, link, plus muted; sizes sm, md, plus lg and icon), input, select, textarea, error, card (plus `description`), badge (plus tones primary, teal, solid, outline), table, alert (now a block with an icon and an optional `title`; `info` is neutral), modal (plus `description`, `max-w-lg`), dropdown (plus `align`, `width`), dropdown-item (plus `icon`, `variant="destructive"`), toast, empty-state, stat (plus `icon`), detail, breadcrumbs, avatar, nav-link (plus `tooltip` and a `badge` slot).
+- CLAUDE.md lessons kept: dialogs are always rendered and only shown or hidden; no `@js()` inside a component attribute (the gallery passes toast texts through `data-*` attributes); toasts no longer block buttons: on phones they sit under the header (dialogs open from the bottom there), from 640 px at the bottom right, and a toast's body has `pointer-events: none` so a click reaches the button under it; only its close button takes clicks.
+
+### Palette for roles and statuses
+- Statuses keep green (success), amber (warning) and red (danger); "info" is neutral; the primary blue is for actions and links only.
+- Roles move away from both: HR Admin violet (`purple` tone, was blue), Approver teal (was purple), Employee slate (`gray`, was green, which matched "Active"). This is a proposal for the owner. Every badge text measures 6.7:1 or more on its background.
+
+### Component gallery
+- `GET /ui-kit` (`UiKitController`, inside the logged-in group) shows every base component. The controller aborts with 404 unless `app()->isLocal()`, so a cached route list cannot expose it. It is in no menu. Tests: `UiKitTest`.
+
+### Checks
+- `C:\laragon\tmp\browser-check\layout.mjs`: every authenticated GET route as the zz-check HR Admin at 375, 768, 1024, 1280 and 1920 px (and folded at 1024 to 1920): no horizontal scroll; the container's left and right margins equal within 1 px when the content area is wider than its maximum; no visible element past the screen edge unless a scrolling parent clips it; no console error; every control in the page, scrolled to the middle, is the top element at its centre (not covered by a fixed or sticky element); at 1280 px the WCAG contrast of every visible text (colours read through a canvas, so oklch is handled). Screenshots in `design/screens/before` and `after` (git-ignored).
+- `contrast.mjs`: WCAG ratios computed from the oklch token and palette values for buttons, links, badges, alerts, status dots, field borders and the focus outline.
+- `p15-interactions.mjs`: clicks every new control (fold, tooltip, reload, Ctrl+B, both menus, the drawer and its menu, a user row menu, a decision dialog at 375 px, the gallery dialog, toasts and their click-through), and runs once with `localStorage` throwing.
 
 ## Language
 

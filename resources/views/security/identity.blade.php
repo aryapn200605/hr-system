@@ -3,11 +3,7 @@
     ['label' => __('My Profile'), 'href' => route('profile.show')],
     ['label' => __('Change username or email')],
 ]">
-    <div class="mx-auto max-w-md space-y-6">
-        @include('security.partials.page-header', [
-            'title' => __('Change username or email'),
-            'description' => __('You log in with either one, and password reset links go to your email.'),
-        ])
+    <x-ui.page width="narrow" :title="__('Change username or email')" :subtitle="__('You log in with either one, and password reset links go to your email.')">
 
         <x-ui.alert tone="warning">{{ __('No email is sent to confirm a new address. Check it carefully: reset links will go only to this address.') }}</x-ui.alert>
 
@@ -26,5 +22,5 @@
         <p class="text-center">
             <x-ui.button :href="route('profile.show')" variant="link">{{ __('Cancel') }}</x-ui.button>
         </p>
-    </div>
+    </x-ui.page>
 </x-layouts::app>

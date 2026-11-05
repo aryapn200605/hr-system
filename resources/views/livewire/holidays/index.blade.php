@@ -1,12 +1,7 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ __('Holidays') }}</h1>
-            <p class="mt-2 text-sm text-slate-600">{{ __('Public holidays and collective leave days. They are not counted as working days in new requests; existing requests keep their working days.') }}</p>
-        </div>
-
-        <x-ui.button size="sm" class="self-start" wire:click="openCreate" loading="openCreate">{{ __('Add holiday') }}</x-ui.button>
-    </header>
+<x-ui.page :title="__('Holidays')" :subtitle="__('Public holidays and collective leave days. They are not counted as working days in new requests; existing requests keep their working days.')">
+    <x-slot:actions>
+        <x-ui.button size="sm" wire:click="openCreate" loading="openCreate">{{ __('Add holiday') }}</x-ui.button>
+    </x-slot:actions>
 
     <x-ui.card>
         <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-3">
@@ -67,4 +62,4 @@
             <x-ui.button variant="danger" wire:click="delete" loading="delete">{{ __('Delete holiday') }}</x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
-</div>
+</x-ui.page>

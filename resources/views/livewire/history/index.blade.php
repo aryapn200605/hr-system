@@ -1,18 +1,11 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ __('Request history') }}</h1>
-            <p class="mt-2 text-sm text-slate-600">
-                {{ $seesOthers ? __('Leave and overtime requests you may see, newest first.') : __('Your leave and overtime requests, newest first.') }}
-            </p>
-        </div>
-
+<x-ui.page :title="__('Request history')" :subtitle="$seesOthers ? __('Leave and overtime requests you may see, newest first.') : __('Your leave and overtime requests, newest first.')">
+    <x-slot:actions>
         {{-- A plain link: the export is a streamed download with the filters shown here. --}}
-        <x-ui.button variant="secondary" size="sm" :href="$exportUrl" class="self-start" data-export>
+        <x-ui.button variant="secondary" size="sm" :href="$exportUrl" data-export>
             <x-ui.icon name="download" class="size-4" />
             {{ __('Export CSV') }}
         </x-ui.button>
-    </header>
+    </x-slot:actions>
 
     <x-ui.card>
         <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -135,4 +128,4 @@
             </nav>
         @endif
     </x-ui.card>
-</div>
+</x-ui.page>

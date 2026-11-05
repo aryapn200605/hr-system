@@ -1,5 +1,4 @@
-<div class="space-y-6">
-    @include('security.partials.page-header', ['title' => __('Security Settings')])
+<x-ui.page :title="__('Security Settings')">
 
     @if ($recoveryCodesLeft <= 2)
         <x-ui.alert tone="warning">{{ __('Few recovery codes are left. Regenerate them so you are not locked out if you lose your authenticator.') }}</x-ui.alert>
@@ -27,4 +26,4 @@
             </div>
         </x-ui.card>
     </div>
-</div>
+</x-ui.page>

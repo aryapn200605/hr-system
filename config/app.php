@@ -15,6 +15,9 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // Shown beside the logo in the sidebar (and, from Phase 15c, on the auth pages).
+    'company' => 'PT Peranti Digital Solusindo',
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

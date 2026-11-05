@@ -1,20 +1,48 @@
-@props(['href' => null, 'icon', 'active' => false, 'disabled' => false])
+@props(['href' => null, 'icon', 'active' => false, 'disabled' => false, 'tooltip' => null])
 
-@php($classes = 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium')
+{{-- shadcn's SidebarMenuButton. When the sidebar is folded to icons, the label stays for screen readers
+     (sr-only) and a tooltip names the link on hover and focus. --}}
+@php
+    $tooltip ??= trim(strip_tags((string) $slot));
+    $classes = 'relative flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-start text-sm text-sidebar-foreground transition-[width,height,padding] sidebar-collapsed:size-8';
+@endphp
 
-@if ($disabled)
-    {{-- Not a link: the page does not exist yet, so nothing can be followed or focused. --}}
-    <span {{ $attributes->class([$classes, 'cursor-not-allowed text-slate-600']) }} aria-disabled="true">
-        <x-ui.icon :name="$icon" class="size-5 shrink-0" />
-        {{ $slot }}
-    </span>
-@else
-    <a
-        href="{{ $href }}"
-        @if ($active) aria-current="page" @endif
-        {{ $attributes->class([$classes, $active ? 'bg-blue-50 text-blue-800' : 'text-slate-700 hover:bg-slate-100']) }}
-    >
-        <x-ui.icon :name="$icon" class="size-5 shrink-0" />
-        {{ $slot }}
-    </a>
-@endif
+<li class="relative" x-data="{ tip: false }">
+    @if ($disabled)
+        <span {{ $attributes->class([$classes, 'cursor-not-allowed opacity-50']) }} aria-disabled="true">
+            <x-ui.icon :name="$icon" class="size-4 shrink-0" />
+            <span class="min-w-0 flex-1 truncate sidebar-collapsed:sr-only">{{ $slot }}</span>
+        </span>
+    @else
+        <a
+            href="{{ $href }}"
+            x-ref="link"
+            data-active="{{ $active ? 'true' : 'false' }}"
+            @if ($active) aria-current="page" @endif
+            x-on:mouseenter="tip = $store.sidebar?.isCollapsed()"
+            x-on:mouseleave="tip = false"
+            x-on:focus="tip = $store.sidebar?.isCollapsed()"
+            x-on:blur="tip = false"
+            {{ $attributes->class([$classes, 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground', 'bg-sidebar-accent font-medium text-sidebar-accent-foreground' => $active]) }}
+        >
+            <x-ui.icon :name="$icon" class="size-4 shrink-0" />
+            <span class="min-w-0 flex-1 truncate sidebar-collapsed:sr-only">{{ $slot }}</span>
+            @isset($badge)
+                {{-- Beside the label; folded, it shrinks to a dot on the icon and the number stays for screen readers. --}}
+                <span class="ms-auto sidebar-collapsed:sr-only">{{ $badge }}</span>
+                <span class="absolute top-1 right-1 hidden size-2 rounded-full bg-warning sidebar-collapsed:block" aria-hidden="true"></span>
+            @endisset
+        </a>
+        {{-- Moved to <body>, so the sidebar's overflow cannot clip it. --}}
+        <template x-teleport="body">
+            <span
+                x-show="tip"
+                x-anchor.right.offset.8="$refs.link"
+                style="display: none"
+                class="z-[60] rounded-md bg-foreground px-3 py-1.5 text-xs whitespace-nowrap text-background"
+                aria-hidden="true"
+                data-nav-tooltip
+            >{{ $tooltip }}</span>
+        </template>
+    @endif
+</li>

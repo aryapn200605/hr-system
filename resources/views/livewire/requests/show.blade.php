@@ -1,17 +1,11 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $title }}</h1>
-            <p class="mt-2 text-sm text-slate-600">{{ __('Submitted') }} <x-ui.datetime :value="$record->created_at" /></p>
-        </div>
-
-        <div class="flex shrink-0 flex-wrap gap-2 self-start">
-            <x-ui.button variant="secondary" size="sm" :href="route('requests.index', $type === 'leave' ? [] : ['type' => 'overtime'])">{{ __('Back to my requests') }}</x-ui.button>
-            @if ($canCancel)
-                <x-ui.button variant="secondary" size="sm" class="text-red-800!" wire:click="openCancel" loading="openCancel" data-cancel-request>{{ __('Cancel request') }}</x-ui.button>
-            @endif
-        </div>
-    </header>
+<x-ui.page :title="$title">
+    <x-slot:subtitle>{{ __('Submitted') }} <x-ui.datetime :value="$record->created_at" /></x-slot:subtitle>
+    <x-slot:actions>
+        <x-ui.button variant="secondary" size="sm" :href="route('requests.index', $type === 'leave' ? [] : ['type' => 'overtime'])">{{ __('Back to my requests') }}</x-ui.button>
+        @if ($canCancel)
+            <x-ui.button variant="secondary" size="sm" class="text-red-800!" wire:click="openCancel" loading="openCancel" data-cancel-request>{{ __('Cancel request') }}</x-ui.button>
+        @endif
+    </x-slot:actions>
 
     @if ($notice !== '')
         <x-ui.alert tone="warning" data-notice>{{ $notice }}</x-ui.alert>
@@ -72,4 +66,4 @@
             <x-ui.button variant="danger" wire:click="cancel" loading="cancel">{{ __('Cancel request') }}</x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
-</div>
+</x-ui.page>

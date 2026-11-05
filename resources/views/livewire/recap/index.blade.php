@@ -1,17 +1,10 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ __('Recap') }}</h1>
-            <p class="mt-2 text-sm text-slate-600">
-                {{ $seesOthers ? __('Leave balance and requests of the employees you may see.') : __('Your leave balance and requests.') }}
-            </p>
-        </div>
-
-        <x-ui.button variant="secondary" size="sm" :href="$exportUrl" class="self-start" data-export>
+<x-ui.page :title="__('Recap')" :subtitle="$seesOthers ? __('Leave balance and requests of the employees you may see.') : __('Your leave balance and requests.')">
+    <x-slot:actions>
+        <x-ui.button variant="secondary" size="sm" :href="$exportUrl" data-export>
             <x-ui.icon name="download" class="size-4" />
             {{ __('Export CSV') }}
         </x-ui.button>
-    </header>
+    </x-slot:actions>
 
     <x-ui.card>
         <div class="flex flex-col gap-4 border-b border-slate-200 p-5">
@@ -164,4 +157,4 @@
             </nav>
         @endif
     </x-ui.card>
-</div>
+</x-ui.page>

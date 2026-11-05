@@ -65,9 +65,10 @@ class AppLayoutTest extends TestCase
     public static function roleColors(): array
     {
         return [
-            'HR Admin is blue' => [RoleName::HrAdmin, 'blue'],
-            'Approver is purple' => [RoleName::Approver, 'purple'],
-            'Employee is green' => [RoleName::Employee, 'green'],
+            // Phase 15a palette: away from the primary blue and the status colours.
+            'HR Admin is purple' => [RoleName::HrAdmin, 'purple'],
+            'Approver is teal' => [RoleName::Approver, 'teal'],
+            'Employee is gray' => [RoleName::Employee, 'gray'],
         ];
     }
 
@@ -93,7 +94,7 @@ class AppLayoutTest extends TestCase
             ->assertSee(RoleName::Employee->value)
             ->assertDontSee(RoleName::Approver->value);
 
-        $this->assertRoleBadge($before, 'green');
+        $this->assertRoleBadge($before, 'gray');
 
         $user->changeRole(RoleName::Approver, $admin);
 
@@ -101,7 +102,7 @@ class AppLayoutTest extends TestCase
             ->assertSee(RoleName::Approver->value)
             ->assertDontSee(RoleName::Employee->value);
 
-        $this->assertRoleBadge($after, 'purple');
+        $this->assertRoleBadge($after, 'teal');
     }
 
     public function test_the_role_badge_reads_the_name_from_the_database(): void
@@ -160,6 +161,18 @@ class AppLayoutTest extends TestCase
         $user->givePermissionTo(PermissionName::UsersView);
 
         $this->dashboardAs($user)->assertSee('User Management');
+    }
+
+    public function test_each_entry_of_a_menu_group_follows_its_own_permission(): void
+    {
+        $user = $this->userWithRole(RoleName::Employee);
+        $user->givePermissionTo(PermissionName::DepartmentsManage);
+
+        $this->dashboardAs($user)
+            ->assertSee('Administration')
+            ->assertSee('Departments')
+            ->assertDontSee('User Management')
+            ->assertDontSee('Holidays');
     }
 
     public function test_the_menu_disappears_when_the_role_loses_the_permission(): void

@@ -1,5 +1,4 @@
-<div class="space-y-6">
-    @include('security.partials.page-header', ['title' => __('My Profile'), 'description' => __('Your account details.')])
+<x-ui.page :title="__('My Profile')" :subtitle="__('Your account details.')">
     @include('profile.partials.nav')
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -40,4 +39,4 @@
             </x-ui.card>
         </div>
     </div>
-</div>
+</x-ui.page>

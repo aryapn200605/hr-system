@@ -1,23 +1,19 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight wrap-anywhere text-slate-900">{{ $user->name }}</h1>
-            <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                <x-ui.role-badge :user="$user" />
-                <x-ui.status-badge :status="$user->status" />
-                @if ($missingSupervisor)
-                    <x-ui.badge tone="amber" data-no-supervisor>{{ __('No supervisor') }}</x-ui.badge>
-                @endif
-            </p>
-        </div>
-
-        <div class="flex flex-wrap gap-2 self-start">
-            @can('viewLeaveBalance', $user)
-                <x-ui.button variant="secondary" size="sm" :href="route('users.leave-balance', $user->id)">{{ __('Leave balance') }}</x-ui.button>
-            @endcan
-            <x-ui.button variant="secondary" size="sm" :href="route('users.index')">{{ __('Back to users') }}</x-ui.button>
-        </div>
-    </header>
+<x-ui.page :title="$user->name">
+    <x-slot:subtitle>
+        <span class="mt-1 flex flex-wrap items-center gap-2">
+            <x-ui.role-badge :user="$user" />
+            <x-ui.status-badge :status="$user->status" />
+            @if ($missingSupervisor)
+                <x-ui.badge tone="amber" data-no-supervisor>{{ __('No supervisor') }}</x-ui.badge>
+            @endif
+        </span>
+    </x-slot:subtitle>
+    <x-slot:actions>
+        @can('viewLeaveBalance', $user)
+            <x-ui.button variant="secondary" size="sm" :href="route('users.leave-balance', $user->id)">{{ __('Leave balance') }}</x-ui.button>
+        @endcan
+        <x-ui.button variant="secondary" size="sm" :href="route('users.index')">{{ __('Back to users') }}</x-ui.button>
+    </x-slot:actions>
 
     @if ($notice !== '')
         <x-ui.alert tone="warning" data-notice>{{ $notice }}</x-ui.alert>
@@ -222,4 +218,4 @@
             <x-ui.button type="submit" form="subordinates-move-fields" loading="moveSubordinates">{{ __('Move subordinates') }}</x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
-</div>
+</x-ui.page>

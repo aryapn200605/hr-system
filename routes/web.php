@@ -15,6 +15,7 @@ use App\Http\Controllers\Security\ConfirmationController;
 use App\Http\Controllers\Security\IdentityController;
 use App\Http\Controllers\Security\PasswordController;
 use App\Http\Controllers\Security\RecoveryCodeController;
+use App\Http\Controllers\UiKitController;
 use App\Http\Middleware\EnsurePendingLogin;
 use App\Livewire\Approvals\Index as ApprovalIndex;
 use App\Livewire\Approvals\Show as ApprovalShow;
@@ -175,6 +176,9 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
     });
 
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    // The component gallery: 404 unless APP_ENV is local (checked in the controller, so a cached route list cannot keep it).
+    Route::get('/ui-kit', UiKitController::class)->name('ui-kit');
 
     // Every Livewire action passes through this one route. Livewire's own route has
     // only the web group, and custom route middleware is not reapplied to its updates.

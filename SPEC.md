@@ -20,7 +20,7 @@ Tests per phase: success path, validation failure, authorization denial, throttl
 | 12 | Dashboard | Done |
 | 13 | Email notifications (optional, small) | Done (real delivery untested) |
 | 14 | Full verification and documentation (plus DECISIONS.md section 11) | Done |
-| 15 | UI redesign | Deferred: owner starts it |
+| 15 | UI redesign (15a to 15e) | In progress on branch `ui-redesign`: 15a done |
 | 16 | Deployment (VPS, Nginx, Docker, backup, performance) | Deferred: owner starts it |
 
 ---
@@ -179,8 +179,16 @@ Email to the approver(s) when a request is submitted and to the requester when i
 - Run the full suite, mutation checks on the critical services, build, Pint, audits.
 - Sync SPEC.md, README.md and PROGRESS.md. List known limitations and the owner's manual steps (migration, scheduler, deployment notes).
 
-## Phase 15: UI redesign (deferred)
-Started by the owner only, with their direction. All earlier UI stays minimal until then.
+## Phase 15: UI redesign (started 2026-11-05)
+Started by the owner, with their direction. Work on the branch `ui-redesign`, never merged into `main` without the owner. Design reference: https://github.com/satnaing/shadcn-admin (MIT), cloned outside the project as reading material only; the design is rewritten as Blade, Tailwind CSS 4 and Alpine (no React, TypeScript, Radix or new package). Credit in `THIRD-PARTY-NOTICES.md`. Font: IBM Plex Sans. Light theme only, with tokens structured so a dark theme can be added later. Primary is the blue of PT Peranti Digital Solusindo (placeholder until `design/brand/` holds the brand files). Logo from `design/brand/` (company name as text until then). Every new UI text in English and Indonesian. No database migration.
+
+| Stage | Content | Status |
+|---|---|---|
+| 15a | Foundation and pilot page: tokens and base styles; layout shell (grouped sidebar foldable to icons, user block with its menu, header with breadcrumbs, phone drawer); `x-ui.page` as the only page container, every authenticated page migrated to it; base components restyled with their names and properties kept; `/ui-kit` gallery (local only); puppeteer layout checker on every authenticated route at 375, 768, 1024, 1280 and 1920 px with before/after screenshots in `design/screens/` (git-ignored); dashboard rebuilt as the pilot with existing data and no chart; WCAG contrast measured by script | Done |
+| 15b | Form components after the reference's Select, Command, Popover, Calendar and input OTP: searchable select, multi-select for filters, date picker, six-box OTP input | Pending |
+| 15c | Auth pages (login, two-factor, activation, password reset, recovery codes) after the reference's sign-in and OTP pages, with the logo | Pending |
+| 15d | Every application page, in groups (requests and approvals; history and recap; users, departments and holidays; profile and security) | Pending |
+| 15e | Error pages, empty states, tables as cards on phones, accessibility audit, final verification | Pending |
 
 ## Phase 16: Deployment (deferred)
 Started by the owner only: VPS, Nginx, optional Docker, backup/restore, performance checks, HTTPS cookie settings, re-measure the forgot-password timing on the production web server.

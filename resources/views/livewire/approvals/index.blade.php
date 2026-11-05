@@ -1,8 +1,4 @@
-<div class="space-y-6">
-    <header>
-        <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ __('Approvals') }}</h1>
-        <p class="mt-2 text-sm text-slate-600">{{ __('Decide the leave and overtime requests that wait for you, oldest first.') }}</p>
-    </header>
+<x-ui.page :title="__('Approvals')" :subtitle="__('Decide the leave and overtime requests that wait for you, oldest first.')">
 
     <x-ui.card>
         <div class="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-end sm:justify-between">
@@ -81,4 +77,4 @@
             </nav>
         @endif
     </x-ui.card>
-</div>
+</x-ui.page>

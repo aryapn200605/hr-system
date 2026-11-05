@@ -1,14 +1,9 @@
-<div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ __('User Management') }}</h1>
-            <p class="mt-2 text-sm text-slate-600">{{ __('Create accounts, change roles and control access.') }}</p>
-        </div>
-
-        @can('create', \App\Models\User::class)
-            <x-ui.button size="sm" class="self-start" wire:click="openCreate" loading="openCreate">{{ __('Create user') }}</x-ui.button>
-        @endcan
-    </header>
+<x-ui.page :title="__('User Management')" :subtitle="__('Create accounts, change roles and control access.')">
+    @can('create', \App\Models\User::class)
+        <x-slot:actions>
+            <x-ui.button size="sm" wire:click="openCreate" loading="openCreate">{{ __('Create user') }}</x-ui.button>
+        </x-slot:actions>
+    @endcan
 
     @if ($notice !== '')
         <x-ui.alert tone="warning" data-notice>{{ $notice }}</x-ui.alert>
@@ -234,4 +229,4 @@
             </x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
-</div>
+</x-ui.page>

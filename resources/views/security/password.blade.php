@@ -3,11 +3,7 @@
     ['label' => __('Security Settings'), 'href' => route('security.index')],
     ['label' => __('Change password')],
 ]">
-    <div class="mx-auto max-w-md space-y-6">
-        @include('security.partials.page-header', [
-            'title' => __('Change password'),
-            'description' => __('All your other sessions will end. This one stays logged in.'),
-        ])
+    <x-ui.page width="narrow" :title="__('Change password')" :subtitle="__('All your other sessions will end. This one stays logged in.')">
 
         <x-ui.card class="p-5">
             <form method="POST" action="{{ route('security.password.update') }}" class="space-y-4">
@@ -23,5 +19,5 @@
         <p class="text-center">
             <x-ui.button :href="route('security.index')" variant="link">{{ __('Cancel') }}</x-ui.button>
         </p>
-    </div>
+    </x-ui.page>
 </x-layouts::app>
