@@ -11,6 +11,8 @@
         <x-ui.button variant="secondary" size="sm" class="self-start" wire:click="refresh" loading="refresh">{{ __('Refresh') }}</x-ui.button>
     </header>
 
+    @include('livewire.partials.dashboard-requests', ['summary' => $summary])
+
     <section aria-label="{{ __('Summary') }}" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <x-ui.stat :label="__('Successful logins')" :value="$successfulLogins" :hint="__('Last :days days', ['days' => $summaryDays])" />
         <x-ui.stat :label="__('Failed login attempts')" :value="$failedLogins" :hint="__('Last :days days', ['days' => $summaryDays])" />

@@ -324,7 +324,7 @@ Filters can only narrow this: a forged employee or department in a Livewire call
 - Both request types in one UNION query with the requester, current department, category and decider joined (`App\Services\Reports\RequestHistory`), newest submitted first, 25 per page.
 - Filters: employee and department (only offered to users who may see others; "No department" too), type, category (selects Leave; Overtime clears it), status, and a date range. **A request is listed when the dates it touches overlap the range** (leave: start to end; overtime: `first_date` to `last_date`, so overtime across midnight counts on both dates). Either end may stay open; a reversed range is read the right way round.
 - The department is the requester's department now, like the supervisor relation, not the one at submission.
-- **Detail links use the existing pages and their rules only:** the user's own request opens My requests; a request the user may decide now, or decided, opens Approvals (`RequestPolicy::review()`); any other row has no link ([ASSUMPTION]: for example an HR Admin looking at an Employee's request; the row itself shows type, dates, days or hours, status, decider and submission time). Evidence stays behind the existing download rule. The page never shows a reason, note or rejection reason.
+- **Detail links:** the user's own request opens My requests; a request the user may decide now, or decided, opens Approvals (`RequestPolicy::review()`); every other row opens the read-only page `/history/{type}/{id}` (Phase 12, see "Dashboard and read-only request page"). The history list itself never shows a reason, note or rejection reason.
 
 ### Recap
 
@@ -340,6 +340,41 @@ Filters can only narrow this: a forged employee or department in a Livewire call
 - **Formula injection:** a cell starting with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading `'`.
 - The rows are those the page shows for the same filters, read through the same services. Columns: type, request ID, employee name, department, category, start, end, working days, hours, status, submitted, decided by, decided; the balance and department recaps have the page's columns. Times are WIB as `Y-m-d H:i`, with "(WIB)" in the header; headers and labels follow the user's language. **Never exported:** reason, decision note, rejection reason, evidence, username, email.
 - **Audit:** `report.exported` with the report (`history`, `leave_balance`, `requests_by_department`), the filters in effect and the number of rows, written after the last row; no row data. The stream ignores a closed connection (`ignore_user_abort`) so the count is always written.
+
+## Dashboard and read-only request page
+
+Built in Phase 12. No new table and no new permission; the migration `2026_11_10_100000_load_dashboard_texts` only loads the texts.
+
+### Dashboard numbers
+
+`App\Services\Reports\DashboardSummary` computes each number only for a user entitled to it, by permission, never by role name. A number the user is not entitled to is `null` and its card is not rendered. The existing dashboard sections (login summary, user accounts, security status, account information, recent logins) are unchanged; the new "Requests and leave" section sits above them.
+
+| Card | Shown with | Source | Link |
+|---|---|---|---|
+| Annual leave available, current period (start and end), days held by pending requests | `requests.submit` | `LeaveRequests::slots()`, the same numbers as My requests (available = entitlement − used − pending) | none |
+| My pending requests | `requests.submit` | own pending leave and overtime | `/history?status=pending` |
+| My last decided request | `requests.submit` | own request approved or rejected most recently (`decided_at`) | My requests detail |
+| Waiting for my decision | `requests.decide` | `Deciders::requesterIds()`, the inbox and menu rule of Phase 10, as the links are now | `/approvals` |
+| Pending requests in the organization | `requests.view-all` | every pending leave and overtime request | `/history?status=pending` |
+| Employees without a supervisor | `users.view` | `User::lackingSupervisor()`, the "No supervisor" filter of User Management (Employee and HR Admin, not suspended, no active supervisor) | `/users?supervisor=none` |
+
+- A link is shown only when its number is above zero; zero shows a short sentence instead. A user with no decided request sees an empty state. No number is estimated or invented.
+- **Fixed query count:** the pending counts are one query over a UNION of the pending rows of both tables (own, waiting and total as conditional sums), the last decision one UNION query, the "without supervisor" count one query, and the balance the same queries as My requests. `DashboardTest` compares the query count before and after adding users and requests, for an HR Admin, an Approver and an Employee.
+- Like My requests, reading the balance runs `LeaveBalance::sync()`, which may open the user's due period (idempotent, as before).
+
+### Read-only request page
+
+| Page | URL | Who |
+|---|---|---|
+| Request (read-only) | `/history/{type}/{id}` | whoever sees the row in history (`RequestPolicy::viewDetail()`, the `Visibility` rule): their own, the users linked to them now when they hold `requests.decide`, everyone with `requests.view-all` |
+
+- History links here only rows that My requests and Approvals do not open: for example an HR Admin looking at an Employee's request, or an Approver looking at a linked subordinate who is an Approver (decided by HR). A request the user may decide still opens in Approvals.
+- The page shows the requester, department, role, status, dates or hours, reason, decision and allocations. It has **no decision buttons, takes no soft lock and does not poll**. Anyone else gets a 404, by URL and by Livewire; the route and `boot()` need `viewHistory`.
+- **Evidence ([ASSUMPTION] from the owner):** only the requester and those who may decide the request (`RequestPolicy::downloadEvidence()`, unchanged) may download it. Someone who may only view sees "Attached" without the file name or a link, and the download URL answers 404.
+
+### Recap filter width
+
+The recap filters use two columns up to 1280px (`xl`), three above, so "Periode berjalan dan berikutnya" fits at 1024px.
 
 ## Language
 

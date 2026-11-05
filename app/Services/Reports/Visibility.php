@@ -61,6 +61,15 @@ class Visibility
     }
 
     /**
+     * Whether the actor may see this user's requests: the same rule as apply(), for one user. Like
+     * apply(), it is used behind viewHistory (seesAnything()).
+     */
+    public function seesUser(User $actor, int $userId): bool
+    {
+        return $this->apply(User::query()->whereKey($userId), $actor, 'users.id')->exists();
+    }
+
+    /**
      * The users this actor may see, by name, for the employee filter.
      *
      * @return Collection<int, User>

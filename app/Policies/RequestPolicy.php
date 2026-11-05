@@ -68,6 +68,19 @@ class RequestPolicy
         return $this->visibility->seesAnything($actor);
     }
 
+    /**
+     * Determine whether the actor may open the request read-only from history: anyone who sees its row
+     * there (App\Services\Reports\Visibility). It gives no decision and no evidence download.
+     */
+    public function viewDetail(User $actor, LeaveRequest|OvertimeRequest $request): bool
+    {
+        return $this->visibility->seesUser($actor, $request->user_id);
+    }
+
+    /**
+     * Only the requester and the deciders (review()) may download evidence. Someone who may only view
+     * the request from history may not ([ASSUMPTION] from the owner, Phase 12).
+     */
     public function downloadEvidence(User $actor, LeaveRequest|OvertimeRequest $request): bool
     {
         return $request->hasEvidence() && ($this->view($actor, $request) || $this->review($actor, $request));

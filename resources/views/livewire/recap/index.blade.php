@@ -25,7 +25,7 @@
                 @endforeach
             </div>
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 @if ($shownTab === 'balance' && $seesOthers)
                     <x-ui.select :label="__('Employee')" id="filter-employee" wire:model.live="employee">
                         <option value="">{{ __('All employees') }}</option>

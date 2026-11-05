@@ -121,7 +121,8 @@ class Index extends Component
     /**
      * The detail page each row may open, by "type-id", using the existing pages and their rules: the
      * requester's own page, or the Approvals page for whoever may decide the request now or decided it
-     * (App\Policies\RequestPolicy). Rows nobody may open there get no link. One query for the page.
+     * (App\Policies\RequestPolicy). Every other row opens read-only in history (history.show). One query
+     * for the page.
      *
      * @param  Collection<int, HistoryRow>  $rows
      * @return array<string, string>
@@ -142,12 +143,13 @@ class Index extends Component
         foreach ($rows as $row) {
             $parameters = ['type' => $row->type, 'id' => $row->id];
 
-            if ($row->userId === $user->getKey()) {
-                if ($submits) {
-                    $links[$row->type.'-'.$row->id] = route('requests.show', $parameters);
-                }
+            if ($row->userId === $user->getKey() && $submits) {
+                $links[$row->type.'-'.$row->id] = route('requests.show', $parameters);
             } elseif ($decides && ($row->decidedBy === $user->getKey() || $decidable->has($row->userId))) {
                 $links[$row->type.'-'.$row->id] = route('approvals.show', $parameters);
+            } else {
+                // Every row on the page passed Visibility, which is RequestPolicy::viewDetail's rule.
+                $links[$row->type.'-'.$row->id] = route('history.show', $parameters);
             }
         }
 

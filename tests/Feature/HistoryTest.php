@@ -229,12 +229,12 @@ class HistoryTest extends TestCase
         $this->assertSame(route('approvals.show', ['type' => 'leave', 'id' => $this->requests['eko-leave']->id]), $siti[$this->key('eko-leave')]);
         $this->assertSame(route('approvals.show', ['type' => 'overtime', 'id' => $this->requests['eko-overtime']->id]), $siti[$this->key('eko-overtime')]);
 
-        // Hana decides Approvers' requests and her own detail page is hers; Employees' requests have no page for her.
+        // Hana decides Approvers' requests and her own detail page is hers; Employees' requests open read-only in history.
         $hana = Livewire::actingAs($this->hana)->test(Index::class)->viewData('links');
         $this->assertSame(route('approvals.show', ['type' => 'overtime', 'id' => $this->requests['siti-overtime']->id]), $hana[$this->key('siti-overtime')]);
         $this->assertSame(route('requests.show', ['type' => 'leave', 'id' => $this->requests['hana-leave']->id]), $hana[$this->key('hana-leave')]);
-        $this->assertArrayNotHasKey($this->key('eko-leave'), $hana);
-        $this->assertArrayNotHasKey($this->key('rina-leave'), $hana);
+        $this->assertSame(route('history.show', ['type' => 'leave', 'id' => $this->requests['eko-leave']->id]), $hana[$this->key('eko-leave')]);
+        $this->assertSame(route('history.show', ['type' => 'leave', 'id' => $this->requests['rina-leave']->id]), $hana[$this->key('rina-leave')]);
 
         // Every link opens: the existing pages agree.
         foreach ([[$this->eko, $eko->viewData('links')], [$this->siti, $siti], [$this->hana, $hana]] as [$user, $links]) {
@@ -271,7 +271,7 @@ class HistoryTest extends TestCase
 
     public function test_links_follow_the_permissions_not_only_the_rows(): void
     {
-        // A user who may see everything but neither submit nor decide: rows, but no detail page to open.
+        // A user who may see everything but neither submit nor decide: every row opens read-only, their own too.
         $viewer = User::factory()->twoFactorEnrolled()->create(['name' => 'Vera Viewer']);
         $viewer->givePermissionTo('requests.view-all');
         $own = $this->rawOvertime($viewer, '2026-12-07 08:00');
@@ -282,7 +282,10 @@ class HistoryTest extends TestCase
 
         $this->assertContains('overtime-'.$own->id, $shown);
         $this->assertContains('overtime-'.$decided->id, $shown);
-        $this->assertSame([], $component->viewData('links'));
+        $links = $component->viewData('links');
+        $this->assertSame(route('history.show', ['type' => 'overtime', 'id' => $own->id]), $links['overtime-'.$own->id]);
+        $this->assertSame(route('history.show', ['type' => 'overtime', 'id' => $decided->id]), $links['overtime-'.$decided->id]);
+        $this->assertSame([], array_filter($links, fn (string $url) => ! str_contains($url, '/history/')));
     }
 
     public function test_the_page_shows_no_reason_text(): void

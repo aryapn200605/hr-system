@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Enums\LoginResult;
 use App\Enums\PermissionName;
 use App\Models\User;
+use App\Services\Reports\DashboardSummary;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -53,6 +54,7 @@ class Dashboard extends Component
             'failedLogins' => $loginResults->reject(fn (string $result) => $result === LoginResult::Success->value)->count(),
             'recentLogins' => $user->loginHistories()->latest('occurred_at')->latest('id')->limit(5)->get(),
             'accountCounts' => $user->can(PermissionName::UsersView->value) ? $this->accountCounts() : null,
+            'summary' => app(DashboardSummary::class)->for($user),
         ])->title(__('Home'))->layoutData(['breadcrumbs' => [['label' => __('Home')]]]);
     }
 

@@ -21,6 +21,7 @@ use App\Livewire\Approvals\Show as ApprovalShow;
 use App\Livewire\Dashboard;
 use App\Livewire\Departments\Index as DepartmentIndex;
 use App\Livewire\History\Index as HistoryIndex;
+use App\Livewire\History\Show as HistoryShow;
 use App\Livewire\Holidays\Index as HolidayIndex;
 use App\Livewire\Profile\LoginActivity;
 use App\Livewire\Profile\Sessions;
@@ -125,6 +126,11 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
     // What each user sees here is App\Services\Reports\Visibility's rule, applied by the pages and the exports.
     Route::middleware('can:viewHistory,'.LeaveRequest::class)->group(function () {
         Route::livewire('/history', HistoryIndex::class)->name('history.index');
+        // Read-only, for rows that My requests and Approvals do not open (RequestPolicy::viewDetail).
+        Route::livewire('/history/{type}/{id}', HistoryShow::class)
+            ->whereIn('type', ['leave', 'overtime'])
+            ->whereNumber('id')
+            ->name('history.show');
         Route::livewire('/recap', RecapIndex::class)->name('recap.index');
 
         // Controllers: the CSV is streamed. The same filters as the page, read from the query string.

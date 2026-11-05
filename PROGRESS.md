@@ -18,7 +18,8 @@
 - Phase 9 (Requests): done, see "Phase 9" below.
 - Phase 10 (Approvals): done, see "Phase 10" below.
 - Phase 11 (History, recap, CSV export): done, see "Phase 11" below.
-- **Next: Phase 12 (Dashboard).** Not started. Every new sentence must be added in English and Indonesian in the same change (README "Language").
+- Phase 12 (Dashboard): done, see "Phase 12" below.
+- **Next: Phase 13 (Email notifications, optional).** Only if the owner confirms. Open: `composer audit` reports new Symfony advisories (see Phase 12 known issues).
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -589,3 +590,46 @@ Recorded in README.md under "History, recap and export".
 ### Owner steps
 - Review the new Indonesian texts.
 - Optional: set `CSV_DELIMITER` in `.env` for another separator. Nothing else: the migration and the permission seeder were run on `hr_system` in this phase.
+
+## Phase 12: Dashboard (2026-11-05)
+
+### Plan (Step 0)
+- **No new table or permission.** One migration only loads the new texts through `TranslationSeeder`.
+- **Service** `App\Services\Reports\DashboardSummary`: one query for the counts (own pending; waiting for my decision through `Deciders::requesterIds()`, only with `requests.decide`; pending in the whole organization, only with `requests.view-all`), one UNION query for the own request decided last, one count through `User::lackingSupervisor()` (only with `users.view`), and the balance through `LeaveRequests::slots()`, the same numbers as My requests (only with `requests.submit`). No role name is read.
+- **Dashboard:** a new "Requests and leave" section above the existing ones, which stay unchanged. Links: `/history?status=pending`, `/approvals`, `/users?supervisor=none`. Clean empty states, no invented numbers.
+- **View-only detail:** route `/history/{type}/{id}` (Livewire `History\Show`) under `viewHistory`; `RequestPolicy::viewDetail()` follows `Visibility` (own, linked subordinates for `requests.decide`, everyone for `requests.view-all`). No decision buttons, no soft lock, no evidence link unless `downloadEvidence` allows it ([ASSUMPTION] from the owner). History links rows that the existing pages do not open to this page.
+- **Recap:** the filter grid uses two columns up to `xl`, so the Indonesian "Periode berjalan dan berikutnya" fits at 1024px.
+- **Tests:** numbers per role, empty states, no leak between users and roles (page and Livewire), constant query count, view-only page authorization (URL and Livewire), evidence refused for viewers.
+
+### Done
+- `App\Services\Reports\DashboardSummary` and a "Requests and leave" section on the dashboard above the existing sections (unchanged): annual leave available with the current period and days held by pending requests, my pending requests (link to history filtered to pending), my last decided request (link to its detail, empty state otherwise), waiting for my decision (`requests.decide`, link to Approvals), pending requests in the organization (`requests.view-all`), Employees and HR Admins without an active supervisor (`users.view`, link to `/users?supervisor=none`). Numbers a user is not entitled to are null and not rendered; zero shows a sentence instead of a link. `x-ui.stat` gained an optional slot.
+- Read-only request page `/history/{type}/{id}` (`History\Show`, `RequestPolicy::viewDetail()`, `Visibility::seesUser()`): no decision buttons, no soft lock, no polling; evidence only for the requester and deciders. History links every row that My requests and Approvals do not open to it.
+- Recap filters: two columns up to `xl`, so "Periode berjalan dan berikutnya" fits at 1024px.
+- 21 new texts in English and Indonesian; migration `2026_11_10_100000_load_dashboard_texts`. README section "Dashboard and read-only request page"; the History note on detail links updated.
+
+### Verified
+- `php artisan test`: 1092 passed on `hr_system_test` (1075 before). New: `DashboardTest` (11), `HistoryDetailTest` (6). Changed on purpose: `HistoryTest` (an HR Admin's Employee rows and a view-all-only user's rows now link to the read-only page). The dashboard query count is compared before and after adding users and requests for an HR Admin, an Approver and an Employee.
+- Mutation check: 34 safeguards removed one at a time, each file restored and confirmed by hash, and the changed files compared with a hash list afterwards (identical). 30 caught at first. Of the 4 survivors, 3 exposed weak tests and are now caught (the own count for a user with view-all but no submit, no request query without any permission, the newest-first order of the last decision); **1 kept on purpose:** the route's `can:viewHistory` on `/history/{type}/{id}`, which `boot()` repeats, as on every other page route. Redundant code found before the run was removed (`whereNotNull(decided_at)` next to the approved/rejected filter, and the short-circuits in `seesUser()` that `apply()` already covers).
+- No real-process race test: this phase adds no write path (reading the balance runs the existing, already race-tested `sync()`, as My requests does).
+- `npm run build`, Pint, `npm audit` (0): clean. **`composer audit`: 6 advisories** (see Known issues). No new packages.
+- `hr_system`: counts before (users 2, login_histories 9, audit_logs 24 with max id 651, recovery_codes 20, account_invitations 1, model_has_roles 2, departments 2, supervisor_user 1, leave_periods 2, leave_balance_entries 2, requests 0, permissions 14, role grants 19, translations 1407, sessions 1), `migrate:status` with one migration pending, backup `C:\laragon\backup\hr-system\hr_system-before-phase12-20261105-074207.sql` (665,477 bytes, "Dump completed", INSERTs for 19 tables), `migrate` ran it, `app:translations-missing` passes (1449 translations), `view:clear`. No permission change, so no seeder run.
+- Puppeteer (`C:\laragon\tmp\browser-check\phase12.mjs`, with `phase12-setup.php`, `phase12-cleanup.php`, `counts.php`) on hr-system.test: four temporary accounts (Employee with supervisor, Approver, HR Admin, Employee without supervisor) created through `CreateUserWithInvitation` with the owner as actor, activated through their real links and logged in with real TOTP codes; requests (one with a real PDF) submitted and decided through the services. 64 checks passed on the first run, 0 unexpected console errors (2 expected: the deliberate 404 fetches). Each role's numbers (the HR Admin's compared with plain SQL), every link clicked, Refresh, the read-only page (banner, no buttons, no poll, evidence restricted, download 404, Back), the empty states, the Periods select measured at 1024, 1280 and 375px in Indonesian for an Employee and an HR Admin (and shown cut with the old grid: 155px room for 196px text), the pages in Indonesian, no horizontal scroll at 1024 and 375px. Screenshots reviewed.
+- Cleanup: the zz-check users with their audit rows, login history, recovery codes, invitations, sessions, role links, supervisor link, requests, allocation, periods, ledger rows and the evidence file, in one transaction that checked each count. Afterwards every count matched the numbers after the migration, sessions included; the owner's two accounts are unchanged (same `updated_at`).
+
+### Bugs found
+- None in the new code by the browser check. The Phase 11 Periods select cut-off was reproduced in the browser and fixed.
+
+### Known issues
+- **`composer audit` reports 6 advisories published on 2026-11-04** in `symfony/http-foundation` (4), `symfony/http-kernel` (1) and `symfony/routing` (1), installed 8.1.10, fixed in 8.1.11 (a patch update of existing packages, no new package). Not applied in this phase: it changes dependencies outside the phase scope; awaiting the owner.
+- The dashboard is computed when the page loads (like the menu count); it changes on Refresh or reload.
+- The Indonesian texts are the agent's and await the owner's review.
+- Not tested: a real keyboard and a screen reader.
+
+### Decisions
+Recorded in README.md under "Dashboard and read-only request page".
+- From the owner: the numbers per role and their links, the read-only page for HR Admin and related Approvers, evidence only for the requester and deciders ([ASSUMPTION] from the owner).
+- Agent's choices: "remaining" on the dashboard is My requests' "available" (entitlement − used − pending), with the pending days shown under it; "last decided" is approved or rejected by `decided_at`; the "without supervisor" count follows `users.view`, the permission of the list it links to; a user who may view a row but decide it opens the existing Approvals page, not the read-only one; the read-only page shows the reason and decision note, like Approvals, but not the evidence file name to viewers.
+
+### Owner steps
+- Decide whether to run the Symfony patch update (`composer update "symfony/*"` to 8.1.11, then the full suite).
+- Review the new Indonesian texts. Nothing else: the migration was run on `hr_system` in this phase.
