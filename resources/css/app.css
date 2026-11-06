@@ -129,6 +129,11 @@
         outline-offset: 2px;
     }
 
+    /* Alpine parts hidden until Alpine starts. */
+    [x-cloak] {
+        display: none !important;
+    }
+
     /* Prevent focus zoom on phones. */
     @media screen and (max-width: 767px) {
         input,

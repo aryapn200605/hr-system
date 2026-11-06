@@ -3,6 +3,7 @@
 namespace App\Livewire\Approvals;
 
 use App\Enums\RequestStatus;
+use App\Livewire\Concerns\HasArrayFilters;
 use App\Models\LeaveRequest;
 use App\Models\OvertimeRequest;
 use App\Services\Requests\Deciders;
@@ -19,6 +20,7 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
+    use HasArrayFilters;
     use WithPagination;
 
     private const PER_PAGE = 15;
@@ -30,8 +32,9 @@ class Index extends Component
     #[Url(except: 'waiting')]
     public string $tab = 'waiting';
 
-    #[Url(except: '')]
-    public string $type = '';
+    /** @var list<string> request types; any of them */
+    #[Url(except: [])]
+    public array $type = [];
 
     /**
      * Check the permission on every request, because route middleware does not run for Livewire updates.
@@ -41,12 +44,17 @@ class Index extends Component
         $this->authorize('decideAny', LeaveRequest::class);
     }
 
+    protected function arrayFilters(): array
+    {
+        return ['type' => 'type'];
+    }
+
     /**
-     * Refuse anything but a plain string for a property.
+     * Refuse anything but a plain string for a property, or a list of strings for the type filter.
      */
     public function updating(string $name, mixed $value): void
     {
-        abort_if(str_contains($name, '.') || ! is_string($value), 422);
+        abort_unless($this->arrayFilterUpdate($name, $value) ?? (! str_contains($name, '.') && is_string($value)), 422);
     }
 
     public function updated(): void
@@ -60,12 +68,11 @@ class Index extends Component
     public function render(): mixed
     {
         $tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'waiting';
-        $type = in_array($this->type, self::TYPES, true) ? $this->type : '';
+        $this->type = $this->keepOffered($this->type, self::TYPES);
 
         return view('livewire.approvals.index', [
             'shownTab' => $tab,
-            'shownType' => $type,
-            'rows' => $this->rows($tab, $type),
+            'rows' => $this->rows($tab, $this->type),
         ])->title(__('Approvals'))->layoutData(['breadcrumbs' => [
             ['label' => __('Home'), 'href' => route('dashboard')],
             ['label' => __('Approvals')],
@@ -75,13 +82,16 @@ class Index extends Component
     /**
      * One page of both request tables, paginated together, with the models loaded.
      */
-    private function rows(string $tab, string $type): LengthAwarePaginator
+    /**
+     * @param  list<string>  $types  none for both
+     */
+    private function rows(string $tab, array $types): LengthAwarePaginator
     {
         $user = Auth::user();
         $parts = [];
 
         foreach ([LeaveRequest::class => 'leave', OvertimeRequest::class => 'overtime'] as $model => $name) {
-            if ($type !== '' && $type !== $name) {
+            if ($types !== [] && ! in_array($name, $types, true)) {
                 continue;
             }
 

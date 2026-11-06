@@ -10,14 +10,21 @@ use App\Models\User;
 use App\Services\SupervisorGuard;
 use App\Services\Supervisors;
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Renderless;
 use Livewire\Component;
 
 class Show extends Component
 {
+    /**
+     * Most Approvers one supervisor search returns.
+     */
+    public const SEARCH_LIMIT = 20;
+
     #[Locked]
     public int $userId;
 
@@ -155,6 +162,42 @@ class Show extends Component
     }
 
     /**
+     * The supervisor search of the add dialog: at most SEARCH_LIMIT active Approvers who do not supervise
+     * this user yet. Only for whoever may manage this user's supervisors.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    #[Renderless]
+    public function searchCandidates(mixed $term = ''): array
+    {
+        $user = $this->user();
+
+        $this->authorize('manageSupervisors', $user);
+
+        return $this->approverOptions($this->candidates($user), $term);
+    }
+
+    /**
+     * The new-supervisor search of the move dialog: at most SEARCH_LIMIT active Approvers but this user.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    #[Renderless]
+    public function searchTargets(mixed $term = ''): array
+    {
+        $user = $this->user();
+
+        $this->authorize('manageSupervisors', $user);
+
+        // Only an Approver has subordinates to move.
+        if ($user->roleName() !== RoleName::Approver->value) {
+            return [];
+        }
+
+        return $this->approverOptions(User::query()->activeApprover()->whereKeyNot($user->getKey()), $term);
+    }
+
+    /**
      * Render the component.
      */
     public function render(): mixed
@@ -167,12 +210,10 @@ class Show extends Component
         $counted = app(SupervisorGuard::class)->activeSupervisors()->where('su.subordinate_id', $user->getKey())->pluck('su.supervisor_id')->map(fn ($id) => (int) $id)->all();
 
         $canManage = $actor->can('manageSupervisors', $user);
-        $candidates = $canManage
-            ? User::query()->activeApprover()->whereKeyNot($user->getKey())->whereNotIn('id', $supervisors->modelKeys())->orderBy('name')->get(['id', 'name', 'username'])
-            : collect();
-        $targets = $canManage && $user->roleName() === RoleName::Approver->value
-            ? User::query()->activeApprover()->whereKeyNot($user->getKey())->orderBy('name')->get(['id', 'name', 'username'])
-            : collect();
+        // The lists themselves are searched on the server (searchCandidates, searchTargets); the page only
+        // needs to know whether there is anyone to choose, and the name of a choice already made.
+        $hasCandidates = $canManage && $this->candidates($user)->exists();
+        $chosen = $canManage ? array_filter([$this->supervisor, $this->target], fn (string $id) => ctype_digit($id)) : [];
 
         return view('livewire.users.show', [
             'user' => $user,
@@ -182,8 +223,9 @@ class Show extends Component
             'missingSupervisor' => $user->lacksSupervisor(),
             'canUpdate' => $actor->can('update', $user),
             'canManage' => $canManage,
-            'candidates' => $candidates,
-            'targets' => $targets,
+            'hasCandidates' => $hasCandidates,
+            'approverLabels' => $chosen === [] ? [] : User::query()->activeApprover()->whereKey($chosen)->get(['id', 'name', 'username'])
+                ->mapWithKeys(fn (User $approver) => [(string) $approver->getKey() => $approver->name.' ('.$approver->username.')'])->all(),
             'departments' => Department::query()
                 ->where(fn ($query) => $query->where('is_active', true)->orWhere('id', $user->department_id))
                 ->orderBy('name')
@@ -200,6 +242,38 @@ class Show extends Component
     private function user(): User
     {
         return User::query()->findOrFail($this->userId);
+    }
+
+    /**
+     * Active Approvers who may be added as this user's supervisor: not the user, not a supervisor already.
+     *
+     * @return Builder<User>
+     */
+    private function candidates(User $user): Builder
+    {
+        return User::query()->activeApprover()
+            ->whereKeyNot($user->getKey())
+            ->whereNotIn('users.id', $user->supervisors()->select('users.id'));
+    }
+
+    /**
+     * Approvers matching a search term by name or username, as select options.
+     *
+     * @param  Builder<User>  $query
+     * @return list<array{value: string, label: string}>
+     */
+    private function approverOptions(Builder $query, mixed $term): array
+    {
+        $term = is_string($term) ? trim(mb_substr($term, 0, 100)) : '';
+        $pattern = '%'.addcslashes($term, '\\%_').'%';
+
+        return $query
+            ->when($term !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query->where('name', 'like', $pattern)->orWhere('username', 'like', $pattern)))
+            ->orderBy('name')->orderBy('id')
+            ->limit(self::SEARCH_LIMIT)
+            ->get(['id', 'name', 'username'])
+            ->map(fn (User $approver) => ['value' => (string) $approver->getKey(), 'label' => $approver->name.' ('.$approver->username.')'])
+            ->all();
     }
 
     /**

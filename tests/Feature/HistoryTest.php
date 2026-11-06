@@ -37,7 +37,8 @@ class HistoryTest extends TestCase
         $component = Livewire::actingAs($user)->test(Index::class);
 
         foreach ($filters as $name => $value) {
-            $component->set($name, $value);
+            // Since Phase 15b these filters hold lists; one value is a list of one.
+            $component->set($name, in_array($name, ['employee', 'department', 'type', 'category', 'status'], true) ? [$value] : $value);
         }
 
         return $component->viewData('rows')->getCollection()->map(fn ($row) => $row->type.'-'.$row->id)->all();
@@ -118,21 +119,21 @@ class HistoryTest extends TestCase
 
     public function test_a_forged_employee_filter_cannot_widen_what_an_employee_sees(): void
     {
-        $component = Livewire::actingAs($this->eko)->test(Index::class)->set('employee', (string) $this->rina->id);
+        $component = Livewire::actingAs($this->eko)->test(Index::class)->set('employee', [(string) $this->rina->id]);
 
         $this->assertSame([], $component->viewData('rows')->getCollection()->all());
         $component->assertDontSee('Rina Employee')->assertDontSeeHtml('id="filter-employee"')->assertDontSeeHtml('id="filter-department"');
         $this->assertFalse($component->viewData('seesOthers'));
 
         // An Approver is offered only the people they may see.
-        $this->assertSame(['Eko Employee', 'Siti Supervisor'], Livewire::actingAs($this->siti)->test(Index::class)->viewData('employees')->pluck('name')->all());
+        $this->assertSame(['Eko Employee', 'Siti Supervisor'], array_column(Livewire::actingAs($this->siti)->test(Index::class)->call('searchEmployees', '')->effects['returns'][0], 'label'));
 
         $this->assertSame([], $this->shown($this->siti, ['employee' => (string) $this->rina->id]));
     }
 
     public function test_anything_but_a_string_is_refused(): void
     {
-        Livewire::actingAs($this->hana)->test(Index::class)->set('employee', ['x'])->assertStatus(422);
+        Livewire::actingAs($this->hana)->test(Index::class)->set('employee', 'x')->assertStatus(422);
         Livewire::actingAs($this->hana)->test(Index::class)->set('from', ['2026-11-01'])->assertStatus(422);
     }
 
@@ -146,11 +147,11 @@ class HistoryTest extends TestCase
 
         // The page switches to leave for any category; a malformed one then filters nothing more.
         $this->assertSame($this->shown($this->hana, ['type' => 'leave']), $this->shown($this->hana, ['category' => "annual'"]));
-        $this->assertNull(ReportFilters::from(['category' => "annual' OR 1"])->category);
-        $this->assertNull(ReportFilters::from(['employee' => '99999999999999999999'])->employee);
+        $this->assertSame([], ReportFilters::from(['category' => "annual' OR 1"])->categories);
+        $this->assertSame([], ReportFilters::from(['employee' => '99999999999999999999'])->employees);
         // A day that does not exist would roll over (31 November is 1 December) and hide November.
         $this->assertNull(ReportFilters::from(['from' => '2026-11-31'])->from);
-        $this->assertNull(ReportFilters::from(['type' => 'payroll'])->type);
+        $this->assertSame([], ReportFilters::from(['type' => 'payroll'])->types);
     }
 
     public function test_filters_by_employee_department_type_category_and_status(): void
@@ -168,10 +169,10 @@ class HistoryTest extends TestCase
 
     public function test_a_category_selects_leave_and_overtime_clears_the_category(): void
     {
-        $component = Livewire::actingAs($this->hana)->test(Index::class)->set('category', 'annual');
-        $component->assertSet('type', 'leave');
+        $component = Livewire::actingAs($this->hana)->test(Index::class)->set('category', ['annual']);
+        $component->assertSet('type', ['leave']);
 
-        $component->set('type', 'overtime')->assertSet('category', '');
+        $component->set('type', ['overtime'])->assertSet('category', []);
         $this->assertSame($this->keys(['siti-overtime', 'eko-overtime']), $component->viewData('rows')->getCollection()->map(fn ($row) => $row->type.'-'.$row->id)->all());
     }
 
@@ -303,7 +304,7 @@ class HistoryTest extends TestCase
             Livewire::actingAs($this->hana)->test(Index::class);
             DB::flushQueryLog();
             DB::enableQueryLog();
-            Livewire::actingAs($this->hana)->test(Index::class)->set('status', '');
+            Livewire::actingAs($this->hana)->test(Index::class)->set('status', []);
             $count = count(DB::getQueryLog());
             DB::disableQueryLog();
 

@@ -41,12 +41,8 @@
             </div>
 
             <div class="sm:w-56">
-                <x-ui.select :label="__('Status')" id="filter-status" wire:model.live="statusFilter">
-                    <option value="">{{ __('All statuses') }}</option>
-                    @foreach ($statuses as $option)
-                        <option value="{{ $option->value }}">{{ $option->label() }}</option>
-                    @endforeach
-                </x-ui.select>
+                <x-ui.select :label="__('Status')" id="filter-status" wire:model.live="statusFilter"
+                    :options="collect(['' => __('All statuses')])->merge(collect($statuses)->mapWithKeys(fn ($option) => [$option->value => $option->label()]))->all()" />
             </div>
         </div>
 
@@ -118,15 +114,13 @@
                 <x-ui.alert tone="danger" data-request-error>{{ $message }}</x-ui.alert>
             @enderror
 
-            <x-ui.select :label="__('Category')" id="leave-category" wire:model="category">
-                @foreach ($categories as $option)
-                    <option value="{{ $option->code }}">{{ $option->label() }}{{ $option->deducts_balance ? ' · '.__('uses leave balance') : '' }}</option>
-                @endforeach
-            </x-ui.select>
+            <x-ui.select :label="__('Category')" id="leave-category" wire:model="category"
+                :options="$categories->map(fn ($option) => ['value' => $option->code, 'label' => $option->label(), 'hint' => $option->deducts_balance ? __('uses leave balance') : null])->all()" />
 
+            {{-- Today and the earliest date come from the server (WIB). Weekends and holidays are greyed out. --}}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <x-ui.input :label="__('Start date')" id="leave-starts-on" type="date" min="{{ today()->toDateString() }}" wire:model="starts_on" />
-                <x-ui.input :label="__('End date')" id="leave-ends-on" type="date" min="{{ today()->toDateString() }}" wire:model="ends_on" />
+                <x-ui.date-picker :label="__('Start date')" id="leave-starts-on" :min="today()->toDateString()" disable-weekends :disabled-dates="$holidays" wire:model="starts_on" />
+                <x-ui.date-picker :label="__('End date')" id="leave-ends-on" :min="today()->toDateString()" disable-weekends :disabled-dates="$holidays" wire:model="ends_on" />
             </div>
             <p class="text-sm text-slate-600">{{ __('Only working days count: Monday to Friday, without holidays. The count is fixed when you submit.') }}</p>
 
@@ -147,19 +141,9 @@
                 <x-ui.alert tone="danger" data-request-error>{{ $message }}</x-ui.alert>
             @enderror
 
-            <div class="grid grid-cols-2 gap-4">
-                <x-ui.input :label="__('Start date')" id="overtime-start-date" type="date" min="{{ today()->toDateString() }}" wire:model="start_date" />
-                <x-ui.select :label="__('Start time')" id="overtime-start-hour" wire:model="start_hour">
-                    @foreach ($hours as $hour)
-                        <option value="{{ $hour }}">{{ $hour }}</option>
-                    @endforeach
-                </x-ui.select>
-                <x-ui.input :label="__('End date')" id="overtime-end-date" type="date" min="{{ today()->toDateString() }}" wire:model="end_date" />
-                <x-ui.select :label="__('End time')" id="overtime-end-hour" wire:model="end_hour">
-                    @foreach ($hours as $hour)
-                        <option value="{{ $hour }}">{{ $hour }}</option>
-                    @endforeach
-                </x-ui.select>
+            <div class="space-y-4">
+                <x-ui.date-hour :legend="__('Start')" id="overtime-start" date="start_date" hour="start_hour" :date-label="__('Start date')" :hour-label="__('Start time')" :min="today()->toDateString()" />
+                <x-ui.date-hour :legend="__('End')" id="overtime-end" date="end_date" hour="end_hour" :date-label="__('End date')" :hour-label="__('End time')" :min="today()->toDateString()" />
             </div>
             <p class="text-sm text-slate-600">{{ __('Whole hours in WIB, at most :count hours. The end may be on the next day.', ['count' => $maxHours]) }}</p>
 

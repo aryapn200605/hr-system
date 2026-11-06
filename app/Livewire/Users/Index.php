@@ -8,6 +8,7 @@ use App\Actions\UpdateUser;
 use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Exceptions\AccountProtectionException;
+use App\Livewire\Concerns\HasArrayFilters;
 use App\Models\User;
 use App\Policies\UserPolicy;
 use App\Services\Requests\SuspensionRejections;
@@ -24,6 +25,7 @@ use Livewire\WithPagination;
 
 class Index extends Component
 {
+    use HasArrayFilters;
     use WithPagination;
 
     private const PER_PAGE_OPTIONS = ['10', '25', '50'];
@@ -42,11 +44,13 @@ class Index extends Component
     #[Url(except: '')]
     public string $search = '';
 
-    #[Url(as: 'role', except: '')]
-    public string $roleFilter = '';
+    /** @var list<string> role names; any of them */
+    #[Url(as: 'role', except: [])]
+    public array $roleFilter = [];
 
-    #[Url(as: 'status', except: '')]
-    public string $statusFilter = '';
+    /** @var list<string> statuses; any of them */
+    #[Url(as: 'status', except: [])]
+    public array $statusFilter = [];
 
     #[Url(as: 'supervisor', except: '')]
     public string $supervisorFilter = '';
@@ -104,13 +108,18 @@ class Index extends Component
         $this->authorize('viewAny', User::class);
     }
 
+    protected function arrayFilters(): array
+    {
+        return ['roleFilter' => 'role', 'statusFilter' => 'status'];
+    }
+
     /**
-     * Refuse anything but a plain string for a property. Every property a form
-     * can change is one, so anything else is a forged request.
+     * Refuse anything but a plain string for a property, or a list of strings for the role and status
+     * filters. A form never sends anything else, so anything else is a forged request.
      */
     public function updating(string $name, mixed $value): void
     {
-        abort_if(str_contains($name, '.') || ! is_string($value), 422);
+        abort_unless($this->arrayFilterUpdate($name, $value) ?? (! str_contains($name, '.') && is_string($value)), 422);
     }
 
     /**
@@ -118,7 +127,7 @@ class Index extends Component
      */
     public function updated(string $name): void
     {
-        if (in_array($name, self::FILTERS, true)) {
+        if (in_array(explode('.', $name)[0], self::FILTERS, true)) {
             $this->resetPage();
         }
     }
@@ -269,13 +278,8 @@ class Index extends Component
         // mb_substr() also replaces invalid UTF-8, which would otherwise break the query and the snapshot.
         $this->search = mb_substr($this->search, 0, self::SEARCH_MAX_LENGTH);
 
-        if (! RoleName::tryFrom($this->roleFilter)) {
-            $this->roleFilter = '';
-        }
-
-        if (! UserStatus::tryFrom($this->statusFilter)) {
-            $this->statusFilter = '';
-        }
+        $this->roleFilter = $this->keepOffered($this->roleFilter, array_column(RoleName::cases(), 'value'));
+        $this->statusFilter = $this->keepOffered($this->statusFilter, array_column(UserStatus::cases(), 'value'));
 
         if ($this->supervisorFilter !== self::NO_SUPERVISOR) {
             $this->supervisorFilter = '';
@@ -311,11 +315,11 @@ class Index extends Component
                     }
                 });
             })
-            ->when($this->roleFilter !== '', fn (Builder $query) => $query->whereHas(
+            ->when($this->roleFilter !== [], fn (Builder $query) => $query->whereHas(
                 'roles',
-                fn (Builder $roles) => $roles->where('name', $this->roleFilter),
+                fn (Builder $roles) => $roles->whereIn('name', $this->roleFilter),
             ))
-            ->when($this->statusFilter !== '', fn (Builder $query) => $query->where('status', $this->statusFilter))
+            ->when($this->statusFilter !== [], fn (Builder $query) => $query->whereIn('status', $this->statusFilter))
             ->when($this->supervisorFilter === self::NO_SUPERVISOR, fn (Builder $query) => $query->lackingSupervisor())
             ->orderByDesc('id')
             ->paginate((int) $this->perPage);

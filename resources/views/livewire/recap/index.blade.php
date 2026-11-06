@@ -19,46 +19,28 @@
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {{-- Several values in one filter: any of them; several filters: all of them. --}}
                 @if ($shownTab === 'balance' && $seesOthers)
-                    <x-ui.select :label="__('Employee')" id="filter-employee" wire:model.live="employee">
-                        <option value="">{{ __('All employees') }}</option>
-                        @foreach ($employees as $option)
-                            <option value="{{ $option->id }}">{{ $option->name }}</option>
-                        @endforeach
-                    </x-ui.select>
+                    <x-ui.select :label="__('Employee')" id="filter-employee" multiple remote="searchEmployees" :labels="$employeeLabels" :placeholder="__('All employees')" wire:model.live="employee" />
                 @endif
 
                 @if ($seesOthers)
-                    <x-ui.select :label="__('Department')" id="filter-department" wire:model.live="department">
-                        <option value="">{{ __('All departments') }}</option>
-                        @foreach ($departments as $option)
-                            <option value="{{ $option->id }}">{{ $option->name }}</option>
-                        @endforeach
-                        <option value="{{ \App\Services\Reports\ReportFilters::NO_DEPARTMENT }}">{{ __('No department') }}</option>
-                    </x-ui.select>
+                    <x-ui.select :label="__('Department')" id="filter-department" multiple :placeholder="__('All departments')" wire:model.live="department"
+                        :options="$departments->mapWithKeys(fn ($option) => [$option->id => $option->name])->put(\App\Services\Reports\ReportFilters::NO_DEPARTMENT, __('No department'))->all()" />
                 @endif
 
                 @if ($shownTab === 'balance')
-                    <x-ui.select :label="__('Periods')" id="filter-periods" wire:model.live="periods">
-                        <option value="">{{ __('Current and next period') }}</option>
-                        <option value="all">{{ __('All periods') }}</option>
-                    </x-ui.select>
+                    <x-ui.select :label="__('Periods')" id="filter-periods" wire:model.live="periods"
+                        :options="['' => __('Current and next period'), 'all' => __('All periods')]" />
                 @else
                     {{-- The empty value is the default: this year, and Approved requests only. --}}
-                    <x-ui.select :label="__('Year')" id="filter-year" wire:model.live="year">
-                        @foreach ($years as $option)
-                            <option value="{{ $option === $thisYear ? '' : $option }}">{{ $option }}</option>
-                        @endforeach
-                    </x-ui.select>
+                    <x-ui.select :label="__('Year')" id="filter-year" wire:model.live="year"
+                        :options="collect($years)->mapWithKeys(fn ($option) => [$option === $thisYear ? '' : (string) $option => (string) $option])->all()" />
 
-                    <x-ui.select :label="__('Status')" id="filter-status" wire:model.live="status">
-                        <option value="">{{ \App\Enums\RequestStatus::Approved->label() }}</option>
-                        @foreach ($statuses as $option)
-                            @continue($option === \App\Enums\RequestStatus::Approved)
-                            <option value="{{ $option->value }}">{{ $option->label() }}</option>
-                        @endforeach
-                        <option value="{{ \App\Services\Reports\ReportFilters::ALL_STATUSES }}">{{ __('All statuses') }}</option>
-                    </x-ui.select>
+                    <x-ui.select :label="__('Status')" id="filter-status" wire:model.live="status"
+                        :options="collect(['' => \App\Enums\RequestStatus::Approved->label()])
+                            ->merge(collect($statuses)->reject(fn ($option) => $option === \App\Enums\RequestStatus::Approved)->mapWithKeys(fn ($option) => [$option->value => $option->label()]))
+                            ->put(\App\Services\Reports\ReportFilters::ALL_STATUSES, __('All statuses'))->all()" />
                 @endif
             </div>
         </div>

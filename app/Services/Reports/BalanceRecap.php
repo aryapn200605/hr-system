@@ -28,8 +28,9 @@ class BalanceRecap
      */
     public function users(User $actor, ReportFilters $filters): Builder
     {
-        $query = User::query()->with('department:id,name')
-            ->when($filters->employee, fn (Builder $query, int $id) => $query->whereKey($id));
+        $query = User::query()->with('department:id,name');
+
+        $filters->applyEmployees($query, 'users.id');
 
         $filters->applyDepartment($query, 'users.department_id');
 

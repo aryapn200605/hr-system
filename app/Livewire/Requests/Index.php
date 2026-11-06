@@ -3,6 +3,7 @@
 namespace App\Livewire\Requests;
 
 use App\Enums\RequestStatus;
+use App\Models\Holiday;
 use App\Models\LeaveCategory;
 use App\Models\LeaveRequest;
 use App\Models\OvertimeRequest;
@@ -176,8 +177,15 @@ class Index extends Component
             'categories' => LeaveCategory::query()->active()->orderBy('id')->get(),
             'periods' => app(LeaveRequests::class)->slots($user),
             'problem' => app(ApprovalPath::class)->problem($user),
-            'hours' => array_map(fn (int $hour) => sprintf('%02d:00', $hour), range(0, 23)),
             'maxHours' => OvertimeRequests::MAX_HOURS,
+            // The leave date pickers grey out holidays (and weekends): neither is a working day. Validation
+            // on the server is unchanged.
+            'holidays' => Holiday::query()
+                ->whereBetween('date', [today()->toDateString(), today()->addYears(2)->toDateString()])
+                ->orderBy('date')
+                ->pluck('date')
+                ->map(fn ($date) => $date->toDateString())
+                ->all(),
         ])->title(__('My requests'))->layoutData(['breadcrumbs' => [
             ['label' => __('Home'), 'href' => route('dashboard')],
             ['label' => __('My requests')],

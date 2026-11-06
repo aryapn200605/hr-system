@@ -3,6 +3,7 @@
 namespace App\Livewire\Recap;
 
 use App\Enums\RequestStatus;
+use App\Livewire\Concerns\HasArrayFilters;
 use App\Models\Department;
 use App\Models\LeaveRequest;
 use App\Services\Reports\BalanceRecap;
@@ -10,6 +11,7 @@ use App\Services\Reports\DepartmentRecap;
 use App\Services\Reports\ReportFilters;
 use App\Services\Reports\Visibility;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -20,9 +22,15 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
+    use HasArrayFilters;
     use WithPagination;
 
     public const PER_PAGE = 25;
+
+    /**
+     * Most people one employee search returns.
+     */
+    public const SEARCH_LIMIT = 20;
 
     public const BALANCE_FILTERS = ['employee', 'department', 'periods'];
 
@@ -33,11 +41,13 @@ class Index extends Component
     #[Url(except: 'balance')]
     public string $tab = 'balance';
 
-    #[Url(except: '')]
-    public string $employee = '';
+    /** @var list<string> user IDs */
+    #[Url(except: [])]
+    public array $employee = [];
 
-    #[Url(except: '')]
-    public string $department = '';
+    /** @var list<string> department IDs and ReportFilters::NO_DEPARTMENT */
+    #[Url(except: [])]
+    public array $department = [];
 
     #[Url(except: '')]
     public string $periods = '';
@@ -56,17 +66,33 @@ class Index extends Component
         $this->authorize('viewHistory', LeaveRequest::class);
     }
 
+    protected function arrayFilters(): array
+    {
+        return ['employee' => 'employee', 'department' => 'department'];
+    }
+
     /**
-     * Refuse anything but a plain string for a property.
+     * Refuse anything but a plain string for a property, or a list of strings for a filter with several values.
      */
     public function updating(string $name, mixed $value): void
     {
-        abort_if(str_contains($name, '.') || ! is_string($value), 422);
+        abort_unless($this->arrayFilterUpdate($name, $value) ?? (! str_contains($name, '.') && is_string($value)), 422);
     }
 
     public function updated(): void
     {
         $this->resetPage();
+    }
+
+    /**
+     * The employee filter's server search (App\Services\Reports\Visibility::search()).
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    #[Renderless]
+    public function searchEmployees(mixed $term = ''): array
+    {
+        return app(Visibility::class)->search(Auth::user(), is_string($term) ? $term : '', self::SEARCH_LIMIT);
     }
 
     /**
@@ -78,11 +104,16 @@ class Index extends Component
         $visibility = app(Visibility::class);
         $tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'balance';
         $seesOthers = $visibility->seesOthers($user);
+        $departments = $seesOthers ? Department::query()->orderBy('name')->get(['id', 'name']) : collect();
+
+        // Values the page does not offer are dropped; employee IDs are only checked for their shape.
+        $this->employee = $this->keepIds($this->employee);
+        $this->department = $this->keepOffered($this->department, [...$departments->pluck('id')->all(), ReportFilters::NO_DEPARTMENT]);
 
         $data = [
             'shownTab' => $tab,
             'seesOthers' => $seesOthers,
-            'departments' => $seesOthers ? Department::query()->orderBy('name')->get(['id', 'name']) : collect(),
+            'departments' => $departments,
         ];
 
         // Each tab reads only its own filters, so a filter set on the other tab never narrows this one unseen.
@@ -95,7 +126,8 @@ class Index extends Component
             $data += [
                 'users' => $users,
                 'lines' => $recap->lines($users->getCollection(), $filters->allPeriods),
-                'employees' => $seesOthers ? $visibility->users($user) : collect(),
+                // Only the names of the chosen people the user may see; the rest come from searchEmployees().
+                'employeeLabels' => $seesOthers ? $visibility->names($user, $filters->employees) : [],
                 'exportUrl' => route('recap.balance.export', $filters->only(self::BALANCE_FILTERS)),
             ];
         } else {

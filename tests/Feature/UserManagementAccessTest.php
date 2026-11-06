@@ -487,13 +487,13 @@ class UserManagementAccessTest extends TestCase
     {
         $html = Livewire::actingAs($this->limitedManager())->test(Index::class)->html();
 
-        // The filter lists every role, and the two dialogs list only what can be given.
-        $this->assertSame(1, substr_count($html, '<option value="'.RoleName::HrAdmin->value.'"'));
-        $this->assertSame(3, substr_count($html, '<option value="'.RoleName::Employee->value.'"'));
+        // The filter lists every role, and the two dialogs list only what can be given. Options are JSON in data-options since Phase 15b.
+        $this->assertSame(1, substr_count($html, '&quot;value&quot;:&quot;'.RoleName::HrAdmin->value.'&quot;'));
+        $this->assertSame(3, substr_count($html, '&quot;value&quot;:&quot;'.RoleName::Employee->value.'&quot;'));
 
         $adminHtml = Livewire::actingAs($this->admin)->test(Index::class)->html();
 
-        $this->assertSame(3, substr_count($adminHtml, '<option value="'.RoleName::HrAdmin->value.'"'));
+        $this->assertSame(3, substr_count($adminHtml, '&quot;value&quot;:&quot;'.RoleName::HrAdmin->value.'&quot;'));
     }
 
     public function test_an_account_with_more_power_than_the_actor_cannot_be_touched(): void

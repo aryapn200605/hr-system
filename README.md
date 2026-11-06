@@ -385,7 +385,7 @@ Rincian dan alasan setiap aturan ada di [DECISIONS.md](DECISIONS.md) (nomor bagi
 - **Suspend menolak otomatis** semua pengajuan menunggu milik pengguna itu, tercatat "System" sebagai pemutus, tanpa email. Reaktivasi tidak memulihkannya.
 
 **Riwayat, rekap, ekspor**
-- Riwayat (`/history`): milik sendiri; Approver juga bawahannya; HR Admin semua. Filter karyawan, departemen, jenis, kategori, status, rentang tanggal.
+- Riwayat (`/history`): milik sendiri; Approver juga bawahannya; HR Admin semua. Filter karyawan, departemen, jenis, kategori, status, rentang tanggal. Sejak 15b filter karyawan, departemen, jenis, kategori, dan status bisa berisi beberapa nilai (multi-select): nilai dalam satu filter berarti "salah satu", antar-filter berarti "semuanya". Hal yang sama berlaku untuk filter peran dan status di Users, jenis di Persetujuan, serta karyawan dan departemen di Rekap. Nama karyawan dicari di server (paling banyak 20 hasil, hanya orang yang boleh dilihat). Tautan lama dengan satu nilai (misalnya `?status=approved`) tetap berfungsi.
 - Rekap (`/recap`): saldo per karyawan per periode, dan jumlah pengajuan per departemen per bulan (default hanya yang disetujui).
 - Ekspor CSV: baris yang sama dengan halaman, UTF-8 dengan BOM, waktu WIB, terlindung dari formula injection. **Tidak pernah** berisi alasan, catatan, bukti, username, atau email. Maksimal 10 ekspor per menit.
 
@@ -466,7 +466,7 @@ Perintah Laravel lain yang sering dipakai: `migrate:status`, `migrate`, `db:seed
   2. Salin `database/translations/id.php` menjadi `ms.php`, terjemahkan, lalu jalankan `php artisan db:seed --class=TranslationSeeder --force`.
   3. Aktifkan: `App\Models\Language::whereKey('ms')->update(['is_active' => true]);`, lalu `php artisan app:translations-missing` harus tidak melaporkan apa pun.
 - **Memeriksa kunci yang hilang:** `php artisan app:translations-missing` (juga dijalankan oleh tes `LanguageTest`).
-- **Teks Phase 15 (cabang `ui-redesign`):** 24 teks baru (menu sidebar berkelompok, tombol lipat sidebar, menu akun, galeri komponen) ada di `en.php` dan `id.php`, tetapi **tanpa migrasi** (Phase 15 tidak memakai migrasi database). Di database yang sudah berjalan, teks itu tampil dalam bahasa Inggris sampai pemilik menjalankan `php artisan db:seed --class=TranslationSeeder --force` (hanya menyisipkan yang belum ada) setelah backup. Database tes dan instalasi baru sudah otomatis lengkap.
+- **Teks Phase 15 (cabang `ui-redesign`):** 24 teks dari 15a (menu sidebar berkelompok, tombol lipat sidebar, menu akun, galeri komponen) dan teks komponen formulir 15b ("Cari…", "Tidak ada hasil.", ":count dipilih", nama tombol kalender, dan seterusnya) dimuat oleh migrasi `2026_11_13_100000_load_redesign_texts`, yang menjalankan `TranslationSeeder`. Cukup `php artisan migrate` (setelah backup); perintah seeder manual dari 15a tidak diperlukan lagi.
 - Istilah baku Indonesia (misalnya pengajuan, atasan, saldo cuti) ada di [docs/TECHNICAL-DECISIONS.md, "Standard Indonesian terms"](docs/TECHNICAL-DECISIONS.md#standard-indonesian-terms). Teks Indonesia masih menunggu tinjauan pemilik.
 
 ## 11. Pengujian
@@ -489,7 +489,7 @@ php artisan config:clear
 php artisan test
 ```
 
-Hasil terakhir yang tercatat (Phase 15a, cabang `ui-redesign`): 1163 tes lulus. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
+Hasil terakhir yang tercatat (Phase 15b, cabang `ui-redesign`): 1186 tes lulus. Tes race kadang menolak satu putaran dengan pesan "a competitor started late, so this run proved nothing" bila komputer sedang sibuk; jalankan ulang tes itu saja. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
 
 **Satu berkas atau satu kelompok tes:**
 
@@ -509,7 +509,17 @@ php artisan test --filter=ConcurrencyTest
 
 **Pemeriksa tata letak (Phase 15).** `layout.mjs` di folder yang sama membuka setiap rute yang memerlukan login pada lebar 375, 768, 1024, 1280, dan 1920px dan memeriksa: tidak ada scroll horizontal, margin kiri dan kanan wadah halaman sama, tidak ada elemen keluar layar, tidak ada galat konsol, tombol tidak tertutup elemen tetap, dan kontras teks (di 1280px). Urutannya: `php p15-setup.php p15-setup.json`, `node layout.mjs p15-setup.json activate`, `php p15-setup.php seed p15-setup.json`, lalu `node layout.mjs p15-setup.json after collapsed` dan `node p15-interactions.mjs p15-setup.json`; terakhir `php p15-cleanup.php`. Screenshot masuk ke `design/screens/<label>/` di proyek (diabaikan Git). `contrast.mjs` menghitung kontras WCAG dari nilai warna token.
 
-**Galeri komponen.** Saat `APP_ENV=local`, http://hr-system.test/ui-kit (setelah login) menampilkan semua komponen dasar dalam variannya. Di lingkungan lain alamat ini 404.
+**Galeri komponen.** Saat `APP_ENV=local`, http://hr-system.test/ui-kit (setelah login) menampilkan semua komponen dasar dalam variannya. Di lingkungan lain alamat ini 404. Sejak 15b galeri juga memuat komponen formulir: select biasa, select yang bisa dicari, multi-select dengan chip, date picker (tunggal dan rentang), pemilih jam, dan input OTP, masing-masing dalam formulir biasa (nilai yang dikirim ditampilkan di bawahnya) dan dengan Livewire (termasuk pencarian di server atas nama contoh, bukan pengguna).
+
+**Pemeriksaan komponen formulir (Phase 15b).** `p15b.mjs` di folder yang sama mengklik komponen sungguhan di 1024px dan 375px: buka-tutup, ketik untuk mencari, pilih dan hapus chip, keyboard, tanggal dan rentang, OTP (ketik, tempel, backspace, penuh), panel tidak terpotong, formulir pengajuan (tanpa mengirim), filter riwayat dan Users, tautan lama dengan satu nilai filter. Urutan: `php p15-setup.php p15b-setup.json`, `node p15b.mjs p15b-setup.json activate` (mengaktifkan akun lewat tautan undangan), `php p15-setup.php seed p15b-setup.json`, `node p15b.mjs p15b-setup.json`, lalu `php p15-cleanup.php` dan `php counts.php` untuk membandingkan jumlah baris. Screenshot masuk ke `design/screens/after/p15b/`. Uji mutasi 15b: `bash C:/laragon/tmp/browser-check/p15b-mutate.sh`.
+
+**Catatan Phase 15b (komponen formulir).**
+- Komponen: `x-ui.select` (biasa; bisa dicari bila lebih dari 8 pilihan; `multiple` dengan chip, "N dipilih", pilih semua dan bersihkan; `remote` untuk pencarian di server), `x-ui.date-picker` (tunggal atau rentang, minggu mulai Senin, nama bulan dan hari dari `Intl` sesuai bahasa, `min`/`max`, akhir pekan dan tanggal libur bisa dinonaktifkan, "hari ini" dari server dalam WIB, nilai `yyyy-mm-dd`), `x-ui.hour-select` (hanya 00:00 sampai 23:00), `x-ui.date-hour` (tanggal + jam untuk lembur), dan `x-ui.otp-input` (satu input asli dengan enam kotak tampilan, baru dipakai di galeri). Semua bekerja di formulir biasa (`name`) dan Livewire (`wire:model`). Tidak ada paket baru.
+- Filter menjadi array (beberapa nilai): nilai asing dibuang di server, bentuk data yang dipalsukan ditolak 422, tautan lama dengan satu nilai tetap berfungsi, ekspor CSV menerima daftar dan tetap hanya berisi yang boleh dilihat.
+- Daftar besar (karyawan, atasan) tidak pernah dimuat ke halaman: dicari di server lewat aksi Livewire `#[Renderless]` (paling banyak 20 hasil, hak akses dicek di server; Employee tidak mendapat daftar orang lain; pencarian atasan ditolak 403 tanpa izin mengelola atasan).
+- Panel pilihan dan kalender ditempatkan dengan `position: fixed` dari tombolnya (fungsi `float()` di `resources/js/ui.js`), naik ke atas bila ruang di bawah kurang, sehingga tidak terpotong kotak bergulir, dialog, atau tepi layar 375px.
+- Dua bug utama yang ditemukan pemeriksaan browser dan sudah diperbaiki: panel salah posisi setelah halaman digulir (plugin anchor Alpine), dan komponen ter-reset setiap pembaruan Livewire.
+- Teks baru dimuat migrasi `2026_11_13_100000_load_redesign_texts`, sudah dijalankan di `hr_system`. Hasil verifikasi dan hal yang belum terbukti (tempel dari clipboard asli, pembaca layar, Safari/Firefox) ada di PROGRESS.md bagian "Phase 15b".
 
 **Pemeriksaan lain sebelum commit:**
 

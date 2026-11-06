@@ -143,14 +143,10 @@
 
     <x-ui.modal name="employment-form" :title="__('Edit employment')">
         <form id="employment-form-fields" class="space-y-4" wire:submit="saveEmployment">
-            <x-ui.select :label="__('Department')" id="employment-department" wire:model="departmentId">
-                <option value="">{{ __('None') }}</option>
-                @foreach ($departments as $department)
-                    <option value="{{ $department->id }}">{{ $department->is_active ? $department->name : __(':name (inactive)', ['name' => $department->name]) }}</option>
-                @endforeach
-            </x-ui.select>
+            <x-ui.select :label="__('Department')" id="employment-department" wire:model="departmentId"
+                :options="collect(['' => __('None')])->union($departments->mapWithKeys(fn ($department) => [(string) $department->id => $department->is_active ? $department->name : __(':name (inactive)', ['name' => $department->name])]))->all()" />
 
-            <x-ui.input :label="__('Join date')" id="employment-join-date" type="date" min="{{ \App\Actions\UpdateEmployment::EARLIEST_JOIN_DATE }}" wire:model="joinDate" :hint="__('For information only. Leave periods follow the anchor date on the leave balance page.')" />
+            <x-ui.date-picker :label="__('Join date')" id="employment-join-date" :min="\App\Actions\UpdateEmployment::EARLIEST_JOIN_DATE" wire:model="joinDate" :hint="__('For information only. Leave periods follow the anchor date on the leave balance page.')" />
         </form>
 
         <x-slot:footer>
@@ -161,32 +157,23 @@
 
     <x-ui.modal name="supervisor-add" :title="__('Add supervisor')">
         <form id="supervisor-add-fields" class="space-y-4" wire:submit="addSupervisor">
-            @if ($candidates->isEmpty())
+            @if (! $hasCandidates)
                 <p>{{ __('There is no other active Approver to add.') }}</p>
             @else
-                <x-ui.select :label="__('Supervisor')" id="supervisor-choice" wire:model="supervisor" :hint="__('Only active Approvers can supervise.')">
-                    <option value="">{{ __('Choose a supervisor') }}</option>
-                    @foreach ($candidates as $candidate)
-                        <option value="{{ $candidate->id }}">{{ $candidate->name }} ({{ $candidate->username }})</option>
-                    @endforeach
-                </x-ui.select>
+                {{-- Searched on the server: the page never lists every Approver. --}}
+                <x-ui.select :label="__('Supervisor')" id="supervisor-choice" wire:model="supervisor" remote="searchCandidates" :labels="$approverLabels" :placeholder="__('Choose a supervisor')" :hint="__('Only active Approvers can supervise.')" />
             @endif
         </form>
 
         <x-slot:footer>
             <x-ui.button variant="secondary" x-on:click="open = false">{{ __('Cancel') }}</x-ui.button>
-            <x-ui.button type="submit" form="supervisor-add-fields" loading="addSupervisor" :disabled="$candidates->isEmpty()">{{ __('Add supervisor') }}</x-ui.button>
+            <x-ui.button type="submit" form="supervisor-add-fields" loading="addSupervisor" :disabled="! $hasCandidates">{{ __('Add supervisor') }}</x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
 
     <x-ui.modal name="subordinates-move" :title="__('Move subordinates')">
         <form id="subordinates-move-fields" class="space-y-4" wire:submit="moveSubordinates">
-            <x-ui.select :label="__('New supervisor')" id="move-target" wire:model="target">
-                <option value="">{{ __('Choose a supervisor') }}</option>
-                @foreach ($targets as $option)
-                    <option value="{{ $option->id }}">{{ $option->name }} ({{ $option->username }})</option>
-                @endforeach
-            </x-ui.select>
+            <x-ui.select :label="__('New supervisor')" id="move-target" wire:model="target" remote="searchTargets" :labels="$approverLabels" :placeholder="__('Choose a supervisor')" />
 
             <fieldset class="space-y-2">
                 <legend class="text-sm font-medium text-slate-800">{{ __('Who moves') }}</legend>

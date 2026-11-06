@@ -28,11 +28,8 @@
 
             <x-ui.card :title="__('Language')">
                 <form wire:submit="saveLocale" class="space-y-4 p-5">
-                    <x-ui.select :label="__('Interface language')" id="profile-locale" wire:model="locale" :hint="__('Pages and emails to you use this language.')">
-                        @foreach ($languages as $language)
-                            <option value="{{ $language->code }}" lang="{{ $language->code }}">{{ $language->native_name }}</option>
-                        @endforeach
-                    </x-ui.select>
+                    <x-ui.select :label="__('Interface language')" id="profile-locale" wire:model="locale" :hint="__('Pages and emails to you use this language.')"
+                        :options="$languages->map(fn ($language) => ['value' => $language->code, 'label' => $language->native_name, 'lang' => $language->code])->all()" />
 
                     <x-ui.button type="submit" loading="saveLocale">{{ __('Save language') }}</x-ui.button>
                 </form>

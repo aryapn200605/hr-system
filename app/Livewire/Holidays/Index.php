@@ -101,6 +101,8 @@ class Index extends Component
     {
         $years = $this->years();
         $year = in_array($this->year, $years, true) ? (int) $this->year : (int) now()->year;
+        // The year select shows the year in use, also when none or an unknown one was chosen.
+        $this->year = (string) $year;
 
         return view('livewire.holidays.index', [
             'years' => $years,

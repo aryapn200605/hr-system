@@ -55,11 +55,7 @@
                     <x-ui.input :label="__('Full name')" id="kit-name" name="kit-name" :placeholder="__('Full name')" />
                     <x-ui.input :label="__('Email')" id="kit-email" name="kit-email" type="email" :hint="__('Work address')" />
                     <x-ui.input :label="__('Username')" id="kit-error" name="kit-error" />
-                    <x-ui.select :label="__('Status')" id="kit-status" name="kit-status">
-                        @foreach (\App\Enums\UserStatus::cases() as $status)
-                            <option value="{{ $status->value }}">{{ $status->label() }}</option>
-                        @endforeach
-                    </x-ui.select>
+                    <x-ui.select :label="__('Status')" id="kit-status" name="kit-status" :options="collect(\App\Enums\UserStatus::cases())->mapWithKeys(fn ($status) => [$status->value => $status->label()])->all()" />
                     <x-ui.textarea :label="__('Reason')" id="kit-reason" name="kit-reason" />
                     <x-ui.input :label="__('Evidence (optional)')" id="kit-file" name="kit-file" type="file" />
                     <x-ui.input :label="__('Disabled')" id="kit-disabled" name="kit-disabled" disabled :value="__('Disabled')" />
@@ -105,6 +101,52 @@
                 </x-ui.card>
             </div>
         </div>
+
+        @php
+            $kitToday = today();
+            $kitStatuses = collect(\App\Enums\RequestStatus::cases())->mapWithKeys(fn ($status) => [$status->value => $status->label()])->all();
+            $kitDepartments = collect(['Finance', 'Human Resources', 'Information Technology', 'Legal', 'Marketing', 'Operations', 'Procurement', 'Sales', 'Customer Support', 'Quality Assurance', 'Research', 'Logistics', 'Security', 'Facilities'])
+                ->mapWithKeys(fn ($name, $i) => [(string) ($i + 1) => ['value' => (string) ($i + 1), 'label' => $name, 'hint' => __(':count employees', ['count' => 3 + $i]), 'disabled' => $i === 4]])->all();
+            $kitBlocked = [$kitToday->copy()->addDays(2)->toDateString(), $kitToday->copy()->addDays(9)->toDateString()];
+        @endphp
+
+        <x-ui.card :title="__('Form components')" :description="__('A plain form: the values are sent as query parameters and shown below.')" data-kit="form-components">
+            {{-- novalidate: the error example below holds an incomplete code on purpose. --}}
+            <form method="GET" action="{{ route('ui-kit') }}" class="space-y-4 p-5" data-kit-form novalidate>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <x-ui.select :label="__('Status')" id="kit-select" name="single" :options="$kitStatuses" :value="request('single')" :hint="__('A short list: type a letter to jump to it.')" />
+                    <x-ui.select :label="__('Department')" id="kit-search" name="department" :options="$kitDepartments" :value="request('department')" />
+                    <x-ui.select :label="__('Statuses')" id="kit-multi" name="statuses" :options="$kitStatuses" multiple :value="(array) request('statuses', [])" />
+                    <x-ui.select :label="__('Departments')" id="kit-multi-search" name="departments" :options="$kitDepartments" multiple :value="(array) request('departments', [])" />
+                    <x-ui.date-picker :label="__('Date')" id="kit-date" name="date" :value="request('date')" :min="$kitToday->toDateString()" :max="$kitToday->copy()->addMonths(3)->toDateString()" disable-weekends :disabled-dates="$kitBlocked" :hint="__('From today, three months ahead, working days only.')" />
+                    <x-ui.date-picker :label="__('Date range')" id="kit-range" range start-name="from" end-name="to" :start-value="request('from')" :end-value="request('to')" />
+                    <x-ui.hour-select :label="__('Hour')" id="kit-hour" name="hour" :value="request('hour', '17:00')" />
+                    <x-ui.select :label="__('Disabled')" id="kit-select-disabled" name="disabled-select" :options="$kitStatuses" disabled />
+                </div>
+
+                <div class="flex flex-wrap items-start gap-6">
+                    <x-ui.otp-input :label="__('Authentication code')" id="kit-otp" name="code" :value="request('code', '')" :hint="__('6 digits')" />
+                    <x-ui.otp-input :label="__('Authentication code')" id="kit-otp-error" name="code-error" value="12" :error="__('This code is invalid.')" />
+                    <x-ui.otp-input :label="__('Disabled')" id="kit-otp-disabled" name="code-disabled" value="123456" disabled />
+                </div>
+
+                <x-ui.button type="submit" data-kit-submit>{{ __('Submit') }}</x-ui.button>
+
+                <pre class="overflow-x-auto rounded-md bg-muted p-3 text-xs" data-kit-submitted>{{ json_encode(\Illuminate\Support\Arr::only(request()->query(), ['single', 'department', 'statuses', 'departments', 'date', 'from', 'to', 'hour', 'code'])) }}</pre>
+            </form>
+        </x-ui.card>
+
+        <x-ui.card :title="__('Form components with Livewire')" :description="__('Bound with wire:model, with array values, a server search and values changed by the server.')" data-kit="livewire-components">
+            <livewire:ui-kit-demo />
+        </x-ui.card>
+
+        <x-ui.card :title="__('Inside a scrolling box')" data-kit="clip">
+            <div class="h-28 overflow-hidden p-5" data-kit-clip>
+                <div class="max-w-xs">
+                    <x-ui.select :label="__('Department')" id="kit-clip-select" :options="$kitDepartments" />
+                </div>
+            </div>
+        </x-ui.card>
 
         <section class="space-y-4" data-kit="stats">
             <h2 class="text-lg font-semibold tracking-tight">{{ __('Figures') }}</h2>
@@ -157,6 +199,10 @@
 
     <x-ui.modal name="kit-dialog" :title="__('Delete :name?', ['name' => 'Rina Kartika'])" :description="__('This decision is final. It cannot be undone or changed later.')">
         <p>{{ __('The day counts as a working day again in new requests. Existing requests keep their working days.') }}</p>
+        <div class="mt-4 grid grid-cols-1 gap-4">
+            <x-ui.select :label="__('Department')" id="kit-dialog-select" :options="$kitDepartments" />
+            <x-ui.date-picker :label="__('Date')" id="kit-dialog-date" />
+        </div>
 
         <x-slot:footer>
             <x-ui.button variant="secondary" x-on:click="open = false" data-kit-close-dialog>{{ __('Cancel') }}</x-ui.button>

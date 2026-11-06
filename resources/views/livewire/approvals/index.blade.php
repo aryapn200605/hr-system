@@ -13,11 +13,8 @@
             </div>
 
             <div class="sm:w-56">
-                <x-ui.select :label="__('Request type')" id="filter-type" wire:model.live="type">
-                    <option value="">{{ __('All types') }}</option>
-                    <option value="leave">{{ __('Leave') }}</option>
-                    <option value="overtime">{{ __('Overtime') }}</option>
-                </x-ui.select>
+                <x-ui.select :label="__('Request type')" id="filter-type" multiple :placeholder="__('All types')" wire:model.live="type"
+                    :options="['leave' => __('Leave'), 'overtime' => __('Overtime')]" />
             </div>
         </div>
 

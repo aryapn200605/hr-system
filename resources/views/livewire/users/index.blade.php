@@ -13,30 +13,18 @@
         <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-2 lg:grid-cols-5">
             <x-ui.input :label="__('Search')" id="filter-search" type="search" maxlength="100" :placeholder="__('Name, username or email')" wire:model.live.debounce.300ms="search" />
 
-            <x-ui.select :label="__('Role')" id="filter-role" wire:model.live="roleFilter">
-                <option value="">{{ __('All roles') }}</option>
-                @foreach ($roles as $option)
-                    <option value="{{ $option->value }}">{{ $option->label() }}</option>
-                @endforeach
-            </x-ui.select>
+            {{-- Several values in one filter: any of them; several filters: all of them. --}}
+            <x-ui.select :label="__('Role')" id="filter-role" multiple :placeholder="__('All roles')" wire:model.live="roleFilter"
+                :options="collect($roles)->mapWithKeys(fn ($option) => [$option->value => $option->label()])->all()" />
 
-            <x-ui.select :label="__('Status')" id="filter-status" wire:model.live="statusFilter">
-                <option value="">{{ __('All statuses') }}</option>
-                @foreach ($statuses as $option)
-                    <option value="{{ $option->value }}">{{ $option->label() }}</option>
-                @endforeach
-            </x-ui.select>
+            <x-ui.select :label="__('Status')" id="filter-status" multiple :placeholder="__('All statuses')" wire:model.live="statusFilter"
+                :options="collect($statuses)->mapWithKeys(fn ($option) => [$option->value => $option->label()])->all()" />
 
-            <x-ui.select :label="__('Supervisor')" id="filter-supervisor" wire:model.live="supervisorFilter">
-                <option value="">{{ __('Any') }}</option>
-                <option value="none">{{ __('No supervisor') }}</option>
-            </x-ui.select>
+            <x-ui.select :label="__('Supervisor')" id="filter-supervisor" wire:model.live="supervisorFilter"
+                :options="['' => __('Any'), 'none' => __('No supervisor')]" />
 
-            <x-ui.select :label="__('Rows per page')" id="filter-per-page" wire:model.live="perPage">
-                @foreach ($perPageOptions as $option)
-                    <option value="{{ $option }}">{{ $option }}</option>
-                @endforeach
-            </x-ui.select>
+            <x-ui.select :label="__('Rows per page')" id="filter-per-page" wire:model.live="perPage"
+                :options="collect($perPageOptions)->mapWithKeys(fn ($option) => [$option => $option])->all()" />
         </div>
 
         <div wire:loading.class="opacity-60" wire:target="search,roleFilter,statusFilter,perPage,setPage,nextPage,previousPage">
@@ -165,12 +153,8 @@
             />
 
             @if ($targetId === null)
-                <x-ui.select :label="__('Role')" id="form-role" wire:model="role">
-                    <option value="">{{ __('Choose a role') }}</option>
-                    @foreach ($assignableRoles as $option)
-                        <option value="{{ $option->value }}">{{ $option->label() }}</option>
-                    @endforeach
-                </x-ui.select>
+                <x-ui.select :label="__('Role')" id="form-role" wire:model="role" :placeholder="__('Choose a role')"
+                    :options="collect($assignableRoles)->mapWithKeys(fn ($option) => [$option->value => $option->label()])->all()" />
 
                 <p class="text-sm text-slate-600">{{ __('An invitation with an activation link is emailed to this address.') }}</p>
             @endif
@@ -184,11 +168,8 @@
 
     <x-ui.modal name="user-role" :title="__('Change role of :name', ['name' => $targetName])">
         <form id="user-role-fields" wire:submit="saveRole">
-            <x-ui.select :label="__('Role')" id="change-role" wire:model="role" :hint="__('The new permissions apply from the user\'s next request.')">
-                @foreach ($assignableRoles as $option)
-                    <option value="{{ $option->value }}">{{ $option->label() }}</option>
-                @endforeach
-            </x-ui.select>
+            <x-ui.select :label="__('Role')" id="change-role" wire:model="role" :hint="__('The new permissions apply from the user\'s next request.')"
+                :options="collect($assignableRoles)->mapWithKeys(fn ($option) => [$option->value => $option->label()])->all()" />
         </form>
 
         <x-slot:footer>

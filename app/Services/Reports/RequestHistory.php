@@ -21,12 +21,12 @@ class RequestHistory
     {
         $parts = [];
 
-        if ($filters->type !== 'overtime') {
+        if ($filters->wantsType('leave')) {
             $parts[] = $this->leave($actor, $filters);
         }
 
-        // A category belongs to leave only, so it leaves no overtime row.
-        if ($filters->type !== 'leave' && $filters->category === null) {
+        // A category belongs to leave only, so choosing one leaves no overtime row.
+        if ($filters->wantsType('overtime') && $filters->categories === []) {
             $parts[] = $this->overtime($actor, $filters);
         }
 
@@ -48,7 +48,7 @@ class RequestHistory
         $query = $this->base('leave_requests', $actor, $filters)
             ->join('leave_categories as c', 'c.id', '=', 'r.leave_category_id')
             ->select($this->columns("'leave'", 'c.name', 'r.starts_on', 'r.ends_on', 'r.working_days'))
-            ->when($filters->category, fn (Builder $query, string $code) => $query->where('c.code', $code));
+            ->when($filters->categories, fn (Builder $query, array $codes) => $query->whereIn('c.code', $codes));
 
         return $this->overlapping($query, $filters, 'r.starts_on', 'r.ends_on');
     }
@@ -67,9 +67,10 @@ class RequestHistory
         $query = DB::table($table.' as r')
             ->join('users as u', 'u.id', '=', 'r.user_id')
             ->leftJoin('departments as d', 'd.id', '=', 'u.department_id')
-            ->leftJoin('users as k', 'k.id', '=', 'r.decided_by')
-            ->when($filters->employee, fn (Builder $query, int $id) => $query->where('r.user_id', $id))
-            ->when($filters->status, fn (Builder $query, $status) => $query->where('r.status', $status->value));
+            ->leftJoin('users as k', 'k.id', '=', 'r.decided_by');
+
+        $filters->applyEmployees($query, 'r.user_id');
+        ReportFilters::applyStatuses($query, 'r.status', $filters->statuses);
 
         // The department is the requester's department now, like the supervisor relation.
         $filters->applyDepartment($query, 'u.department_id');

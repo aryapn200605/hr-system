@@ -133,7 +133,7 @@
 
     <x-ui.modal name="balance-anchor" :title="__('Change anchor date')">
         <form id="balance-anchor-fields" class="space-y-4" wire:submit="saveAnchor">
-            <x-ui.input :label="__('Anchor date')" id="anchor-date" type="date" min="{{ \App\Services\LeaveBalance::EARLIEST_ANCHOR }}" max="{{ today()->toDateString() }}" wire:model="anchor" :hint="__('The current period keeps its dates. The next period ends on the first anniversary of the new date.')" />
+            <x-ui.date-picker :label="__('Anchor date')" id="anchor-date" :min="\App\Services\LeaveBalance::EARLIEST_ANCHOR" :max="today()->toDateString()" wire:model="anchor" :hint="__('The current period keeps its dates. The next period ends on the first anniversary of the new date.')" />
             <x-ui.button variant="link" wire:click="useCreationDate" loading="useCreationDate">{{ __('Use the account creation date (:date)', ['date' => $creationDate]) }}</x-ui.button>
         </form>
 

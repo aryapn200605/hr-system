@@ -5,7 +5,6 @@ namespace App\Services\Reports;
 use App\Enums\PermissionName;
 use App\Models\User;
 use Illuminate\Contracts\Database\Query\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -70,12 +69,46 @@ class Visibility
     }
 
     /**
-     * The users this actor may see, by name, for the employee filter.
+     * The employee filter's search: at most $limit users this actor may see whose name or username contains
+     * the term, by name. Nobody for an actor who sees only themself, so the list never offers others.
      *
-     * @return Collection<int, User>
+     * @return list<array{value: string, label: string}>
      */
-    public function users(User $actor): Collection
+    public function search(User $actor, string $term, int $limit): array
     {
-        return $this->apply(User::query(), $actor, 'users.id')->orderBy('name')->orderBy('id')->get(['id', 'name']);
+        if (! $this->seesOthers($actor)) {
+            return [];
+        }
+
+        // mb_substr() also replaces invalid UTF-8, which would otherwise break the query.
+        $term = trim(mb_substr($term, 0, 100));
+        $pattern = '%'.addcslashes($term, '\\%_').'%';
+
+        return $this->apply(User::query(), $actor, 'users.id')
+            ->when($term !== '', fn ($query) => $query->where(fn ($query) => $query->where('name', 'like', $pattern)->orWhere('username', 'like', $pattern)))
+            ->orderBy('name')->orderBy('id')
+            ->limit($limit)
+            ->get(['id', 'name'])
+            ->map(fn (User $user) => ['value' => (string) $user->getKey(), 'label' => $user->name])
+            ->all();
+    }
+
+    /**
+     * The names of the chosen users this actor may see, by ID, for the chips of the employee filter. IDs the
+     * actor may not see get no name.
+     *
+     * @param  list<int>  $ids
+     * @return array<string, string>
+     */
+    public function names(User $actor, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->apply(User::query()->whereKey($ids), $actor, 'users.id')
+            ->pluck('name', 'id')
+            ->mapWithKeys(fn (string $name, int $id) => [(string) $id => $name])
+            ->all();
     }
 }

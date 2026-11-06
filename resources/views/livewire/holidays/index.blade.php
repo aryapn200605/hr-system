@@ -5,11 +5,8 @@
 
     <x-ui.card>
         <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-3">
-            <x-ui.select :label="__('Year')" id="filter-year" wire:model.live="year">
-                @foreach ($years as $option)
-                    <option value="{{ $option }}" @selected((int) $option === $shownYear)>{{ $option }}</option>
-                @endforeach
-            </x-ui.select>
+            <x-ui.select :label="__('Year')" id="filter-year" wire:model.live="year"
+                :options="collect($years)->mapWithKeys(fn ($option) => [(string) $option => (string) $option])->all()" />
         </div>
 
         @if ($holidays->isEmpty())
@@ -44,7 +41,7 @@
 
     <x-ui.modal name="holiday-form" :title="$targetId === null ? __('Add holiday') : __('Edit :name', ['name' => $targetName])">
         <form id="holiday-form-fields" class="space-y-4" wire:submit="save">
-            <x-ui.input :label="__('Date')" id="holiday-date" type="date" min="{{ $earliest }}" max="{{ $latest }}" wire:model="date" />
+            <x-ui.date-picker :label="__('Date')" id="holiday-date" :min="$earliest" :max="$latest" wire:model="date" />
             <x-ui.input :label="__('Holiday name')" id="holiday-name" maxlength="100" autocomplete="off" wire:model="name" />
         </form>
 

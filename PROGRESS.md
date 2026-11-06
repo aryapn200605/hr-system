@@ -24,7 +24,8 @@
 - Phase 14 (Full verification and documentation, plus DECISIONS.md section 11): done, see "Phase 14" below.
 - Documentation cleanup (2026-11-05): README.md rewritten in Indonesian; technical notes moved to docs/TECHNICAL-DECISIONS.md. See "Documentation cleanup" at the end.
 - Phase 15a (redesign foundation and pilot page): done on branch `ui-redesign`, see "Phase 15a" at the end. Primary colour and logo are placeholders until the brand files arrive.
-- **Next: Phase 15b (form components)**, started by the owner. Phase 16 (deployment) stays deferred.
+- Phase 15b (form components, filters with several values): done on branch `ui-redesign`, see "Phase 15b" at the end. The session was cut by a Windows restart before the docs and commit; resumed and finished on 2026-11-06.
+- **Next: Phase 15c (auth pages)**, started by the owner. Phase 16 (deployment) stays deferred.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -893,5 +894,63 @@ Branch `ui-redesign` (from a clean `main` at 9a0c651), not merged. No database m
 ### Owner steps
 - Review the role palette proposal and the 24 Indonesian texts.
 - Put the brand files in `design/brand/` (transparent SVG logo, icon version, colour code); 15c uses them.
-- To show the new texts in Indonesian on hr-system.test, after a backup: `php artisan db:seed --class=TranslationSeeder --force`.
+- To show the new texts in Indonesian on hr-system.test, after a backup: `php artisan db:seed --class=TranslationSeeder --force`. (Superseded in 15b: the texts are loaded by a migration.)
 - Next: 15b (form components). Not started.
+
+## Phase 15b: form components (2026-11-06)
+Branch `ui-redesign`, not merged. One migration (texts only). The session was interrupted by a Windows restart after the end-of-phase migration and the browser checks; on resuming, the tree, the safeguards, the migration state and the cleanup were checked again before finishing (see "Resumed after the restart").
+
+### Plan (Step 0)
+- No tables, columns or permissions. One migration, `2026_11_13_100000_load_redesign_texts`, runs the idempotent `TranslationSeeder` (the 24 texts of 15a and the 39 of 15b). No new route; `/ui-kit` gained a Livewire demo (`App\Livewire\UiKitDemo`, local only).
+- Reference re-read from the clone at `C:\laragon\tmp\ref\shadcn-admin` (Select, Popover, Command, Calendar, date picker, input OTP, the faceted filter). Nothing run or copied. Alpine plugins bundled by Livewire 4.4.8 checked: anchor, focus, collapse, intersect, mask, sort, resize.
+- Filters with several values: Users (role, status), history (employee, department, type, category, status), recap (employee, department), approvals (type). OR inside a filter, AND between filters. One shared trait for the update checks, the whitelist and old single-value links.
+
+### Done
+- Components (`resources/js/ui.js`, `resources/views/components/ui/`): `x-ui.select` (plain, searchable above 8 options, multiple with chips, "N selected", "+N more", select all and clear; server search with `remote`), `x-ui.date-picker` (single and range; Monday first; month and day names from `Intl` in the page language; `min`, `max`, weekends and listed dates disabled; APG keyboard; "today" from the server in WIB; `yyyy-mm-dd`), `x-ui.hour-select` (00:00 to 23:00 only), `x-ui.date-hour` (date + hour for overtime), `x-ui.otp-input` (one native input with `autocomplete=one-time-code` under six boxes; gallery only). Each works with `name` (hidden inputs) and `wire:model` (`x-modelable`, arrays included). Details in docs/TECHNICAL-DECISIONS.md "Phase 15b".
+- Every `<select>` and date/time input in the views replaced: Users (filters, role in both dialogs), user detail (department, join date, add supervisor, move subordinates), leave balance (anchor date), my requests (status; leave category and dates with weekends and holidays greyed out; overtime start and end as date + hour), approvals, history (one range picker instead of From/To), recap, holidays (year, date), profile (language).
+- Filters as lists in the URL (`#[Url]`), trait `App\Livewire\Concerns\HasArrayFilters`: an update must be a list of at most 50 short strings, or one string at a numeric index (else 422); values not offered are dropped (`keepOffered`); employee IDs are checked by shape only (a forged ID narrows, never widens); old links with one value (`?role=Employee`, `?status=approved`) become a list of one in `mount` (Livewire silently drops a string sent to an array property). `ReportFilters` holds lists; exports accept lists or the old single string and keep to what Visibility allows; the export link and the audit row carry the lists.
+- Large lists searched on the server, never rendered: `searchEmployees` (history, recap; `Visibility::search`: only people the user may see, 20 at most, wildcards escaped, nobody for a user who sees only themself) and `searchCandidates` / `searchTargets` on the user page (active Approvers, 20 at most, `manageSupervisors` authorized in the method). `#[Renderless]` actions, called 300 ms after typing. `Visibility::users()` removed.
+- Panels placed by `float()` in `ui.js`: `position: fixed` from the button's viewport rectangle, above when there is more room, clamped to the screen, following scroll and resize; they stay inside the component, so a dialog's focus trap still contains them.
+- 63 texts in English and Indonesian (`en.php`/`id.php`), loaded by the migration. Gallery: plain form (values printed back), Livewire demo (arrays, server-set values, server search over 100 made-up names), a select in an `overflow: hidden` box, a select and a date picker in a dialog.
+- README: filters with several values, the gallery, the 15b browser check; the manual seeder step for the 15a texts replaced by the migration.
+
+### Verified
+- `php artisan test` on `hr_system_test`: **1186 passed** (8354 assertions; 15a had 1163) before the restart. Re-run after resuming: 1185 of 1186; the one failure was `AuthConcurrencyTest`'s own timing guard ("a competitor started late, so this run proved nothing", a real-process race test, untouched by 15b); it passed twice on its own and all 34 `*ConcurrencyTest` tests passed together. New `FormComponentsTest` (21): rendering and ARIA, error linking, server "today" in WIB, leave form minimum and holidays, hour select only :00, OTP input, arrays and `type.0` updates, whitelist, forged payloads (422), old links, Users filters, exports with lists and the audit row, employee search (Employee gets nobody, Approver only their team, limit, wildcards), a forged ID shows no name, supervisor searches (403 without the permission, limit, only for an Approver), the gallery demo local only.
+- Mutation check, 33 safeguards removed one at a time, each file restored and confirmed by SHA-256 (`C:\laragon\tmp\browser-check\p15b-mutate.sh`): update shape checks, the whitelist on every page, ID shape, old links, ReportFilters, search visibility, limit and escaping, chip names, supervisor search authorization, limit and filters, the demo's local guard. 29 caught at first; 4 survived (ID shape, recap department whitelist, chip-name visibility, approver search limit); tests added and all 4 caught on the re-run.
+- `hr_system`: counts before (users 3, login_histories 12, audit_logs 38 with max id 1036, recovery_codes 30, account_invitations 4, model_has_roles 3, role grants 19, permissions 14, departments 2, supervisor_user 1, leave_periods 3, leave_balance_entries 3, requests 0, translations 1487, sessions 1), `migrate:status` with one pending, backup `C:\laragon\backup\hr-system\hr_system-before-phase15b-20261106-115710.sql` (1,083,793 bytes, "Dump completed", INSERTs for 19 tables), `migrate` ran it (translations 1613: +126 = 63 texts × 2), `app:translations-missing` passes.
+- Browser (`C:\laragon\tmp\browser-check\p15b.mjs`, puppeteer, http://hr-system.test, 1024 and 375 px, three zz-check accounts created through the app's actions and activated through their links): **159/159**, 0 console errors, before the restart and again after resuming. Covers open and close, Escape and focus back on the button, Home/End, type-ahead, search and "no results", a disabled option, multi-select chips (add, remove, select all, "N selected", "+1 more", clear), date picker (server today, Monday first, weekends disabled, keyboard by day, week and month, disabled day ignored), range (two dates in order), hour type-ahead and only :00, OTP (digits only, active box, backspace, whole-code insert, paste with separators, full event, stops at six, error and disabled), the plain form submit, the Livewire demo (array, server search, range, OTP, values set by the server, reset), panels not clipped in a scrolling box and a dialog, Escape closing only the popover inside a dialog, the leave and overtime forms bound to Livewire (nothing submitted), the calendar in Indonesian, history filters in the URL and the export link, the employee server search, an old one-value link, and Users filters.
+- Layout checker `layout.mjs`, every authenticated route at 375 to 1920 px and folded: **172/172**, 0 console errors, in both runs.
+- Screenshots reviewed: gallery (select, multi, date, dialog, scrolling box, Livewire), leave and overtime forms (English and Indonesian), history filters, Users filters, at both widths.
+- `npm run build`, Pint, `composer audit`, `npm audit`: clean. No new package.
+
+### Bugs found (and fixed)
+- **Panel placement:** with Alpine's `x-anchor.fixed` the panels were measured from the content panel instead of the viewport and stayed at stale coordinates after a scroll (off screen at 375 px and in the scrolling box). Replaced by `float()`.
+- **Components restarted by Livewire updates:** the `x-data` config held the current value, so every render changed the attribute and the morph re-initialised the component (cascades of "isChosen is not defined" on My requests). The config is now stable; with Livewire the value arrives only through `x-modelable` / `$wire`.
+- Also: focus restore after choosing a day or removing a chip ran from a detached element (elements are now kept from init); a pasted code with separators was cut by `maxlength` before cleaning (paste handler); history and recap gave a 500 to an Employee (`modelKeys()` on an empty collection, caught by the suite); Livewire's `#[Json]` turns an authorization error into 200 with `null`, so the searches use `#[Renderless]` and refuse with a real 403.
+
+### Test changes (assertions that depended on the old string API or the old markup)
+- `HistoryTest`, `RecapTest`: helpers wrap a single value in a list; forged-value tests send a string where a list is expected (422); `ReportFilters` properties are lists; the Approver's employee options come from `searchEmployees` instead of `viewData('employees')`; the query-count test sets `status` to `[]`.
+- `UserListTest`: role and status set as lists; the forged-update data sets use a string and nested or keyed lists (422); invalid URL values give `[]`.
+- `ExportTest`: a list in the query string now means several values; the audit row and export links hold lists.
+- `ApprovalPagesTest`: type as a list. `UserManagementAccessTest`, `RecapTest` (statuses offered): options are JSON in `data-options`, not `<option>` tags.
+
+### Resumed after the restart
+- `git status`: only the 15b files; no `.bak` or half-written file; every mutated safeguard present (checked by text after the hash-checked restores). `migrate:status`: nothing pending. No leftover node, php or chrome process.
+- Cleanup: no zz-check user and no row of one (requests, periods, ledger, login history, recovery codes, invitations, audit rows by actor or naming zz-check, evidence files). The three headless guest sessions of the activation step (no user, HeadlessChrome, 12:08) had been listed and deleted just before the restart; the owner's session (user 1) was not touched. Every count of `counts.php` equals the "before" file (`C:\laragon\tmp\browser-check\p15b-counts-before.json`, 11:57) except translations +126; the owner's three accounts keep the same `updated_at`.
+- Re-run after resuming: Pint, build, audits, `app:translations-missing`, the full suite and the browser and layout checks (numbers above), with new zz-check accounts (IDs 113 to 115) and a second cleanup: the zz-check rows deleted in one checked transaction, then the three headless guest sessions of that run (listed first, 12:56). Every count equals the snapshot taken just before the re-run (0 differences), and against the phase start only translations differ (+126). The owner's session showed later activity (12:47) from the owner's own use; it was not touched.
+
+### Not proven
+- Native clipboard paste: the Clipboard API needs a secure origin and hr-system.test is http, so the paste was dispatched as a `paste` event with real `clipboardData`; insertion of a whole code (as an SMS autofill does) was tested, a real phone was not.
+- No screen reader; headless Chrome only (no Safari, Firefox or real touch).
+- Only the HR Admin and Employee views were driven in the browser; the Approver view by tests.
+- The Indonesian texts await the owner's review.
+
+### Deviations and notes
+- SPEC.md Phase 15 says "No database migration"; the owner asked for one migration for the texts in this phase (texts only, no schema change).
+- Alpine's anchor plugin is bundled and was tried but is not used for these panels (see Bugs found).
+- Recap keeps periods, year and status as single choices: the department recap counts Approved unless a status is chosen, so "none chosen" in a multi-select would be ambiguous.
+- History: a category still means leave; choosing a type other than leave alone drops the categories.
+
+### Owner steps
+- Review the Indonesian texts of 15a and 15b. Nothing to run: the migration was applied to `hr_system` in this phase.
+- Next: 15c (auth pages, using the OTP input). Not started.

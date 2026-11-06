@@ -103,9 +103,10 @@ class DepartmentRecap
     {
         $query = DB::table($table.' as r')
             ->join('users as u', 'u.id', '=', 'r.user_id')
-            ->leftJoin('departments as d', 'd.id', '=', 'u.department_id')
-            ->when($filters->recapStatus(), fn (Builder $query, $status) => $query->where('r.status', $status->value))
-            ->when($filters->employee, fn (Builder $query, int $id) => $query->where('r.user_id', $id));
+            ->leftJoin('departments as d', 'd.id', '=', 'u.department_id');
+
+        ReportFilters::applyStatuses($query, 'r.status', $filters->recapStatuses());
+        $filters->applyEmployees($query, 'r.user_id');
 
         $filters->applyDepartment($query, 'u.department_id');
 

@@ -74,8 +74,10 @@ class ExportTest extends TestCase
         // A category without a type still leaves out overtime, as on the page.
         $this->assertSame(['Sick leave'], array_column(array_slice($this->lines($this->csv($this->actingAs($this->hana)->get(route('history.export', ['category' => 'sick'])))), 1), 4));
 
-        // Array values in the query string count as no filter.
-        $this->assertCount(6, $this->lines($this->csv($this->actingAs($this->hana)->get('/history/export?employee[]=1&status[]=pending'))));
+        // Since Phase 15b a list in the query string is several values of one filter (any of them).
+        $this->assertCount(3, $this->lines($this->csv($this->actingAs($this->hana)->get('/history/export?employee[]='.$this->eko->id.'&employee[]='.$this->rina->id.'&status[]=pending'))));
+        // Values in a shape no filter accepts still count as no filter.
+        $this->assertCount(6, $this->lines($this->csv($this->actingAs($this->hana)->get('/history/export?employee[][]=1&status[x][]=pending&type[]=payroll'))));
     }
 
     public function test_no_reason_note_or_evidence_is_exported(): void
@@ -193,9 +195,9 @@ class ExportTest extends TestCase
 
         $this->assertCount(3, $rows);
         $this->assertSame([$this->hana->id, $this->siti->id, $this->eko->id], $rows->pluck('actor_id')->all());
-        $this->assertEquals(['report' => 'history', 'filters' => ['employee' => (string) $this->eko->id, 'type' => 'leave', 'from' => '2026-11-01'], 'rows' => 1], $rows[0]->metadata);
+        $this->assertEquals(['report' => 'history', 'filters' => ['employee' => [(string) $this->eko->id], 'type' => ['leave'], 'from' => '2026-11-01'], 'rows' => 1], $rows[0]->metadata);
         $this->assertEquals(['report' => 'leave_balance', 'filters' => ['periods' => 'all'], 'rows' => 4], $rows[1]->metadata);
-        $this->assertEquals(['report' => 'requests_by_department', 'filters' => ['year' => '2026', 'status' => 'all'], 'rows' => 1], $rows[2]->metadata);
+        $this->assertEquals(['report' => 'requests_by_department', 'filters' => ['year' => '2026', 'status' => ['all']], 'rows' => 1], $rows[2]->metadata);
 
         foreach ($rows as $row) {
             $this->assertStringNotContainsString('Eko Employee', json_encode($row->metadata));
@@ -244,9 +246,9 @@ class ExportTest extends TestCase
     public function test_the_page_export_links_carry_the_active_filters(): void
     {
         $this->actingAs($this->hana)->get(route('history.index', ['status' => 'approved', 'type' => 'leave']))
-            ->assertSee(e(route('history.export', ['type' => 'leave', 'status' => 'approved'])), false);
+            ->assertSee(e(route('history.export', ['type' => ['leave'], 'status' => ['approved']])), false);
 
         $this->actingAs($this->hana)->get(route('recap.index', ['tab' => 'departments', 'status' => 'pending']))
-            ->assertSee(e(route('recap.departments.export', ['year' => '2026', 'status' => 'pending'])), false);
+            ->assertSee(e(route('recap.departments.export', ['year' => '2026', 'status' => ['pending']])), false);
     }
 }

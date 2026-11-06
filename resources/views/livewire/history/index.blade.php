@@ -9,45 +9,24 @@
 
     <x-ui.card>
         <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-2 lg:grid-cols-4">
+            {{-- Several values in one filter: any of them; several filters: all of them. --}}
             @if ($seesOthers)
-                <x-ui.select :label="__('Employee')" id="filter-employee" wire:model.live="employee">
-                    <option value="">{{ __('All employees') }}</option>
-                    @foreach ($employees as $option)
-                        <option value="{{ $option->id }}">{{ $option->name }}</option>
-                    @endforeach
-                </x-ui.select>
+                <x-ui.select :label="__('Employee')" id="filter-employee" multiple remote="searchEmployees" :labels="$employeeLabels" :placeholder="__('All employees')" wire:model.live="employee" />
 
-                <x-ui.select :label="__('Department')" id="filter-department" wire:model.live="department">
-                    <option value="">{{ __('All departments') }}</option>
-                    @foreach ($departments as $option)
-                        <option value="{{ $option->id }}">{{ $option->name }}</option>
-                    @endforeach
-                    <option value="{{ \App\Services\Reports\ReportFilters::NO_DEPARTMENT }}">{{ __('No department') }}</option>
-                </x-ui.select>
+                <x-ui.select :label="__('Department')" id="filter-department" multiple :placeholder="__('All departments')" wire:model.live="department"
+                    :options="$departments->mapWithKeys(fn ($option) => [$option->id => $option->name])->put(\App\Services\Reports\ReportFilters::NO_DEPARTMENT, __('No department'))->all()" />
             @endif
 
-            <x-ui.select :label="__('Request type')" id="filter-type" wire:model.live="type">
-                <option value="">{{ __('All types') }}</option>
-                <option value="leave">{{ __('Leave') }}</option>
-                <option value="overtime">{{ __('Overtime') }}</option>
-            </x-ui.select>
+            <x-ui.select :label="__('Request type')" id="filter-type" multiple :placeholder="__('All types')" wire:model.live="type"
+                :options="['leave' => __('Leave'), 'overtime' => __('Overtime')]" />
 
-            <x-ui.select :label="__('Category')" id="filter-category" wire:model.live="category">
-                <option value="">{{ __('All categories') }}</option>
-                @foreach ($categories as $option)
-                    <option value="{{ $option->code }}">{{ $option->label() }}</option>
-                @endforeach
-            </x-ui.select>
+            <x-ui.select :label="__('Category')" id="filter-category" multiple :placeholder="__('All categories')" wire:model.live="category"
+                :options="$categories->mapWithKeys(fn ($option) => [$option->code => $option->label()])->all()" />
 
-            <x-ui.select :label="__('Status')" id="filter-status" wire:model.live="status">
-                <option value="">{{ __('All statuses') }}</option>
-                @foreach ($statuses as $option)
-                    <option value="{{ $option->value }}">{{ $option->label() }}</option>
-                @endforeach
-            </x-ui.select>
+            <x-ui.select :label="__('Status')" id="filter-status" multiple :placeholder="__('All statuses')" wire:model.live="status"
+                :options="collect($statuses)->mapWithKeys(fn ($option) => [$option->value => $option->label()])->all()" />
 
-            <x-ui.input type="date" :label="__('From')" id="filter-from" wire:model.live.blur="from" />
-            <x-ui.input type="date" :label="__('To')" id="filter-to" wire:model.live.blur="to" />
+            <x-ui.date-picker :label="__('Dates')" id="filter-dates" range wire-start="from" wire-end="to" live :placeholder="__('Any date')" />
 
             @if ($filtered)
                 <div class="flex items-end">

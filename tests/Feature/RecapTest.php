@@ -37,7 +37,8 @@ class RecapTest extends TestCase
         $component = Livewire::actingAs($user)->test(Index::class);
 
         foreach ($filters as $name => $value) {
-            $component->set($name, $value);
+            // Since Phase 15b employee and department hold lists; one value is a list of one.
+            $component->set($name, in_array($name, ['employee', 'department'], true) ? [$value] : $value);
         }
 
         $lines = $component->viewData('lines');
@@ -64,7 +65,8 @@ class RecapTest extends TestCase
         $component = Livewire::actingAs($user)->test(Index::class)->set('tab', 'departments');
 
         foreach ($filters as $name => $value) {
-            $component->set($name, $value);
+            // Since Phase 15b employee and department hold lists; one value is a list of one.
+            $component->set($name, in_array($name, ['employee', 'department'], true) ? [$value] : $value);
         }
 
         $categories = $component->viewData('categories');
@@ -152,7 +154,7 @@ class RecapTest extends TestCase
     {
         DB::flushQueryLog();
         DB::enableQueryLog();
-        Livewire::actingAs($this->hana)->test(Index::class)->set('employee', (string) $this->eko->id);
+        Livewire::actingAs($this->hana)->test(Index::class)->set('employee', [(string) $this->eko->id]);
         $queries = collect(DB::getQueryLog())->filter(fn (array $query) => str_contains($query['query'], 'leave_request_allocations'));
         DB::disableQueryLog();
 
@@ -242,7 +244,7 @@ class RecapTest extends TestCase
 
     public function test_the_balance_employee_filter_does_not_narrow_the_department_tab(): void
     {
-        $component = Livewire::actingAs($this->hana)->test(Index::class)->set('employee', (string) $this->eko->id)->set('tab', 'departments')->set('status', 'all');
+        $component = Livewire::actingAs($this->hana)->test(Index::class)->set('employee', [(string) $this->eko->id])->set('tab', 'departments')->set('status', 'all');
 
         $this->assertCount(3, $component->viewData('rows'));
     }
@@ -297,9 +299,9 @@ class RecapTest extends TestCase
         $component = Livewire::actingAs($this->hana)->test(Index::class)->set('tab', 'departments');
 
         foreach ([RequestStatus::Pending, RequestStatus::Rejected, RequestStatus::Cancelled] as $status) {
-            $component->assertSeeHtml('value="'.$status->value.'"');
+            $component->assertSeeHtml('&quot;value&quot;:&quot;'.$status->value.'&quot;');
         }
 
-        $component->assertSeeHtml('value="all"');
+        $component->assertSeeHtml('&quot;value&quot;:&quot;all&quot;');
     }
 }

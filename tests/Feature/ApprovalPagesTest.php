@@ -167,10 +167,10 @@ class ApprovalPagesTest extends TestCase
         Livewire::actingAs($this->supervisor)->test(Index::class)
             ->assertSeeInOrder(["overtime-{$first->id}", "leave-{$second->id}", "overtime-{$third->id}"])
             ->assertDontSee("leave-{$cancelled->id}")
-            ->set('type', 'leave')
+            ->set('type', ['leave'])
             ->assertSee("leave-{$second->id}")
             ->assertDontSee("overtime-{$first->id}")
-            ->set('type', 'overtime')
+            ->set('type', ['overtime'])
             ->assertSee("overtime-{$third->id}")
             ->assertDontSee("leave-{$second->id}");
     }
@@ -210,7 +210,7 @@ class ApprovalPagesTest extends TestCase
     {
         $component = Livewire::actingAs($this->supervisor)->test(Index::class);
 
-        $component->set('type', 'holiday')->assertOk()->assertSee('Nothing waits for you');
+        $component->set('type', ['holiday'])->assertOk()->assertSet('type', [])->assertSee('Nothing waits for you');
         $component->set('tab', ['an', 'array'])->assertStatus(422);
     }
 

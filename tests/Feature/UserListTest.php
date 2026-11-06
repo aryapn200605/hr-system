@@ -134,7 +134,7 @@ class UserListTest extends TestCase
         $approver = User::factory()->withRole(RoleName::Approver)->create();
         $employee = $this->employee();
 
-        $this->assertLists($this->userList()->set('roleFilter', RoleName::Approver->value), [$approver], [$employee, $this->admin]);
+        $this->assertLists($this->userList()->set('roleFilter', [RoleName::Approver->value]), [$approver], [$employee, $this->admin]);
     }
 
     public function test_the_status_filter_works(): void
@@ -142,7 +142,7 @@ class UserListTest extends TestCase
         $suspended = User::factory()->suspended()->withRole(RoleName::Employee)->create();
         $pending = User::factory()->pending()->withRole(RoleName::Employee)->create();
 
-        $this->assertLists($this->userList()->set('statusFilter', UserStatus::Suspended->value), [$suspended], [$pending, $this->admin]);
+        $this->assertLists($this->userList()->set('statusFilter', [UserStatus::Suspended->value]), [$suspended], [$pending, $this->admin]);
     }
 
     public function test_filters_combine(): void
@@ -154,8 +154,8 @@ class UserListTest extends TestCase
 
         $component = $this->userList()
             ->set('search', 'zebra')
-            ->set('roleFilter', RoleName::Approver->value)
-            ->set('statusFilter', UserStatus::Suspended->value);
+            ->set('roleFilter', [RoleName::Approver->value])
+            ->set('statusFilter', [UserStatus::Suspended->value]);
 
         $this->assertLists($component, [$match], [$wrongRole, $wrongStatus, $wrongName]);
     }
@@ -167,7 +167,7 @@ class UserListTest extends TestCase
 
         $component = $this->userList(['role' => RoleName::Approver->value]);
 
-        $this->assertLists($component->assertSet('roleFilter', RoleName::Approver->value), [$approver], [$employee]);
+        $this->assertLists($component->assertSet('roleFilter', [RoleName::Approver->value]), [$approver], [$employee]);
     }
 
     public function test_pagination_splits_the_list_newest_first(): void
@@ -198,14 +198,14 @@ class UserListTest extends TestCase
     {
         return [
             'search' => ['search', 'user'],
-            'role' => ['roleFilter', RoleName::Employee->value],
-            'status' => ['statusFilter', UserStatus::Active->value],
+            'role' => ['roleFilter', [RoleName::Employee->value]],
+            'status' => ['statusFilter', [UserStatus::Active->value]],
             'page size' => ['perPage', '25'],
         ];
     }
 
     #[DataProvider('filters')]
-    public function test_changing_a_filter_goes_back_to_the_first_page(string $property, string $value): void
+    public function test_changing_a_filter_goes_back_to_the_first_page(string $property, string|array $value): void
     {
         collect(range(1, 12))->each(fn () => $this->employee());
 
@@ -304,8 +304,8 @@ class UserListTest extends TestCase
     {
         $component = $this->userList(['role' => 'Superuser', 'status' => 'DELETED', 'per_page' => '1000000']);
 
-        $component->assertSet('roleFilter', '')
-            ->assertSet('statusFilter', '')
+        $component->assertSet('roleFilter', [])
+            ->assertSet('statusFilter', [])
             ->assertSet('perPage', '10')
             ->assertSee($this->admin->username);
     }
@@ -348,8 +348,11 @@ class UserListTest extends TestCase
             'number search' => ['search', 5],
             'boolean search' => ['search', true],
             'nested search' => ['search.0', 'x'],
-            'array role' => ['roleFilter', ['HR Admin']],
-            'array status' => ['statusFilter', ['ACTIVE']],
+            'string role' => ['roleFilter', 'HR Admin'],
+            'nested role' => ['roleFilter', [['HR Admin']]],
+            'string status' => ['statusFilter', 'ACTIVE'],
+            'keyed status' => ['statusFilter', ['a' => 'ACTIVE']],
+            'status at a key' => ['statusFilter.a', 'ACTIVE'],
             'array page size' => ['perPage', [10]],
             'array name' => ['name', ['x']],
             'array role field' => ['role', ['HR Admin']],
@@ -370,14 +373,14 @@ class UserListTest extends TestCase
     public static function forgedFilterValues(): array
     {
         return [
-            'role' => ['roleFilter', 'Superuser'],
-            'status' => ['statusFilter', 'DELETED'],
+            'role' => ['roleFilter', ['Superuser']],
+            'status' => ['statusFilter', ['DELETED']],
             'page size' => ['perPage', '1000000'],
         ];
     }
 
     #[DataProvider('forgedFilterValues')]
-    public function test_a_forged_filter_string_is_replaced(string $property, string $value): void
+    public function test_a_forged_filter_string_is_replaced(string $property, string|array $value): void
     {
         $this->forge([$property => $value])->assertOk();
     }

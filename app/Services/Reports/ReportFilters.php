@@ -8,8 +8,10 @@ use Illuminate\Contracts\Database\Query\Builder;
 
 /**
  * The filters of history, recap and their exports, read from the page's properties or the export's
- * query string. Only plain strings in the expected shape are taken; anything else counts as "no filter",
- * so a forged value can only narrow a list, never widen what Visibility allows.
+ * query string. Employee, department, type, category and status hold several values (since Phase 15b):
+ * values inside one filter are combined with OR, filters with AND. Each accepts a list or, for links made
+ * before, a single string. Only values in the expected shape are taken; anything else counts as "not
+ * chosen", so a forged value can only narrow a list, never widen what Visibility allows.
  */
 final class ReportFilters
 {
@@ -21,13 +23,24 @@ final class ReportFilters
 
     public const ALL_STATUSES = 'all';
 
+    /**
+     * Values read per filter at most; more are ignored.
+     */
+    public const MAX_VALUES = 50;
+
+    /**
+     * @param  list<int>  $employees
+     * @param  list<int|string>  $departments  department IDs and NO_DEPARTMENT
+     * @param  list<string>  $types
+     * @param  list<string>  $categories  category codes
+     * @param  list<RequestStatus>  $statuses
+     */
     private function __construct(
-        public readonly ?int $employee,
-        /** A department ID, NO_DEPARTMENT, or null for every department. */
-        public readonly int|string|null $department,
-        public readonly ?string $type,
-        public readonly ?string $category,
-        public readonly ?RequestStatus $status,
+        public readonly array $employees,
+        public readonly array $departments,
+        public readonly array $types,
+        public readonly array $categories,
+        public readonly array $statuses,
         public readonly bool $allStatuses,
         public readonly ?CarbonImmutable $from,
         public readonly ?CarbonImmutable $to,
@@ -42,7 +55,20 @@ final class ReportFilters
     {
         $text = fn (string $key): string => is_string($input[$key] ?? null) ? trim($input[$key]) : '';
 
-        $department = $text('department');
+        // A list, or one string from an older link; each value trimmed, empty ones dropped.
+        $list = function (string $key) use ($input): array {
+            $value = $input[$key] ?? null;
+            $values = is_array($value) ? array_values($value) : [$value];
+
+            return collect(array_slice($values, 0, self::MAX_VALUES))
+                ->filter(fn (mixed $item) => is_string($item))
+                ->map(fn (string $item) => trim($item))
+                ->reject(fn (string $item) => $item === '')
+                ->unique()
+                ->values()
+                ->all();
+        };
+
         $from = self::date($text('from'));
         $to = self::date($text('to'));
 
@@ -52,14 +78,18 @@ final class ReportFilters
         }
 
         $year = $text('year');
+        $statuses = $list('status');
 
         return new self(
-            employee: self::id($text('employee')),
-            department: $department === self::NO_DEPARTMENT ? self::NO_DEPARTMENT : self::id($department),
-            type: in_array($text('type'), self::TYPES, true) ? $text('type') : null,
-            category: preg_match('/^[a-z0-9_-]{1,50}$/', $text('category')) ? $text('category') : null,
-            status: RequestStatus::tryFrom($text('status')),
-            allStatuses: $text('status') === self::ALL_STATUSES,
+            employees: self::ids($list('employee')),
+            departments: array_values(array_unique([
+                ...(in_array(self::NO_DEPARTMENT, $list('department'), true) ? [self::NO_DEPARTMENT] : []),
+                ...self::ids($list('department')),
+            ], SORT_REGULAR)),
+            types: array_values(array_intersect(self::TYPES, $list('type'))),
+            categories: array_values(array_filter($list('category'), fn (string $code) => (bool) preg_match('/^[a-z0-9_-]{1,50}$/', $code))),
+            statuses: array_values(array_filter(array_map(fn (string $status) => RequestStatus::tryFrom($status), $statuses))),
+            allStatuses: in_array(self::ALL_STATUSES, $statuses, true),
             from: $from,
             to: $to,
             allPeriods: $text('periods') === 'all',
@@ -68,59 +98,109 @@ final class ReportFilters
     }
 
     /**
-     * The statuses the department recap counts: Approved unless another status, or all, was chosen.
+     * The statuses the department recap counts: Approved unless other statuses, or all, were chosen.
+     *
+     * @return list<RequestStatus> empty for every status
      */
-    public function recapStatus(): ?RequestStatus
+    public function recapStatuses(): array
     {
-        return $this->allStatuses ? null : ($this->status ?? RequestStatus::Approved);
+        return $this->allStatuses ? [] : ($this->statuses ?: [RequestStatus::Approved]);
     }
 
     /**
-     * Limit a query to the chosen department, or to users without one.
+     * Whether the leave rows (or the overtime rows) are wanted: every type when none was chosen.
      */
-    public function applyDepartment(Builder $query, string $column): void
+    public function wantsType(string $type): bool
     {
-        if ($this->department === self::NO_DEPARTMENT) {
-            $query->whereNull($column);
-        } elseif ($this->department !== null) {
-            $query->where($column, $this->department);
+        return $this->types === [] || in_array($type, $this->types, true);
+    }
+
+    /**
+     * Limit a query to the chosen statuses.
+     *
+     * @param  list<RequestStatus>  $statuses
+     */
+    public static function applyStatuses(Builder $query, string $column, array $statuses): void
+    {
+        if ($statuses !== []) {
+            $query->whereIn($column, array_map(fn (RequestStatus $status) => $status->value, $statuses));
         }
     }
 
     /**
-     * The filters in effect, by key, as plain strings: for export links and the export audit row.
+     * Limit a query to the chosen employees.
+     */
+    public function applyEmployees(Builder $query, string $column): void
+    {
+        if ($this->employees !== []) {
+            $query->whereIn($column, $this->employees);
+        }
+    }
+
+    /**
+     * Limit a query to the chosen departments, users without one included when "No department" was chosen.
+     */
+    public function applyDepartment(Builder $query, string $column): void
+    {
+        if ($this->departments === []) {
+            return;
+        }
+
+        $ids = array_values(array_filter($this->departments, 'is_int'));
+        $none = in_array(self::NO_DEPARTMENT, $this->departments, true);
+
+        $query->where(function (Builder $query) use ($column, $ids, $none) {
+            if ($ids !== []) {
+                $query->whereIn($column, $ids);
+            }
+
+            if ($none) {
+                $query->orWhereNull($column);
+            }
+        });
+    }
+
+    /**
+     * The filters in effect, by key: lists of strings for the filters with several values, plain strings for
+     * the others. For export links and the export audit row.
      *
      * @param  list<string>  $keys
-     * @return array<string, string>
+     * @return array<string, string|list<string>>
      */
     public function only(array $keys): array
     {
+        $strings = fn (array $values): array => array_map('strval', $values);
+
         $values = [
-            'employee' => $this->employee,
-            'department' => $this->department,
-            'type' => $this->type,
-            'category' => $this->category,
-            'status' => $this->allStatuses ? self::ALL_STATUSES : $this->status?->value,
+            'employee' => $strings($this->employees),
+            'department' => $strings($this->departments),
+            'type' => $this->types,
+            'category' => $this->categories,
+            'status' => $this->allStatuses ? [self::ALL_STATUSES] : array_map(fn (RequestStatus $status) => $status->value, $this->statuses),
             'from' => $this->from?->toDateString(),
             'to' => $this->to?->toDateString(),
             'periods' => $this->allPeriods ? 'all' : null,
-            'year' => $this->year,
+            'year' => (string) $this->year,
         ];
 
         $result = [];
 
         foreach ($keys as $key) {
-            if ($values[$key] !== null) {
-                $result[$key] = (string) $values[$key];
+            if ($values[$key] !== null && $values[$key] !== []) {
+                $result[$key] = $values[$key];
             }
         }
 
         return $result;
     }
 
-    private static function id(string $value): ?int
+    /**
+     * @param  list<string>  $values
+     * @return list<int>
+     */
+    private static function ids(array $values): array
     {
-        return preg_match('/^[1-9]\d{0,17}$/', $value) ? (int) $value : null;
+        return array_values(array_unique(array_map('intval', array_filter($values, fn (string $value) => (bool) preg_match('/^[1-9]\d{0,17}$/', $value)))));
     }
 
     private static function date(string $value): ?CarbonImmutable
