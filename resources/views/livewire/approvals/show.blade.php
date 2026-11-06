@@ -25,13 +25,13 @@
 
     @if ($record !== null)
         @if ($viewOnly)
-            <div class="flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900 sm:flex-row sm:items-center sm:justify-between" role="status" data-view-only>
+            <div class="flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-primary-hover sm:flex-row sm:items-center sm:justify-between" role="status" data-view-only>
                 <p>{{ $heldMessage }}</p>
             </div>
         @elseif ($outcome !== null)
             <x-ui.alert data-outcome>{{ $outcome }}</x-ui.alert>
         @elseif (! $holdsLock)
-            <div class="flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900 sm:flex-row sm:items-center sm:justify-between" role="status" data-free>
+            <div class="flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-primary-hover sm:flex-row sm:items-center sm:justify-between" role="status" data-free>
                 <p>{{ __('Nobody is reviewing this request now.') }}</p>
                 <x-ui.button variant="secondary" size="sm" class="self-start sm:self-auto" wire:click="startReview" loading="startReview" data-start-review>{{ __('Start reviewing') }}</x-ui.button>
             </div>
@@ -62,7 +62,7 @@
 
                     <x-ui.detail :label="__('Evidence')">
                         @if ($record->hasEvidence())
-                            <a href="{{ route('requests.evidence', ['type' => $type, 'id' => $record->id]) }}" class="text-blue-700 underline underline-offset-2 hover:text-blue-900" data-evidence-link>{{ $record->evidence_name }}</a>
+                            <a href="{{ route('requests.evidence', ['type' => $type, 'id' => $record->id]) }}" class="text-primary underline underline-offset-2 hover:text-primary-hover" data-evidence-link>{{ $record->evidence_name }}</a>
                         @else
                             {{ __('None') }}
                         @endif
@@ -131,7 +131,7 @@
         @endif
 
         {{-- Both dialogs are always rendered; only their triggers depend on the state (CLAUDE.md lessons). --}}
-        <x-ui.modal name="decision-approve" :title="__('Approve this request?')">
+        <x-ui.modal name="decision-approve" icon="check-circle" :title="__('Approve this request?')">
             <form id="decision-approve-form" class="space-y-4" wire:submit="approve">
                 <p class="font-medium text-slate-900" data-final-warning>{{ __('This decision is final. It cannot be undone or changed later.') }}</p>
                 @if ($record instanceof \App\Models\LeaveRequest && $record->deducts_balance)
@@ -146,7 +146,7 @@
             </x-slot:footer>
         </x-ui.modal>
 
-        <x-ui.modal name="decision-reject" :title="__('Reject this request?')">
+        <x-ui.modal name="decision-reject" icon="x-circle" tone="danger" :title="__('Reject this request?')">
             <form id="decision-reject-form" class="space-y-4" wire:submit="reject">
                 <p class="font-medium text-slate-900" data-final-warning>{{ __('This decision is final. It cannot be undone or changed later.') }}</p>
                 <x-ui.textarea :label="__('Reason for rejection')" id="decision-reason" maxlength="1000" wire:model="reason" :hint="__('5 to 1000 characters. The requester sees it.')" />

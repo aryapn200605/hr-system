@@ -46,13 +46,13 @@
         @endif
     </x-ui.card>
 
-    <x-ui.modal name="department-form" :title="$targetId === null ? __('Add department') : __('Edit :name', ['name' => $targetName])">
+    <x-ui.modal name="department-form" icon="building" :title="$targetId === null ? __('Add department') : __('Edit :name', ['name' => $targetName])">
         <form id="department-form-fields" class="space-y-4" wire:submit="save">
-            <x-ui.input :label="__('Department name')" id="department-name" maxlength="100" autocomplete="off" wire:model="name" />
+            <x-ui.input :label="__('Department name')" id="department-name" icon="building" maxlength="100" autocomplete="off" wire:model="name" />
 
             @if ($targetId !== null)
                 <div class="flex items-start gap-3">
-                    <input id="department-active" type="checkbox" class="mt-0.5 size-4 rounded border-slate-500 text-blue-700" wire:model="active">
+                    <input id="department-active" type="checkbox" class="mt-0.5 size-4 rounded border-slate-500 accent-primary" wire:model="active">
                     <div>
                         <label for="department-active" class="text-sm font-medium text-slate-800">{{ __('Active') }}</label>
                         <p class="text-sm text-slate-600">{{ __('Only active departments can be given to employees.') }}</p>
@@ -68,7 +68,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="department-delete" :title="__('Delete :name?', ['name' => $targetName])">
+    <x-ui.modal name="department-delete" icon="alert-triangle" tone="danger" :title="__('Delete :name?', ['name' => $targetName])">
         <p>{{ __('The department is removed from the list. This cannot be undone.') }}</p>
 
         <x-slot:footer>

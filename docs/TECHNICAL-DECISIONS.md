@@ -517,7 +517,7 @@ Branch `ui-redesign` only. No database migration, no new package.
 
 ### Tokens and font
 - `resources/css/app.css` defines the shadcn token set as CSS variables on `:root` (`background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, `sidebar-*`, `--radius` and its sm/md/lg/xl scale) and maps them to Tailwind colours with `@theme inline`, as the reference does. Light theme only; a dark theme is one more block of the same variables under a selector.
-- Primary: Tailwind blue-700, a **placeholder** until the brand colour is supplied (`design/brand/` does not exist yet).
+- Primary: Tailwind blue-700, a **placeholder** until the brand colour is supplied (`design/brand/` does not exist yet). (Superseded: the brand blue `#2370B5`, see "Brand, dialogs and forms".)
 - Deliberate differences from the reference, each measured (see Checks): `--muted-foreground` slate-600 instead of slate-500 (4.35:1 on muted), `--input` slate-500 instead of the border colour (field borders at 1.23:1), `--ring` blue-600 used as a solid 2 px outline instead of a 50% halo (2.20:1). Added `--success` and `--warning` for status dots.
 - Font: IBM Plex Sans (400, 500, 600, 700) through the existing `bunny()` font option of `laravel-vite-plugin`, which downloads the files at build time and serves them from `public/build`; no package was added. Before this phase `main` used Instrument Sans the same way. The reference uses Inter and Manrope.
 
@@ -592,7 +592,7 @@ Branch `ui-redesign`. No new package, no schema change. One migration, `2026_11_
 
 ### Reference
 - Read from the same clone (`e16c87f`): `features/auth/auth-layout.tsx`, `sign-in/index.tsx`, `sign-in/sign-in-2.tsx` (two panels), `sign-in/components/user-auth-form.tsx`, `otp/`, `forgot-password/` and `components/password-input.tsx`. Rewritten as Blade and plain JavaScript; nothing copied. The reference's screenshot image on the second panel is replaced by the logo and one translated sentence on the primary blue, with a dot grid drawn in CSS (no image file).
-- `design/brand/` still does not exist: the logo is the company name as text (`x-ui.logo`), on a white plate so a future coloured logo file stays readable on the blue; the primary colour is the 15a placeholder.
+- `design/brand/` still does not exist: the logo is the company name as text (`x-ui.logo`), on a white plate so a future coloured logo file stays readable on the blue; the primary colour is the 15a placeholder. (Superseded: see "Brand, dialogs and forms".)
 
 ### Layout (`layouts/auth.blade.php`)
 - From `lg`: a two-column grid. Left (`#main`, light muted background): the form in a card (`[data-page]` `max-w-md mx-auto`, inner `[data-card]` rounded-2xl, border, soft `shadow-xl shadow-slate-900/5`), a help line ("Need help? Contact your HR Admin.") and a small footer (© year, company, app name). Right: the brand panel (`data-auth-panel="brand"`): a soft gradient from `--brand-from` (primary) to `--brand-to` (a deeper blue, tokens in `app.css`), a line grid fading downwards and four thin concentric arcs drawn in inline SVG (no image file), the logo on a white plate, the app name, one sentence, three product points with icons (leave and permission, overtime, approvals) and a line on two-factor protection. Below `lg`: one column, the logo above the card (`data-auth-panel="logo"`), the card top-aligned on phones and centred from `sm`. Print hides everything but the card.
@@ -628,6 +628,40 @@ Branch `ui-redesign`. No new package, no schema change. One migration, `2026_11_
 ### Checks
 - `AuthPagesTest` parses the rendered pages (PHP 8.5 `Dom\HTMLDocument`) and sends every form as a browser without JavaScript would (the rendered fields and values only): activation → login with a code → login with a recovery code, forced enrollment, forgot → reset, and the confirmation page. It swaps Vite for a fake that writes the entry names, so the "only `auth.js`" check needs no build.
 - Browser: `C:\laragon\tmp\browser-check\p15c.mjs` (flows and component behaviour, at 1024 and 375 px, also with JavaScript turned off) and `layout.mjs … public <prefix>` (every public page and the confirmation page at 375, 768, 1024, 1280, 1920 px: no horizontal scroll, nothing outside the screen, no covered control, no empty panel, symmetric margins of the form column, contrast of every visible text, against every colour stop of a gradient background, the worst one counted; plus the code row measurements). Test accounts come from `p15c-setup.php` (log mailer only).
+
+## Brand, dialogs and forms (after 15c, before 15d)
+
+Branch `ui-redesign`. No new package, no migration, no new text. DECISIONS.md section 1 now names the style: brand blue from `design/brand/`, light theme only, shadcn-admin (MIT) as the reference.
+
+### Brand files
+- `design/brand/` holds one file, `logo.jpg` (851 × 851 px): the round blue mark with a white "p" on a patterned grey square, with the curved lettering "Solusi Peranti Digital". **No colour code and no SVG** were supplied.
+- The mark is cropped into `public/brand/logo-icon.png` (256 px) and `favicon-32.png` (32 px): a circle of radius 245 px around (427, 382), just inside the blue edge, with an anti-aliased transparent outside (4 × 4 samples per pixel), by `C:\laragon\tmp\browser-check\brand-crop.php <logo.jpg> <out.png> <size>` (PHP GD; outside the repository like the other check tools). No logo was drawn or traced.
+- The curved lettering is not used: at 32 px it cannot be read. `x-ui.logo` (full) is the mark plus `config('app.company')` as text; the mark there has `alt=""` (the text names it). `x-ui.logo variant="icon"` is the mark alone with the company name as `alt`, or `alt=""` with `decorative` (the sidebar, where the link text names it). Without the file both fall back to the text of 15a.
+- The lettering reads "Solusi Peranti Digital", the configured company name "PT Peranti Digital Solusindo"; the name was not changed.
+- Favicon: `layouts/partials/favicon.blade.php` (PNG 32 px and the 256 px mark as `apple-touch-icon`), included by both layouts, only when the file exists. In the auth layout it comes **after** the `no-referrer` meta, so the icon request from a token URL carries no `Referer` (tested: the policy must precede the first `link`, `script` or `img`).
+
+### Colour
+- Primary `#2370B5` = `oklch(0.534 0.131 249.907)`: the average of the 68,402 pixels of the mark's flat blue (within 8 of `#2070B0` per channel), measured by script (`brand-color.php` converts and measures). White on it 5.18:1, the light foreground 4.95:1.
+- `--primary-hover` `#1D5C96` (`oklch(0.466 0.113 250.28)`, 6.95:1 on white), a deeper step of the same hue. Hovered and loading buttons use it instead of `primary/90`, which lightens the blue under 4.5:1 for the white label. Blue text on a light tint (badges, notices) uses it too.
+- `--ring` is the primary (5.18:1 on white, above the 3:1 for a focus indicator). `--brand-to` `#15406A` (`oklch(0.365 0.086 251.05)`).
+- The 15a pages still had literal Tailwind blues (links `text-blue-700`, tabs `bg-blue-700`, notices `bg-blue-50`, checkboxes, the profile menu): all moved to the tokens (`text-primary`, `hover:text-primary-hover`, `bg-primary`, `border-primary/20 bg-primary/5 text-primary-hover`, `accent-primary`). No `blue-*` class is left in the views.
+- Brand panel of the auth pages: its secondary texts were `text-white/85`, which measures 4.23:1 on the lighter end of the new gradient (the layout checker found it); now `text-white` (5.18:1).
+
+### Dialogs and forms after the auth pages
+- `x-ui.modal`: the auth card's look (rounded-2xl, soft `shadow-xl shadow-slate-900/10`, the same 0.3 s entrance with `motion-safe:` only), a footer band (`border-t bg-muted/40`), and two optional properties: `icon` (an `x-ui.icon` name) and `tone` (`default` primary tint, `danger`, `warning`), drawn as the auth heading's badge beside the title. The badge is `aria-hidden`; the dialog is still named by its title. The dialog stays always rendered (CLAUDE.md lesson). Every dialog got an icon: confirmations of something final or destructive use `danger` (reject, delete, suspend), reversible warnings `warning` (cancel a request, reset a period, end sessions), forms the default tone.
+- `x-ui.button`: the filled variants (primary, danger) take the submit button's hover shadow and 1 px pressed offset (no offset under reduced motion). The `loading` property (Livewire: disabled plus a spinner while the action runs) is unchanged and now verified in a browser with a delayed request.
+- `x-ui.card`: the auth card's soft shadow, lighter (`shadow-md shadow-slate-900/[0.04]`) since a page holds several.
+- Input icons (`x-ui.input icon=`) on the app's text fields: user (names, usernames), mail (emails), search (users search), building (department name).
+- Security → Change password and Profile → Change username or email are controller pages like the confirmation page: they now load `auth.js` and use `x-ui.password-input` (show/hide) and `x-ui.submit-button` (loading state, one submit). Field names, `autocomplete` values and the controllers are unchanged; without JavaScript the forms are as before (tested by sending the rendered form).
+
+### Row menus clipped by the table (defect found)
+- An anchored `x-ui.dropdown` (the row menus of User Management) was placed by `x-anchor` with the default absolute strategy inside the table's `overflow-x-auto` box. With few rows the menu reached below the table and was **clipped**: its lower items could not be clicked (the click landed on the "Rows per page" select under it). This existed since 15a; it shows with one or two rows (the owner's list has three). Fixed with `x-anchor.fixed`, as the 15b panels already do; tested in a test and in the browser.
+
+### Tests
+- `Livewire::flushState()` moved from `AuthPagesTest::setUp` to the base `TestCase::setUp`, so Livewire's static per-request state never leaks from one test to the next. `AppLayoutTest` now asserts the flag is clear instead of clearing it itself. A full run with `--order-by=random` passed.
+
+### Checks
+- `C:\laragon\tmp\browser-check\p15-brand.mjs` (puppeteer, 1024 and 375 px): logo mark and favicon load on the auth and app layouts, the primary colour, the referrer policy first; every dialog opened by its real trigger (row menus opened first), its badge and tone, radius, inside the screen, focus inside, no covered button, Escape; input icons inside their fields; the password page's show/hide and submit state; a Livewire dialog button disabled with a spinner while a delayed request runs. It saves nothing: the forms it sends are refused by validation (no mail is sent; `.env` has a real SMTP server).
 
 ## Language
 

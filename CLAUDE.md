@@ -70,3 +70,4 @@ Read at the start of every phase, in this order:
 - Run the dev tests against `hr_system_test` only, and race processes without `RefreshDatabase`.
 - Livewire 4 reserves `$slots` in views; a view variable with that name renders nothing.
 - MySQL limits index names to 64 characters; name long composite indexes yourself.
+- `x-anchor` without `.fixed` places a menu absolutely: inside an `overflow` box (a table) it is clipped and its items cannot be clicked. Use `x-anchor.fixed`, and click a menu item in a short list in the browser.

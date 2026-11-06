@@ -211,8 +211,8 @@ class AppLayoutTest extends TestCase
     {
         $user = $this->userWithRole(RoleName::Employee);
 
-        // Left set by any earlier test that rendered a component in this process.
-        SupportAutoInjectedAssets::$hasRenderedAComponentThisRequest = false;
+        // Livewire's "a component was rendered" flag is reset before every test by the base TestCase.
+        $this->assertFalse(SupportAutoInjectedAssets::$hasRenderedAComponentThisRequest);
 
         $this->actingAs($user)->get(route('security.confirm'))
             ->assertOk()
@@ -383,5 +383,53 @@ class AppLayoutTest extends TestCase
         $this->assertStringContainsString('<th>Name</th>', $table);
         $this->assertStringContainsString('Nothing here', $empty);
         $this->assertStringContainsString('Add something.', $empty);
+    }
+
+    public function test_a_dialog_shows_its_icon_badge_in_the_requested_tone(): void
+    {
+        $plain = Blade::render('<x-ui.modal name="plain" title="Plain">Body</x-ui.modal>');
+        $this->assertStringNotContainsString('data-modal-icon', $plain);
+
+        $danger = Blade::render('<x-ui.modal name="risky" title="Delete?" icon="alert-triangle" tone="danger">Body</x-ui.modal>');
+        $this->assertMatchesRegularExpression('/<span class="[^"]*bg-red-50[^"]*" aria-hidden="true" data-modal-icon="danger">\s*<svg/', $danger);
+        // The badge is decorative: the dialog is still named by its title only.
+        $this->assertStringContainsString('aria-labelledby="risky-title"', $danger);
+
+        $default = Blade::render('<x-ui.modal name="ok" title="Approve?" icon="check-circle">Body</x-ui.modal>');
+        $this->assertMatchesRegularExpression('/<span class="[^"]*bg-primary\/10[^"]*" aria-hidden="true" data-modal-icon="default">/', $default);
+    }
+
+    public function test_an_anchored_menu_is_placed_fixed_so_a_scrolling_table_cannot_clip_it(): void
+    {
+        $anchored = Blade::render('<x-ui.dropdown id="row" label="Actions" anchored><x-slot:trigger>Actions</x-slot:trigger><x-ui.dropdown-item>Edit</x-ui.dropdown-item></x-ui.dropdown>');
+        $this->assertStringContainsString('x-anchor.fixed.bottom-end.offset.4="$refs.trigger"', $anchored);
+
+        // The users list: its row menus are anchored (they sit in the table's overflow box).
+        $this->actingAs($this->userWithRole(RoleName::HrAdmin))->get(route('users.index'))->assertOk()
+            ->assertSee('x-anchor.fixed.bottom-end.offset.4', false)
+            ->assertDontSee('x-anchor.bottom-end', false);
+    }
+
+    public function test_the_brand_mark_is_the_logo_and_the_favicon_on_both_layouts(): void
+    {
+        $this->assertFileExists(public_path('brand/logo-icon.png'));
+        $this->assertFileExists(public_path('brand/favicon-32.png'));
+        $company = config('app.company');
+
+        // Full logo: the mark beside the company name in text; the image is decorative there (the name is read).
+        $full = Blade::render('<x-ui.logo />');
+        $this->assertMatchesRegularExpression('#<img src="[^"]*brand/logo-icon\.png" alt=""[^>]*data-logo-mark>#', $full);
+        $this->assertStringContainsString('<span>'.$company.'</span>', $full);
+
+        // The mark alone carries the company name, unless the surrounding link already names it.
+        $this->assertStringContainsString('alt="'.$company.'"', Blade::render('<x-ui.logo variant="icon" />'));
+        $this->assertStringContainsString('alt=""', Blade::render('<x-ui.logo variant="icon" decorative />'));
+
+        $login = $this->get(route('login'))->assertOk()->getContent();
+        $app = $this->dashboardAs($this->userWithRole(RoleName::Employee))->getContent();
+        foreach ([$app, $login] as $html) {
+            $this->assertStringContainsString('<link rel="icon" type="image/png" sizes="32x32" href="'.asset('brand/favicon-32.png').'">', $html);
+            $this->assertStringContainsString('brand/logo-icon.png', $html);
+        }
     }
 }

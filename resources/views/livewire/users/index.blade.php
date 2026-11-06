@@ -11,7 +11,7 @@
 
     <x-ui.card>
         <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-2 lg:grid-cols-5">
-            <x-ui.input :label="__('Search')" id="filter-search" type="search" maxlength="100" :placeholder="__('Name, username or email')" wire:model.live.debounce.300ms="search" />
+            <x-ui.input :label="__('Search')" id="filter-search" icon="search" type="search" maxlength="100" :placeholder="__('Name, username or email')" wire:model.live.debounce.300ms="search" />
 
             {{-- Several values in one filter: any of them; several filters: all of them. --}}
             <x-ui.select :label="__('Role')" id="filter-role" multiple :placeholder="__('All roles')" wire:model.live="roleFilter"
@@ -131,12 +131,13 @@
         @endif
     </x-ui.card>
 
-    <x-ui.modal name="user-form" :title="$targetId === null ? __('Create user') : __('Edit :name', ['name' => $targetName])">
+    <x-ui.modal name="user-form" icon="user" :title="$targetId === null ? __('Create user') : __('Edit :name', ['name' => $targetName])">
         <form id="user-form-fields" class="space-y-4" wire:submit="saveUser">
-            <x-ui.input :label="__('Full name')" id="form-name" autocomplete="off" wire:model="name" />
+            <x-ui.input :label="__('Full name')" id="form-name" icon="user" autocomplete="off" wire:model="name" />
             <x-ui.input
                 :label="__('Username')"
                 id="form-username"
+                icon="user"
                 autocomplete="off"
                 wire:model="username"
                 :readonly="$identityLocked"
@@ -145,6 +146,7 @@
             <x-ui.input
                 :label="__('Email')"
                 id="form-email"
+                icon="mail"
                 type="email"
                 autocomplete="off"
                 wire:model="email"
@@ -166,7 +168,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="user-role" :title="__('Change role of :name', ['name' => $targetName])">
+    <x-ui.modal name="user-role" icon="shield" :title="__('Change role of :name', ['name' => $targetName])">
         <form id="user-role-fields" wire:submit="saveRole">
             <x-ui.select :label="__('Role')" id="change-role" wire:model="role" :hint="__('The new permissions apply from the user\'s next request.')"
                 :options="collect($assignableRoles)->mapWithKeys(fn ($option) => [$option->value => $option->label()])->all()" />
@@ -178,7 +180,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="user-confirm" :title="match ($confirming) {
+    <x-ui.modal name="user-confirm" :icon="match ($confirming) { 'suspend' => 'alert-triangle', 'reactivate' => 'check-circle', 'resend' => 'mail', default => null }" :tone="$confirming === 'suspend' ? 'danger' : 'default'" :title="match ($confirming) {
         'suspend' => __('Suspend :name?', ['name' => $targetName]),
         'reactivate' => __('Reactivate :name?', ['name' => $targetName]),
         'resend' => __('Resend invitation?'),

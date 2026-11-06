@@ -26,6 +26,7 @@
 - Phase 15a (redesign foundation and pilot page): done on branch `ui-redesign`, see "Phase 15a" at the end. Primary colour and logo are placeholders until the brand files arrive.
 - Phase 15b (form components, filters with several values): done on branch `ui-redesign`, see "Phase 15b" at the end. The session was cut by a Windows restart before the docs and commit; resumed and finished on 2026-11-06.
 - Phase 15c (auth pages): done on branch `ui-redesign`, see "Phase 15c" at the end.
+- Brand, dialogs and forms (between 15c and 15d): done on branch `ui-redesign`, see "Brand, dialogs and forms" at the end. Logo and primary blue now come from `design/brand/logo.jpg`.
 - **Next: Phase 15d (application pages in groups)**, started by the owner. Phase 16 (deployment) stays deferred.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
@@ -1005,4 +1006,53 @@ Branch `ui-redesign`, not merged. One migration (texts only). Mid-phase the owne
 ### Owner steps
 - Review the 40 new Indonesian texts. Nothing to run: the migration was applied to `hr_system` in this phase.
 - Put the brand files in `design/brand/` when available (logo SVG, icon, colour code).
+- Next: 15d (application pages in groups). Not started.
+
+## Brand, dialogs and forms (2026-11-06)
+
+Owner's five points, between 15c and 15d. Branch `ui-redesign`. No migration, no new package, no new text (no translation added: every label already existed).
+
+### Plan (Step 0)
+- No tables, columns, permissions or routes. Files: base `TestCase`; DECISIONS.md section 1 (style only); `app.css` tokens; `x-ui.logo`, `x-ui.modal`, `x-ui.button`, `x-ui.card`, `x-ui.badge`, `x-ui.dropdown`, `x-ui.submit-button`; both layouts (favicon partial); the pages' literal blues; dialog icons; input icons; the Security password and identity pages.
+
+### Done
+1. **Livewire reset in the base TestCase:** it was only in `AuthPagesTest::setUp`. Moved to `Tests\TestCase::setUp` (`Livewire::flushState()` before every test); `AppLayoutTest` now asserts the flag is clear instead of clearing it. Full suite with `--order-by=random`: **1201/1201** (first run, 8854 assertions), no test depends on the order.
+2. **DECISIONS.md section 1:** "gaya ungu" replaced by: brand blue from `design/brand/`, light theme only, shadcn-admin (MIT) as the reference. No business decision touched.
+3. **Brand:** `design/brand/` holds only `logo.jpg` (no colour code, no SVG). Used anyway (the owner's condition was "logo and colour codes"; the colour was measured from the logo, see Assumptions): the round mark cropped to `public/brand/logo-icon.png` and `favicon-32.png`; `x-ui.logo` shows the mark plus the company name in text (sidebar, auth pages, gallery); favicon on both layouts; primary `#2370B5` (from the logo's pixels), `--primary-hover` `#1D5C96`, ring = primary, brand panel gradient to `#15406A`; every literal `blue-*` class in the pages moved to the tokens.
+4. **no-referrer:** no new page carries a token in its URL (routes with a token: `activation/{token}`, whose 409/410 pages already use the auth layout's policy, and `reset-password/{token}`, which always redirects). The new favicon and logo image are requests from those pages: the policy is placed before them, and a test now requires it before the first `link`, `script` or `img`.
+5. **15c patterns in dialogs and forms:** `x-ui.modal` with the auth card's radius, soft shadow, entrance and an icon badge (`icon`, `tone`), every dialog given one; filled buttons with the hover shadow and pressed offset (Livewire `loading` spinner kept); cards with the soft shadow; input icons on the app's text fields; the Change password and Change username/email pages use `x-ui.password-input` and `x-ui.submit-button` with `auth.js`.
+
+### Verified
+- `php artisan test` on `hr_system_test`, final run `--order-by=random --random-order-seed=20261106`: SUITE_RESULT. New tests: dialog badge and tone, anchored menu fixed (component and users page), logo and favicon on both layouts, referrer policy before every request, the password and identity forms (fields, toggles, submit button, `auth.js`, sent as rendered without JavaScript).
+- Mutation check, 15 safeguards removed one at a time, each file restored and confirmed by SHA-256 (`C:\laragon\tmp\browser-check\p15brand-mutate.py`): the base TestCase reset, the policy before the favicon (removed and moved), fixed menu placement, logo `alt` (icon and full), favicon on each layout, dialog badge and tone, the password page's toggle fields, script and submit button, the identity page's script and submit button. **All 15 caught.**
+- Browser `C:\laragon\tmp\browser-check\p15-brand.mjs` (puppeteer, http://hr-system.test, 1024 and 375 px): **201/201**, 0 console errors. Every dialog of the app opened by its real trigger (22 per width: users create/edit/role/suspend, employment, add supervisor, move subordinates, adjust/reset/anchor, department add/delete, holiday add, leave and overtime forms, cancel request, approve, reject, gallery; end sessions skipped: only one session), badge and tone, radius, inside the screen, focus inside, no covered button, Escape; logo and favicon load, primary colour, input icons, password show/hide and submit state, a Livewire dialog button disabled with a spinner while a delayed request runs. Nothing was saved and no mail sent (forms refused by validation).
+- `layout.mjs` (every authenticated route at 375, 768, 1024, 1280, 1920 px, contrast at 1280): **115/115**, 0 below AA. Public pages and code rows: **77/77** after the fix below. 15c flows `p15c.mjs`: **68/68**. 15a interactions: **42/42**. Screenshots in `design/screens/after-brand/` (git-ignored); login, dashboard, dialogs at 375 and 1024, the password page looked at.
+- `npm run build`, Pint, `composer audit`, `npm audit`: clean. `app:translations-missing`: passes.
+- `hr_system`: no migration in this change. Counts before (`C:\laragon\tmp\browser-check\p15brand-counts-before.json`: users 3, login_histories 14, audit_logs 40 with max id 1272, sessions 1, ...). Cleanup: 10 zz-check accounts and their rows deleted in one checked transaction by `p15c-cleanup.php` (audit 107, login history 30, recovery codes 80, invitations 10, roles 10, periods 10, ledger 11, requests 3, reset tokens 2, sessions 20), then the 18 headless guest sessions (listed first; `p15brand-sessions-cleanup.php` with the expected count). Every count equals the "before" file except one login of the owner at 15:34:52 from their own browser during this work (login_histories +1, audit_logs +1 with id 1310, user 1 `updated_at`), not made by the checks (they never use the owner's account); not touched.
+
+### Bugs found
+- **Row menus clipped (since 15a):** User Management's "Actions" menu was placed absolutely inside the table's scroll box; with few rows its lower items were cut off and could not be clicked (the click landed on "Rows per page"). Fixed with `x-anchor.fixed`; tested. Lesson added to CLAUDE.md.
+- **Contrast on the brand panel:** with the brand blue, the panel's `text-white/85` lines measured 4.23:1 (found by the layout checker); now `text-white` (5.18:1).
+- Hover `bg-primary/90` would have lightened the brand blue below AA for the white label: replaced by `--primary-hover`.
+
+### Test changes
+- `ActivationTest::test_the_qr_code_is_rendered_locally` refused any `<img>` with an absolute `http(s)` URL; the brand mark (`asset()`, same host) made it fail in the full run (1204/1205). It now requires every image to come from the application's own asset root and to carry neither `otpauth` nor the secret, and still refuses any other host. Mutation-checked (`p15brand-mutate-qr.py`: an external QR image and another host on the activation page, both caught; view restored by hash).
+- `AuthPagesTest` lost its own Livewire reset (now in the base TestCase); `AppLayoutTest` asserts the flag instead of clearing it. No other existing test changed.
+
+### Assumptions
+- **[ASSUMPTION]** The primary colour is measured from `logo.jpg` (`#2370B5`), because no colour code was supplied. Replace it if an official code exists (README: "Mengganti logo nanti").
+- **[ASSUMPTION]** Only the round mark is used; the curved lettering is unreadable at 32 px, and the company name is set as text beside it.
+- The logo's lettering reads "Solusi Peranti Digital" while `config('app.company')` is "PT Peranti Digital Solusindo"; the name was not changed. The owner should confirm which is right.
+
+### Not proven
+- Real brand vector (none supplied): the PNG mark is a raster crop of a JPEG and looks soft above about 128 px. Safari, Firefox, screen readers, forced colours (headless Chrome only).
+- `bg-destructive/90` (danger button hover) was not re-measured; it is unchanged from 15a.
+
+### Deviations
+- Item 3's condition was "logo and colour codes"; only the logo exists. The logo was used and the colour measured from it instead of keeping the placeholder (recorded above as an assumption).
+- One defect fix outside the five points (the clipped row menu), because it blocked clicking the dialogs being checked.
+
+### Owner steps
+- Confirm the company name (logo lettering vs. config) and, if available, supply an SVG logo and the official colour code.
+- Nothing to run: no migration. `npm run build` was run.
 - Next: 15d (application pages in groups). Not started.

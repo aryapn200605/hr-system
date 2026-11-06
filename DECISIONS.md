@@ -10,7 +10,7 @@ Hal yang ditandai **[ASUMSI]** belum diputuskan penuh. Jangan diubah diam-diam; 
 - Auth, 2FA wajib untuk semua user, flow undangan, recovery code, dan username/email yang bisa diubah sendiri **dipertahankan seperti sekarang**.
 - Reset 2FA hanya lewat konsol (`app:reset-two-factor`), tidak ada aksi di UI. 2FA tidak bisa dinonaktifkan.
 - Dokumen SRS disesuaikan setelah aplikasi selesai.
-- Ditunda: chatbot (FR23) dan FR25–FR28. Redesain (gaya ungu, login lebih menarik) adalah Phase 15 dan dimulai pemilik. Dashboard (FR20) dikerjakan di Phase 12 setelah data nyata ada. Notifikasi email (FR29) opsional di Phase 13.
+- Ditunda: chatbot (FR23) dan FR25–FR28. Redesain (login lebih menarik) adalah Phase 15 dan dimulai pemilik. Gaya redesain: warna utama biru sesuai berkas merek di `design/brand/`, tema terang saja, dengan referensi desain [shadcn-admin](https://github.com/satnaing/shadcn-admin) (lisensi MIT, dibaca sebagai acuan, tidak dipasang). Dashboard (FR20) dikerjakan di Phase 12 setelah data nyata ada. Notifikasi email (FR29) opsional di Phase 13.
 - Bahasa (English/Indonesia) dipilih di Profile, teks disimpan di database agar bahasa baru bisa ditambah tanpa mengubah kode. **Dibangun lebih dulu (Phase 7)**, sebelum modul HR, supaya setiap kalimat baru langsung didaftarkan di kedua bahasa dalam perubahan yang sama. Tamu dan user tanpa pilihan memakai bahasa bawaan (English) [ASUMSI].
 
 ## 2. Zona waktu

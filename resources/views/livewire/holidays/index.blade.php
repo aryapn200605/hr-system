@@ -39,7 +39,7 @@
         @endif
     </x-ui.card>
 
-    <x-ui.modal name="holiday-form" :title="$targetId === null ? __('Add holiday') : __('Edit :name', ['name' => $targetName])">
+    <x-ui.modal name="holiday-form" icon="calendar" :title="$targetId === null ? __('Add holiday') : __('Edit :name', ['name' => $targetName])">
         <form id="holiday-form-fields" class="space-y-4" wire:submit="save">
             <x-ui.date-picker :label="__('Date')" id="holiday-date" :min="$earliest" :max="$latest" wire:model="date" />
             <x-ui.input :label="__('Holiday name')" id="holiday-name" maxlength="100" autocomplete="off" wire:model="name" />
@@ -51,7 +51,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="holiday-delete" :title="__('Delete :name?', ['name' => $targetName])">
+    <x-ui.modal name="holiday-delete" icon="alert-triangle" tone="danger" :title="__('Delete :name?', ['name' => $targetName])">
         <p>{{ __('The day counts as a working day again in new requests. Existing requests keep their working days.') }}</p>
 
         <x-slot:footer>

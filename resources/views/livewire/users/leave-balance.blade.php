@@ -107,7 +107,7 @@
         @endif
     </x-ui.card>
 
-    <x-ui.modal name="balance-adjust" :title="__('Adjust balance')">
+    <x-ui.modal name="balance-adjust" icon="calendar" :title="__('Adjust balance')">
         <form id="balance-adjust-fields" class="space-y-4" wire:submit="adjust">
             <x-ui.input :label="__('Days')" id="adjust-days" type="number" step="1" min="-{{ \App\Services\LeaveBalance::MAX_ADJUSTMENT }}" max="{{ \App\Services\LeaveBalance::MAX_ADJUSTMENT }}" wire:model="days" :hint="__('A positive number adds days, a negative one removes them. The remaining days cannot go below zero.')" />
             <x-ui.textarea :label="__('Reason')" id="adjust-reason" maxlength="1000" wire:model="reason" />
@@ -119,7 +119,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="balance-reset" :title="__('Reset period?')">
+    <x-ui.modal name="balance-reset" icon="alert-triangle" tone="warning" :title="__('Reset period?')">
         <form id="balance-reset-fields" class="space-y-4" wire:submit="resetBalance">
             <p>{{ __('The current period ends yesterday and a new period with :count days starts today, until the day before the next anniversary of the anchor date. The remaining days of the current period lapse.', ['count' => \App\Services\LeaveBalance::ENTITLEMENT]) }}</p>
             <x-ui.textarea :label="__('Reason')" id="reset-reason" maxlength="1000" wire:model="reason" />
@@ -131,7 +131,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="balance-anchor" :title="__('Change anchor date')">
+    <x-ui.modal name="balance-anchor" icon="calendar" :title="__('Change anchor date')">
         <form id="balance-anchor-fields" class="space-y-4" wire:submit="saveAnchor">
             <x-ui.date-picker :label="__('Anchor date')" id="anchor-date" :min="\App\Services\LeaveBalance::EARLIEST_ANCHOR" :max="today()->toDateString()" wire:model="anchor" :hint="__('The current period keeps its dates. The next period ends on the first anniversary of the new date.')" />
             <x-ui.button variant="link" wire:click="useCreationDate" loading="useCreationDate">{{ __('Use the account creation date (:date)', ['date' => $creationDate]) }}</x-ui.button>

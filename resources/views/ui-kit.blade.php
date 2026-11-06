@@ -197,7 +197,7 @@
         </div>
     </x-ui.page>
 
-    <x-ui.modal name="kit-dialog" :title="__('Delete :name?', ['name' => 'Rina Kartika'])" :description="__('This decision is final. It cannot be undone or changed later.')">
+    <x-ui.modal name="kit-dialog" icon="alert-triangle" tone="danger" :title="__('Delete :name?', ['name' => 'Rina Kartika'])" :description="__('This decision is final. It cannot be undone or changed later.')">
         <p>{{ __('The day counts as a working day again in new requests. Existing requests keep their working days.') }}</p>
         <div class="mt-4 grid grid-cols-1 gap-4">
             <x-ui.select :label="__('Department')" id="kit-dialog-select" :options="$kitDepartments" />

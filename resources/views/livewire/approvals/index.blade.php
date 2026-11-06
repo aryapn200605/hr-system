@@ -6,7 +6,7 @@
                 @foreach (['waiting' => __('Waiting for me'), 'decided' => __('Decided by me')] as $value => $label)
                     <button type="button" wire:click="$set('tab', '{{ $value }}')" aria-pressed="{{ $shownTab === $value ? 'true' : 'false' }}" data-tab="{{ $value }}" @class([
                         'cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium',
-                        'bg-blue-700 text-white' => $shownTab === $value,
+                        'bg-primary text-primary-foreground' => $shownTab === $value,
                         'text-slate-700 hover:bg-slate-100' => $shownTab !== $value,
                     ])>{{ $label }}</button>
                 @endforeach
@@ -40,7 +40,7 @@
                         @php($isLeave = $row instanceof \App\Models\LeaveRequest)
                         <tr wire:key="{{ $row->routeType() }}-{{ $row->id }}" data-row="{{ $row->routeType() }}-{{ $row->id }}">
                             <td>
-                                <a href="{{ route('approvals.show', ['type' => $row->routeType(), 'id' => $row->id]) }}" class="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900" data-open>
+                                <a href="{{ route('approvals.show', ['type' => $row->routeType(), 'id' => $row->id]) }}" class="font-medium text-primary underline underline-offset-2 hover:text-primary-hover" data-open>
                                     {{ $row->user->name }}<span class="sr-only">: {{ $shownTab === 'waiting' ? __('Review') : __('View') }}</span>
                                 </a>
                                 <span class="block text-slate-600">{{ $isLeave ? $row->category->label() : __('Overtime') }}</span>

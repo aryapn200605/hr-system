@@ -281,7 +281,15 @@ class ActivationTest extends TestCase
 
         $html = $this->get(route('activation.two-factor'))->assertSee('<svg', false)->getContent();
 
-        $this->assertDoesNotMatchRegularExpression('/<img[^>]+https?:/', $html);
+        // No image from another host (a QR service would see the secret). Images from the application's own
+        // asset root (the brand mark) are allowed; none may carry the otpauth URI or the secret.
+        preg_match_all('/<img\b[^>]*>/i', $html, $images);
+        foreach ($images[0] as $image) {
+            $this->assertMatchesRegularExpression('/\ssrc="'.preg_quote(asset(''), '/').'[^"]*"/', $image, "An image is loaded from outside the application: $image");
+            $this->assertStringNotContainsStringIgnoringCase('otpauth', $image);
+            $this->assertStringNotContainsString($this->activationSecret(), $image);
+        }
+        $this->assertDoesNotMatchRegularExpression('/<img[^>]+src="(?!'.preg_quote(asset(''), '/').')https?:/i', $html);
     }
 
     public function test_two_factor_cannot_be_skipped_or_reached_out_of_order(): void

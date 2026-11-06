@@ -11,13 +11,13 @@ use Dom\HTMLDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Vite;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\Testing\TestResponse;
-use Livewire\Livewire;
 use Tests\Concerns\InvitesUsers;
 use Tests\Concerns\LogsIn;
 use Tests\TestCase;
@@ -39,11 +39,6 @@ class AuthPagesTest extends TestCase
         $this->freezeTime();
         $this->withoutDefer();
         Mail::fake();
-
-        // Livewire keeps "a component was rendered in this request" in a static flag that an earlier test in the
-        // same PHP process can leave set (in production every request starts clean). Reset it, so the public
-        // pages are judged on what they render themselves.
-        Livewire::flushState();
 
         // The base TestCase turns Vite off; here each entry point is written as a marker, so the tests can see
         // which scripts a page loads without depending on a build.
@@ -141,6 +136,12 @@ class AuthPagesTest extends TestCase
         $this->assertStringContainsString('data-entry="resources/js/auth.js"', $html);
         $this->assertStringNotContainsString('data-entry="resources/js/app.js"', $html);
         $this->assertStringContainsString('<meta name="referrer" content="no-referrer">', $html);
+        // The policy only covers requests made after it is parsed: it must come before the first stylesheet,
+        // script, icon or image (the brand favicon and logo are requests too).
+        $policy = strpos($html, '<meta name="referrer"');
+        $this->assertMatchesRegularExpression('/<(link|script|img)\b/', $html);
+        preg_match('/<(link|script|img)\b/', $html, $first, PREG_OFFSET_CAPTURE);
+        $this->assertLessThan($first[0][1], $policy, 'A request starts before the referrer policy.');
         $this->assertStringNotContainsString('Skip to content', $html);
     }
 
@@ -292,6 +293,38 @@ class AuthPagesTest extends TestCase
         $this->submit($page, route('security.confirm.store'), ['password' => 'password', 'code' => $this->totp($user->two_factor_secret)], route('security.confirm'))
             ->assertRedirect(route('security.index'))
             ->assertSessionHasNoErrors();
+    }
+
+    public function test_the_password_and_identity_forms_use_the_auth_fields_and_submit_button(): void
+    {
+        $user = $this->enrolledUser();
+        $this->logIn($user);
+        $this->confirmIdentity($user);
+
+        $page = $this->get(route('security.password'))->assertOk()->assertSee('Skip to content');
+        $form = $this->form($page, route('security.password.update'));
+        foreach (['password', 'password_confirmation'] as $name) {
+            $field = $this->attributes($form, $name);
+            $this->assertSame(['password', 'new-password'], [$field['type'], $field['autocomplete']]);
+            // The show/hide button of x-ui.password-input: hidden until auth.js runs, never a submit button.
+            $toggle = $form->querySelector('button[data-password-toggle][aria-controls="'.$field['id'].'"]');
+            $this->assertNotNull($toggle, "No show/hide button for $name.");
+            $this->assertSame('button', $toggle->getAttribute('type'));
+            $this->assertTrue($toggle->hasAttribute('hidden'));
+        }
+        $this->assertSame('submit', $form->querySelector('button[data-submit]')?->getAttribute('type'));
+        $this->assertStringContainsString('data-entry="resources/js/auth.js"', $page->getContent());
+
+        $identity = $this->get(route('profile.identity'))->assertOk();
+        $identityForm = $this->form($identity, route('profile.identity.update'));
+        $this->assertSame(['username', 'email'], [$this->attributes($identityForm, 'username')['autocomplete'], $this->attributes($identityForm, 'email')['autocomplete']]);
+        $this->assertNotNull($identityForm->querySelector('button[data-submit][type=submit]'));
+        $this->assertStringContainsString('data-entry="resources/js/auth.js"', $identity->getContent());
+
+        // Sent as rendered, without JavaScript: the password changes.
+        $this->submit($page, route('security.password.update'), ['password' => self::NEW_PASSWORD, 'password_confirmation' => self::NEW_PASSWORD], route('security.password'))
+            ->assertSessionHasNoErrors();
+        $this->assertTrue(Hash::check(self::NEW_PASSWORD, $user->fresh()->password));
     }
 
     // --- every form without JavaScript --------------------------------------------------------------------

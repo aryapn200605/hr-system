@@ -8,8 +8,10 @@
  * radius scale and neutral (slate) values. Light theme only. A dark theme would redefine these variables
  * under a selector; nothing else would change.
  *
- * Primary is a placeholder blue (Tailwind blue-700) until the brand colour of PT Peranti Digital Solusindo
- * is supplied in design/brand/. Its foreground on it measures 6.52:1 (C:\laragon\tmp\browser-check\contrast.mjs).
+ * Primary is the brand blue, measured from design/brand/logo.jpg (the flat blue of the round mark, #2370B5;
+ * design/brand/ holds no colour code, so the colour was read from the logo's pixels). Its foreground on it
+ * measures 4.95:1 and it measures 5.18:1 on white. --primary-hover is a deeper step of the same hue (#1D5C96,
+ * 6.95:1 on white) for hovered buttons and for blue text on light tints (C:\laragon\tmp\browser-check\contrast.mjs).
  *
  * Changed from the reference, each for WCAG AA: --muted-foreground, --input, --ring (see their notes).
  * Added: --success and --warning (status dots), and the sidebar widths.
@@ -22,7 +24,8 @@
     --card-foreground: oklch(0.129 0.042 264.695);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.129 0.042 264.695);
-    --primary: oklch(0.488 0.243 264.376);
+    --primary: oklch(0.534 0.131 249.907);
+    --primary-hover: oklch(0.466 0.113 250.28);
     --primary-foreground: oklch(0.984 0.003 247.858);
     --secondary: oklch(0.968 0.007 247.896);
     --secondary-foreground: oklch(0.208 0.042 265.755);
@@ -35,8 +38,8 @@
     --border: oklch(0.929 0.013 255.508);
     /* Field borders: slate-500 (4.77:1). The reference uses the border colour, 1.23:1, below the 3:1 for controls. */
     --input: oklch(0.554 0.046 257.417);
-    /* Focus outline: blue-600, 5.26:1 on white. The reference's slate-400 halo at 50% would be far below 3:1. */
-    --ring: oklch(0.546 0.245 262.881);
+    /* Focus outline: the brand blue, 5.18:1 on white. The reference's slate-400 halo at 50% would be far below 3:1. */
+    --ring: var(--primary);
 
     --success: oklch(0.527 0.154 150.069);
     --warning: oklch(0.555 0.163 48.998);
@@ -50,9 +53,10 @@
     --sidebar-border: var(--border);
     --sidebar-ring: var(--ring);
 
-    /* The auth pages' brand panel: a soft gradient from primary to a deeper blue (white text stays >= 6.5:1). */
+    /* The auth pages' brand panel: a soft gradient from primary to a deeper brand blue (#15406A); white text
+       measures 5.18:1 at the lightest stop. */
     --brand-from: var(--primary);
-    --brand-to: oklch(0.36 0.17 266);
+    --brand-to: oklch(0.365 0.086 251.05);
 
     --sidebar-width: 16rem;
     --sidebar-width-mobile: 18rem;
@@ -75,6 +79,7 @@
     --color-popover-foreground: var(--popover-foreground);
     --color-primary: var(--primary);
     --color-primary-foreground: var(--primary-foreground);
+    --color-primary-hover: var(--primary-hover);
     --color-secondary: var(--secondary);
     --color-secondary-foreground: var(--secondary-foreground);
     --color-muted: var(--muted);

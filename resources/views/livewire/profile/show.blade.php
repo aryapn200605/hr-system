@@ -20,7 +20,7 @@
         <div class="space-y-6 self-start">
             <x-ui.card :title="__('Your name')">
                 <form wire:submit="save" class="space-y-4 p-5">
-                    <x-ui.input :label="__('Full name')" id="profile-name" autocomplete="name" wire:model="name" />
+                    <x-ui.input :label="__('Full name')" id="profile-name" icon="user" autocomplete="name" wire:model="name" />
 
                     <x-ui.button type="submit" loading="save">{{ __('Save name') }}</x-ui.button>
                 </form>

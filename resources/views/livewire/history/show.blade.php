@@ -4,7 +4,7 @@
         <x-ui.button variant="secondary" size="sm" :href="route('history.index')" data-back>{{ __('Back to request history') }}</x-ui.button>
     </x-slot:actions>
 
-    <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900" role="status" data-view-only>
+    <div class="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-primary-hover" role="status" data-view-only>
         <p>{{ __('You are viewing this request. You cannot decide it here.') }}</p>
     </div>
 
@@ -39,7 +39,7 @@
                     @if (! $record->hasEvidence())
                         {{ __('None') }}
                     @elseif ($canDownload)
-                        <a href="{{ route('requests.evidence', ['type' => $type, 'id' => $record->id]) }}" class="text-blue-700 underline underline-offset-2 hover:text-blue-900" data-evidence-link>{{ $record->evidence_name }}</a>
+                        <a href="{{ route('requests.evidence', ['type' => $type, 'id' => $record->id]) }}" class="text-primary underline underline-offset-2 hover:text-primary-hover" data-evidence-link>{{ $record->evidence_name }}</a>
                     @else
                         <span data-evidence-restricted>{{ __('Attached. Only the requester and those who may decide can download it.') }}</span>
                     @endif

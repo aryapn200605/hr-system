@@ -34,7 +34,7 @@
                 @foreach (['leave' => __('Leave'), 'overtime' => __('Overtime')] as $value => $label)
                     <button type="button" wire:click="$set('type', '{{ $value }}')" aria-pressed="{{ $shownType === $value ? 'true' : 'false' }}" @class([
                         'cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium',
-                        'bg-blue-700 text-white' => $shownType === $value,
+                        'bg-primary text-primary-foreground' => $shownType === $value,
                         'text-slate-700 hover:bg-slate-100' => $shownType !== $value,
                     ])>{{ $label }}</button>
                 @endforeach
@@ -108,7 +108,7 @@
         @endif
     </x-ui.card>
 
-    <x-ui.modal name="leave-form" :title="__('New leave request')">
+    <x-ui.modal name="leave-form" icon="calendar" :title="__('New leave request')">
         <form id="leave-form-fields" class="space-y-4" wire:submit="submitLeave">
             @error('request')
                 <x-ui.alert tone="danger" data-request-error>{{ $message }}</x-ui.alert>
@@ -135,7 +135,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="overtime-form" :title="__('New overtime request')">
+    <x-ui.modal name="overtime-form" icon="clock" :title="__('New overtime request')">
         <form id="overtime-form-fields" class="space-y-4" wire:submit="submitOvertime">
             @error('request')
                 <x-ui.alert tone="danger" data-request-error>{{ $message }}</x-ui.alert>

@@ -8,9 +8,7 @@
 
         <title>{{ isset($title) ? $title.' - ' : '' }}{{ config('app.name') }}</title>
 
-        @if (is_file(public_path('brand/logo-icon.svg')))
-            <link rel="icon" type="image/svg+xml" href="{{ asset('brand/logo-icon.svg') }}">
-        @endif
+        @include('layouts.partials.favicon')
 
         <script>
             // The folded sidebar, set before the first paint so the page does not jump. Without storage the

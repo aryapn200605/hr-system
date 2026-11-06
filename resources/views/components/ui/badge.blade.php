@@ -5,7 +5,7 @@
     'inline-flex w-fit shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap',
     match ($tone) {
         'gray' => 'border-slate-200 bg-slate-100 text-slate-700',
-        'primary', 'blue' => 'border-blue-200 bg-blue-50 text-blue-800',
+        'primary', 'blue' => 'border-primary/20 bg-primary/5 text-primary-hover',
         'purple' => 'border-violet-200 bg-violet-50 text-violet-800',
         'teal' => 'border-teal-200 bg-teal-50 text-teal-800',
         'green' => 'border-green-200 bg-green-50 text-green-800',

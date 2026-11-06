@@ -8,6 +8,7 @@
         <meta name="referrer" content="no-referrer">
 
         <title>{{ isset($title) ? $title.' - ' : '' }}{{ config('app.name') }}</title>
+        @include('layouts.partials.favicon')
 
         {{-- No Livewire and no Alpine on these public pages: auth.js is plain JavaScript and only enhances. --}}
         @vite(['resources/css/app.css', 'resources/js/auth.js'])
@@ -56,7 +57,7 @@
                     </g>
                 </svg>
 
-                {{-- The logo sits on a light plate, so a coloured logo file stays readable on the blue. --}}
+                {{-- The logo (blue mark and dark company name) sits on a light plate, so it stays readable on the blue. --}}
                 <div class="relative flex">
                     <div class="rounded-xl bg-white px-4 py-3 shadow-sm">
                         <x-ui.logo class="text-lg" />
@@ -79,14 +80,14 @@
                                 </span>
                                 <span>
                                     <span class="block font-medium">{{ $point }}</span>
-                                    <span class="mt-0.5 block text-sm text-white/85">{{ $text }}</span>
+                                    <span class="mt-0.5 block text-sm text-white">{{ $text }}</span>
                                 </span>
                             </li>
                         @endforeach
                     </ul>
                 </div>
 
-                <p class="relative flex items-center gap-2 text-sm text-white/85">
+                <p class="relative flex items-center gap-2 text-sm text-white">
                     <x-ui.icon name="shield" class="size-4" />
                     {{ __('Every login is protected by two-factor authentication.') }}
                 </p>

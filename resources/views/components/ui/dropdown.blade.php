@@ -1,8 +1,9 @@
 @props(['id', 'label', 'trigger', 'anchored' => false, 'triggerClass' => 'p-1', 'align' => 'bottom-end', 'width' => 'w-56'])
 
 {{-- shadcn's DropdownMenu. Shown with a class and not x-show, which waits for a frame and would miss the focus
-     move below. Anchored menus are placed from the trigger, so a scrolling parent such as a table or the
-     sidebar cannot clip them. --}}
+     move below. Anchored menus are placed from the trigger with the fixed strategy, so a scrolling parent such
+     as a table or the sidebar cannot clip them (with absolute placement, a row menu reaching below a short table
+     was cut off by the table's overflow box and its items could not be clicked). --}}
 <div
     {{ $attributes->class(['relative' => ! $anchored]) }}
     x-data="{ open: false, close() { this.open = false; this.$refs.trigger.focus(); } }"
@@ -32,7 +33,7 @@
         role="menu"
         aria-label="{{ $label }}"
         @if ($anchored)
-            x-anchor.{{ $align }}.offset.4="$refs.trigger"
+            x-anchor.fixed.{{ $align }}.offset.4="$refs.trigger"
             x-on:click="open = false"
         @endif
         @class([

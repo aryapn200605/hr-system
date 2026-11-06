@@ -62,7 +62,7 @@
                         <tr wire:key="{{ $key }}" data-row="{{ $key }}">
                             <td>
                                 @isset($links[$key])
-                                    <a href="{{ $links[$key] }}" class="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900" data-open>
+                                    <a href="{{ $links[$key] }}" class="font-medium text-primary underline underline-offset-2 hover:text-primary-hover" data-open>
                                         {{ $title }}<span class="sr-only">: {{ __('View') }}</span>
                                     </a>
                                 @else

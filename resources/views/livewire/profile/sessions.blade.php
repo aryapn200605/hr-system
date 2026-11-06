@@ -45,7 +45,7 @@
         </div>
     </x-ui.card>
 
-    <x-ui.modal name="end-session" :title="__('End session?')">
+    <x-ui.modal name="end-session" icon="log-out" tone="warning" :title="__('End session?')">
         <span x-show="handle">{{ __('That device will be logged out at its next request.') }}</span>
         <span x-show="! handle">{{ __('Every other device will be logged out at its next request.') }}</span>
 

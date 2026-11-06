@@ -12,7 +12,7 @@
                 @foreach (['balance' => __('Leave balance'), 'departments' => __('By department and month')] as $value => $label)
                     <button type="button" wire:click="$set('tab', '{{ $value }}')" aria-pressed="{{ $shownTab === $value ? 'true' : 'false' }}" data-tab="{{ $value }}" @class([
                         'cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium',
-                        'bg-blue-700 text-white' => $shownTab === $value,
+                        'bg-primary text-primary-foreground' => $shownTab === $value,
                         'text-slate-700 hover:bg-slate-100' => $shownTab !== $value,
                     ])>{{ $label }}</button>
                 @endforeach

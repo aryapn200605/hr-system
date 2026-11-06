@@ -33,7 +33,7 @@
 
                 <x-ui.detail :label="__('Evidence')">
                     @if ($record->hasEvidence())
-                        <a href="{{ route('requests.evidence', ['type' => $type, 'id' => $record->id]) }}" class="text-blue-700 underline underline-offset-2 hover:text-blue-900" data-evidence-link>{{ $record->evidence_name }}</a>
+                        <a href="{{ route('requests.evidence', ['type' => $type, 'id' => $record->id]) }}" class="text-primary underline underline-offset-2 hover:text-primary-hover" data-evidence-link>{{ $record->evidence_name }}</a>
                     @else
                         {{ __('None') }}
                     @endif
@@ -58,7 +58,7 @@
         </x-ui.card>
     @endif
 
-    <x-ui.modal name="request-cancel" :title="__('Cancel this request?')">
+    <x-ui.modal name="request-cancel" icon="alert-triangle" tone="warning" :title="__('Cancel this request?')">
         <p>{{ __('The request will no longer be decided, and its dates become free again. This cannot be undone.') }}</p>
 
         <x-slot:footer>

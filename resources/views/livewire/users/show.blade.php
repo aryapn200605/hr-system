@@ -92,7 +92,7 @@
                     @foreach ($supervisors as $supervisor)
                         <li class="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between" wire:key="supervisor-{{ $supervisor->id }}">
                             <div class="min-w-0">
-                                <a href="{{ route('users.show', $supervisor->id) }}" class="text-sm font-medium wrap-anywhere text-blue-700 underline-offset-2 hover:underline">{{ $supervisor->name }}</a>
+                                <a href="{{ route('users.show', $supervisor->id) }}" class="text-sm font-medium wrap-anywhere text-primary underline-offset-2 hover:underline">{{ $supervisor->name }}</a>
                                 <p class="mt-1 flex flex-wrap items-center gap-2">
                                     <x-ui.status-badge :status="$supervisor->status" />
                                     @unless (in_array($supervisor->id, $counted, true))
@@ -124,7 +124,7 @@
                     <ul class="divide-y divide-slate-200">
                         @foreach ($subordinates as $subordinate)
                             <li class="flex flex-wrap items-center gap-2 px-5 py-3" wire:key="subordinate-{{ $subordinate->id }}">
-                                <a href="{{ route('users.show', $subordinate->id) }}" class="text-sm font-medium wrap-anywhere text-blue-700 underline-offset-2 hover:underline">{{ $subordinate->name }}</a>
+                                <a href="{{ route('users.show', $subordinate->id) }}" class="text-sm font-medium wrap-anywhere text-primary underline-offset-2 hover:underline">{{ $subordinate->name }}</a>
                                 <x-ui.role-badge :user="$subordinate" />
                                 <x-ui.status-badge :status="$subordinate->status" />
                             </li>
@@ -141,7 +141,7 @@
         @endif
     </div>
 
-    <x-ui.modal name="employment-form" :title="__('Edit employment')">
+    <x-ui.modal name="employment-form" icon="building" :title="__('Edit employment')">
         <form id="employment-form-fields" class="space-y-4" wire:submit="saveEmployment">
             <x-ui.select :label="__('Department')" id="employment-department" wire:model="departmentId"
                 :options="collect(['' => __('None')])->union($departments->mapWithKeys(fn ($department) => [(string) $department->id => $department->is_active ? $department->name : __(':name (inactive)', ['name' => $department->name])]))->all()" />
@@ -155,7 +155,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="supervisor-add" :title="__('Add supervisor')">
+    <x-ui.modal name="supervisor-add" icon="users" :title="__('Add supervisor')">
         <form id="supervisor-add-fields" class="space-y-4" wire:submit="addSupervisor">
             @if (! $hasCandidates)
                 <p>{{ __('There is no other active Approver to add.') }}</p>
@@ -171,7 +171,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="subordinates-move" :title="__('Move subordinates')">
+    <x-ui.modal name="subordinates-move" icon="users" :title="__('Move subordinates')">
         <form id="subordinates-move-fields" class="space-y-4" wire:submit="moveSubordinates">
             <x-ui.select :label="__('New supervisor')" id="move-target" wire:model="target" remote="searchTargets" :labels="$approverLabels" :placeholder="__('Choose a supervisor')" />
 
@@ -179,7 +179,7 @@
                 <legend class="text-sm font-medium text-slate-800">{{ __('Who moves') }}</legend>
 
                 <label class="flex items-center gap-2 text-sm text-slate-800">
-                    <input id="move-all" type="checkbox" class="size-4 rounded border-slate-500 text-blue-700" wire:model.live="moveAll">
+                    <input id="move-all" type="checkbox" class="size-4 rounded border-slate-500 accent-primary" wire:model.live="moveAll">
                     {{ __('All subordinates') }}
                 </label>
 
@@ -187,7 +187,7 @@
                     <div class="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">
                         @foreach ($subordinates as $subordinate)
                             <label class="flex items-center gap-2 text-sm text-slate-800" wire:key="move-{{ $subordinate->id }}">
-                                <input type="checkbox" class="size-4 rounded border-slate-500 text-blue-700" value="{{ $subordinate->id }}" wire:model="selection">
+                                <input type="checkbox" class="size-4 rounded border-slate-500 accent-primary" value="{{ $subordinate->id }}" wire:model="selection">
                                 <span class="wrap-anywhere">{{ $subordinate->name }}</span>
                             </label>
                         @endforeach

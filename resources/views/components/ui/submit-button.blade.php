@@ -6,7 +6,7 @@
 <button
     type="submit"
     data-submit
-    {{ $attributes->class('group/submit inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium whitespace-nowrap text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-150 hover:bg-primary/90 hover:shadow-md active:translate-y-px data-loading:cursor-progress data-loading:bg-primary/85 motion-reduce:transition-none motion-reduce:active:translate-y-0 [&_svg]:shrink-0') }}
+    {{ $attributes->class('group/submit inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium whitespace-nowrap text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-150 hover:bg-primary-hover hover:shadow-md active:translate-y-px data-loading:cursor-progress data-loading:bg-primary-hover motion-reduce:transition-none motion-reduce:active:translate-y-0 [&_svg]:shrink-0') }}
 >
     <x-ui.spinner class="hidden group-data-loading/submit:block" />
     @if ($icon)
