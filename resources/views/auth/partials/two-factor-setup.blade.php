@@ -1,12 +1,23 @@
-<div class="mb-4 flex justify-center rounded-lg border border-slate-200 bg-white p-2">{!! $qrCode !!}</div>
+{{-- Shared by the forced enrollment and the activation's second step: the local QR code (rendered on the server,
+     no external service), the manual key, and the code from the app. --}}
+<ol class="mb-6 grid gap-5">
+    <li class="grid gap-3">
+        <p class="text-sm font-medium text-foreground">{{ __('1. Scan this QR code with Google Authenticator or Microsoft Authenticator.') }}</p>
+        <div class="flex justify-center rounded-lg border border-border bg-white p-3 [&_svg]:size-44 sm:[&_svg]:size-48">{!! $qrCode !!}</div>
+    </li>
 
-<p class="text-sm text-slate-600">{{ __('Or enter this key manually:') }}</p>
-<p class="mb-6 font-mono text-sm text-slate-900">{{ implode(' ', str_split($secret, 4)) }}</p>
+    <li class="grid gap-2">
+        <p class="text-sm text-muted-foreground">{{ __('Cannot scan it? Enter this key manually:') }}</p>
+        <p class="rounded-md border border-border bg-muted px-3 py-2 text-center font-mono text-sm tracking-wide wrap-break-word text-foreground select-all" data-manual-key>{{ implode(' ', str_split($secret, 4)) }}</p>
+    </li>
 
-<form method="POST" action="{{ $action }}" class="space-y-4">
-    @csrf
+    <li>
+        <form method="POST" action="{{ $action }}" class="grid gap-4">
+            @csrf
 
-    <x-ui.input :label="__('Six-digit code from the app')" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus autocomplete="one-time-code" />
+            <x-ui.otp-input script="vanilla" :label="__('2. Enter the six-digit code the app shows')" id="code" name="code" required autofocus />
 
-    <x-ui.button type="submit" block>{{ __('Confirm') }}</x-ui.button>
-</form>
+            <x-ui.submit-button>{{ __('Confirm') }}</x-ui.submit-button>
+        </form>
+    </li>
+</ol>

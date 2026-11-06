@@ -6,7 +6,7 @@ This project contains material adapted from the following third-party work.
 
 - Repository: https://github.com/satnaing/shadcn-admin
 - Read at commit e16c87f213a5ba5e45964e9b67c792105ec74d26 (2026-06-11).
-- Used for: the design of the user interface from Phase 15 on. The theme tokens and variables (colour names and the slate neutral values, radius scale), spacing, typography sizes, and the layout and styling of the sidebar, header, cards, tables, forms, dialogs, menus, toasts and (from Phase 15c) the sign-in pages were rewritten as Blade, Tailwind CSS 4 and Alpine.js. No source file, script, React component or icon was copied into this repository.
+- Used for: the design of the user interface from Phase 15 on. The theme tokens and variables (colour names and the slate neutral values, radius scale), spacing, typography sizes, and the layout and styling of the sidebar, header, cards, tables, forms, dialogs, menus, toasts and (from Phase 15c) the sign-in pages were rewritten as Blade, Tailwind CSS 4, Alpine.js and (for the public sign-in pages) plain JavaScript. No source file, script, React component or icon was copied into this repository.
 - Licence: MIT, reproduced below exactly as in the repository's `LICENSE` file.
 
 ```

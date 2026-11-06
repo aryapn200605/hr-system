@@ -489,7 +489,7 @@ php artisan config:clear
 php artisan test
 ```
 
-Hasil terakhir yang tercatat (Phase 15b, cabang `ui-redesign`): 1186 tes lulus. Tes race kadang menolak satu putaran dengan pesan "a competitor started late, so this run proved nothing" bila komputer sedang sibuk; jalankan ulang tes itu saja. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
+Hasil terakhir yang tercatat (Phase 15c, cabang `ui-redesign`): 1201 tes lulus. Tes race kadang menolak satu putaran dengan pesan "a competitor started late, so this run proved nothing" bila komputer sedang sibuk; jalankan ulang tes itu saja. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
 
 **Satu berkas atau satu kelompok tes:**
 
@@ -520,6 +520,16 @@ php artisan test --filter=ConcurrencyTest
 - Panel pilihan dan kalender ditempatkan dengan `position: fixed` dari tombolnya (fungsi `float()` di `resources/js/ui.js`), naik ke atas bila ruang di bawah kurang, sehingga tidak terpotong kotak bergulir, dialog, atau tepi layar 375px.
 - Dua bug utama yang ditemukan pemeriksaan browser dan sudah diperbaiki: panel salah posisi setelah halaman digulir (plugin anchor Alpine), dan komponen ter-reset setiap pembaruan Livewire.
 - Teks baru dimuat migrasi `2026_11_13_100000_load_redesign_texts`, sudah dijalankan di `hr_system`. Hasil verifikasi dan hal yang belum terbukti (tempel dari clipboard asli, pembaca layar, Safari/Firefox) ada di PROGRESS.md bagian "Phase 15b".
+
+**Catatan Phase 15c (halaman masuk dan aktivasi).**
+- Semua halaman auth (login, kode 2FA, pendaftaran 2FA, aktivasi, halaman recovery code, lupa dan atur ulang kata sandi, undangan tidak valid, halaman 409) memakai tata letak baru: dua panel mulai lebar `lg` (kartu formulir di kiri; panel biru bergradasi halus dengan pola garis dari SVG buatan sendiri, logo, satu kalimat, dan tiga poin produk berikon di kanan), satu kolom di layar kecil dengan logo di atas kartu. Judul terpusat dengan ikon, input berikon di sisi kiri, tombol utama dengan keadaan memuat, tautan bantuan, dan footer kecil. Animasi masuk singkat hanya pada kartu dan mati bila sistem meminta gerak dikurangi (`prefers-reduced-motion`).
+- Kode 2FA: enam kotak dalam dua grup tiga-tiga dengan pemisah, selalu di tengah kartu, mengecil otomatis agar muat di 320px. Pemeriksa tata letak mengukur bahwa setiap digit tepat di tengah kotaknya (selisih ≤ 1px) dan grup simetris di dalam kartu, di 320, 375, 768, dan 1280px. Logo masih berupa teks nama perusahaan dan warna biru masih sementara, sampai berkas merek ada di `design/brand/`.
+- Halaman publik tetap controller + Blade, **tanpa Livewire dan tanpa Alpine**. Tombol tampil/sembunyi kata sandi, input kode enam kotak, peralihan ke recovery code, serta salin/unduh/cetak recovery code memakai JavaScript biasa di `resources/js/auth.js` (entri Vite terpisah, sekitar 4 kB). Semua formulir tetap bisa dikirim bila JavaScript mati: kode 2FA tetap satu input asli.
+- Halaman recovery code: tombol **Salin** di http://hr-system.test tidak bisa memakai clipboard (peramban hanya mengizinkannya di HTTPS atau localhost), jadi kode **dipilih otomatis** dan pengguna menekan Ctrl+C. Di HTTPS (setelah deployment) tombol menyalin langsung. **Unduh** membuat berkas `.txt` di peramban (tidak ada yang dikirim atau disimpan di server). Kotak centang "saya sudah menyimpan" hanya pengingat di tampilan.
+- Halaman `/security/confirm` memakai komponen yang sama di dalam tata letak aplikasi.
+- Teks baru (40) dimuat migrasi `2026_11_14_100000_load_auth_page_texts`, sudah dijalankan di `hr_system`.
+- Pemeriksaan browser 15c: `php p15c-setup.php create p15c-flows.json fa fb fc` (akun uji lewat mailer `log`), `node p15c.mjs p15c-flows.json f` (alur penuh di 1024px dan 375px, juga dengan JavaScript mati), lalu pemeriksa tata letak halaman publik `node layout.mjs <setup.json> <label> public <awalan>` (akun `<awalan>a` dan `<awalan>b`, lima lebar). Bersihkan dengan `php p15c-cleanup.php` (juga menghapus token atur ulang milik akun uji) dan bandingkan `php counts.php`. Uji mutasi 15c: `bash C:/laragon/tmp/browser-check/p15c-mutate.sh`.
+- Formulir lupa kata sandi di browser hanya diuji dengan alamat yang tidak terdaftar, karena `.env` memakai SMTP sungguhan; tautan atur ulang untuk akun uji dibuat lewat CLI dengan mailer `log`.
 
 **Pemeriksaan lain sebelum commit:**
 
@@ -680,3 +690,4 @@ Hal berikut ditulis dari kode, konfigurasi, dan catatan phase sebelumnya, tetapi
 - Langkah menambah bahasa baru (bagian 10) belum pernah dijalankan dengan bahasa ketiga.
 - Skrip puppeteer berada di luar repositori dan tidak ikut di clone baru.
 - Teks bahasa Indonesia ditulis oleh agen dan masih menunggu tinjauan pemilik.
+- Tombol Salin recovery code dengan Clipboard API sungguhan (perlu HTTPS); di hr-system.test hanya jalur "pilih semua" yang bisa diuji.

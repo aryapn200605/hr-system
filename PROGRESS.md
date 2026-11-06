@@ -25,7 +25,8 @@
 - Documentation cleanup (2026-11-05): README.md rewritten in Indonesian; technical notes moved to docs/TECHNICAL-DECISIONS.md. See "Documentation cleanup" at the end.
 - Phase 15a (redesign foundation and pilot page): done on branch `ui-redesign`, see "Phase 15a" at the end. Primary colour and logo are placeholders until the brand files arrive.
 - Phase 15b (form components, filters with several values): done on branch `ui-redesign`, see "Phase 15b" at the end. The session was cut by a Windows restart before the docs and commit; resumed and finished on 2026-11-06.
-- **Next: Phase 15c (auth pages)**, started by the owner. Phase 16 (deployment) stays deferred.
+- Phase 15c (auth pages): done on branch `ui-redesign`, see "Phase 15c" at the end.
+- **Next: Phase 15d (application pages in groups)**, started by the owner. Phase 16 (deployment) stays deferred.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -954,3 +955,54 @@ Branch `ui-redesign`, not merged. One migration (texts only). The session was in
 ### Owner steps
 - Review the Indonesian texts of 15a and 15b. Nothing to run: the migration was applied to `hr_system` in this phase.
 - Next: 15c (auth pages, using the OTP input). Not started.
+
+## Phase 15c: auth pages (2026-11-06)
+Branch `ui-redesign`, not merged. One migration (texts only). Mid-phase the owner added two requests (a richer auth design, and an exactly centred one-time-code row with a measurement); both are part of this phase.
+
+### Plan (Step 0)
+- No tables, columns, permissions or routes. Controllers, validation, throttles, error messages, sessions and field names unchanged. One migration, `2026_11_14_100000_load_auth_page_texts` (idempotent `TranslationSeeder`, 40 texts).
+- Reference re-read from `C:\laragon\tmp\ref\shadcn-admin` (e16c87f): sign-in, sign-in-2, OTP, forgot password, password input. Nothing copied or run.
+- `design/brand/` does not exist: logo as the company name in text, primary blue still the 15a placeholder.
+- Public pages load only `resources/js/auth.js` (new Vite entry, plain JavaScript); no Livewire, no Alpine, no package.
+- `.env` uses a real SMTP server, so in the browser the forgot form is sent only for an address without an account; reset links for test accounts come from the CLI with the log mailer (`p15c-setup.php`).
+
+### Done
+- Auth layout: two columns from `lg` (form card; brand panel with a soft blue gradient, an SVG line grid and arcs drawn here, the logo on a white plate, one sentence, three product points with icons, a two-factor line), one column below with the logo above the card; help line and footer (company, year); card entrance animation under `motion-safe` only. `<meta name="referrer" content="no-referrer">` (see Bugs found).
+- Components: `x-ui.password-input` (show/hide, lock icon, optional action slot), `x-ui.otp-input script="vanilla"` (same markup as the Alpine variant; two groups of three with a separator; `.otp-*` styles), `x-ui.submit-button` (hover, pressed, loading), `x-ui.steps`, `x-ui.input icon=…`, `x-ui.auth-heading` (centred, icon badge, `level`). Icons: eye, eye-off, copy, printer, log-in, lock, mail, key, link-off.
+- Pages: login, two-factor challenge (code, switch to the separate recovery form), forced enrollment and activation step 2 (steps, local QR, manual key, code), activation password (rules hint), recovery codes (copy with a select-all fallback, download `.txt` made in the browser, print, "shown once / single use", checkbox before continuing; plain `<li>` codes; `no-store` kept), forgot and reset password, 410 and 409 pages, and `/security/confirm` in the app layout with the same components.
+- Every form works without JavaScript (the code is one native input; toggles and tools are hidden until the script runs).
+
+### Verified
+- `php artisan test` on `hr_system_test`: **1201 passed** (8853 assertions; 15b had 1186). New `AuthPagesTest` (15): field names, types and autocomplete on every page; identifier never filled back; one native code field; the recovery form separate and visible without JS; every flow sent as a no-JS browser sends it (fields parsed from the rendered page): activation → code login → recovery-code login, forced enrollment, forgot → reset, confirmation; `no-store` on the three recovery-code responses; no Livewire/Alpine and only `auth.js` on public pages (a fake Vite writes the entry names); no token and a no-referrer policy on the 409/410 pages; `auth.js` stores, sends and logs nothing; the vanilla OTP markup; Indonesian texts.
+- Mutation check, 31 safeguards removed one at a time, each file restored and confirmed by SHA-256 (`C:\laragon\tmp\browser-check\p15c-mutate.sh`): 8 field names, 4 autocomplete values, OTP inputmode/pattern/required, `no-store` in 3 controllers, Livewire scripts or `app.js` in the auth layout, the Alpine OTP on 2 pages, `auth.js` on the confirm page, the referrer policy, the toggle hidden and `type=button`, the continue link not disabled on the server, the tools hidden, the script storing codes, the recovery panel visible without JS, the confirm form disabling the hidden field. **All caught** (one, "toggle hidden", was first not applied by the script because of a multi-line search; re-run by regex: caught).
+- Browser `p15c.mjs` (puppeteer, http://hr-system.test, 1024 and 375 px, plus JavaScript off): **68/68**, 0 console errors (one expected 409 status line). Toggle (label, focus, hidden again on submit), loading state on submit, failed login (generic error, identifier empty), forgot (same answer), activation (mismatch refused, steps, QR size, key), OTP (type, letters dropped, Backspace, paste "123 456" and "65-43-21", full event, stops at six, delete all), recovery page (continue blocked until ticked, copy → select-all fallback on http, download `.txt` with the ten codes and no request, print dialog and print view, nothing in storage), Clipboard API branch with a stubbed API on a real recovery page, challenge switch both ways with focus, wrong code error on the boxes, two-step login, confirmation (hidden field disabled, toggle next to Alpine, confirm), 409 and logout, recovery-code login, reset via the log-mailer link and login with the new password, forced enrollment at 375 px, and without JS: plain code field, tools hidden, plain continue link, both challenge forms, login.
+- Layout checker `layout.mjs … public <prefix>` (extended): 13 public/auth pages at 375, 768, 1024, 1280, 1920 px plus the code row on the challenge, enrollment and confirmation pages at 320, 375, 768, 1280 px: **77/77**; no horizontal scroll, nothing outside, no covered control, no empty panel, card margins equal, **1127 texts measured, 0 below AA** (the scan now takes every colour stop of a gradient background and counts the worst). Code row: worst digit offset **0.5 px** from its box centre, left/right gaps equal (21/21 at 320, 27.5/27.5 at 375), one box size per width (37 × 42.6 px at 320, 44 × 50.6 px from 375). Before screenshots: `design/screens/before-15c/`, after: `design/screens/after-15c/` (+ `flows/`). Login at 375 and 1920 px and the code rows looked at.
+- `npm run build`, Pint, `composer audit`, `npm audit`: clean. `auth.js` 4.6 kB (1.7 kB gzip).
+- `hr_system`: counts before (users 3, login_histories 12, audit_logs 38 with max id 1036, recovery_codes 30, account_invitations 4, translations 1613, sessions 1, ...; `C:\laragon\tmp\browser-check\p15c-counts-before.json`), `migrate:status` with one pending, backup `C:\laragon\backup\hr-system\hr_system-before-phase15c-20261106-150053.sql` (1,282,500 bytes, "Dump completed", INSERTs for 20 tables), `migrate` ran it (translations 1693: +80 = 40 texts × 2), `app:translations-missing` passes. The browser flows (68/68) and the layout check (77/77) were run again after the migration, plus the Alpine code input in `/ui-kit` (typing, letters dropped, filled and active boxes: pass).
+- Cleanup: 20 zz-check accounts (several runs) and their rows deleted in one checked transaction by `p15c-cleanup.php` (audit 153, login history 29, recovery codes 120, invitations 20, roles 20, periods 20, ledger 20, reset tokens 4, sessions 4), then the 24 headless guest sessions of the puppeteer runs (listed first; the one non-headless guest session, the owner's browser, kept). Against the "before" file every count is equal except: translations +80 (the migration), and one login of the owner at 13:39 during the phase (login_histories +1, audit_logs +1 with id 1133, user 1 `updated_at`), made by the owner, not by the checks (they never use the owner's account); not touched.
+
+### Bugs found
+- **Token in the Referer header:** the 409 and 410 pages are rendered at `/activation/{token}`; their asset and link requests sent that URL as `Referer` (and so into the web server access log). Fixed with the no-referrer meta in the auth layout; tested.
+- `AuthPagesTest` failed only in the full suite: Livewire's static "a component was rendered in this request" flag stayed set from an earlier test, so Livewire injected its script into a public page inside the test process. Not possible on Apache (each request starts clean; the browser check confirms no `window.Livewire`). The test resets Livewire's state in `setUp`.
+- Headless Chrome showed the brand panel's text faded after its entrance animation (computed opacity 1): the panel is no longer animated.
+- The first contrast scan read the gradient panel as white (ratio 1.00 on 36 rows): the checker now reads gradient colour stops.
+- My first drawn "key" icon read as an odd symbol in a screenshot; redrawn.
+
+### Test changes
+- No existing test changed. Six existing tests read recovery codes as `<li>CODE</li>`; the markup was kept for them.
+
+### Not proven
+- The Clipboard API copy itself: hr-system.test is http, so only the select-all fallback runs for real; the API branch ran with a stubbed `navigator.clipboard`.
+- Native paste and SMS autofill on a phone; forced-colours mode (CSS written, not viewed); screen readers; Safari and Firefox (headless Chrome only).
+- The print view was checked by emulating print media, not on paper or PDF.
+- The web server still logs the request line of `/activation/{token}` and `/reset-password/{token}` (outside the application, as before).
+- Real brand files (none supplied). The Indonesian texts await the owner's review.
+
+### Deviations and notes
+- SPEC.md Phase 15 says "No database migration"; as in 15b the owner asked for one migration for the texts.
+- DECISIONS.md section 1 names a purple style; the owner's Phase 15 direction asks for the company blue (as in 15a).
+
+### Owner steps
+- Review the 40 new Indonesian texts. Nothing to run: the migration was applied to `hr_system` in this phase.
+- Put the brand files in `design/brand/` when available (logo SVG, icon, colour code).
+- Next: 15d (application pages in groups). Not started.
