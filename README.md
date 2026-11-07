@@ -489,7 +489,7 @@ php artisan config:clear
 php artisan test
 ```
 
-Hasil terakhir yang tercatat (Phase 15d, cabang `ui-redesign`): 1234 tes lulus, juga dengan urutan acak (`php artisan test --order-by=random`). Tes race kadang menolak satu putaran dengan pesan "a competitor started late, so this run proved nothing" bila komputer sedang sibuk; jalankan ulang tes itu saja. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
+Hasil terakhir yang tercatat (Phase 15e, cabang `ui-redesign`): 1269 tes lulus, juga dengan urutan acak (`php artisan test --order-by=random`). Tes race kadang menolak satu putaran dengan pesan "a competitor started late, so this run proved nothing" bila komputer sedang sibuk; jalankan ulang tes itu saja. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
 
 **Satu berkas atau satu kelompok tes:**
 
@@ -546,6 +546,18 @@ php artisan test --filter=ConcurrencyTest
 - Satu migrasi teks: `2026_11_15_100000_load_application_page_texts` (sudah dijalankan di `hr_system` pada fase ini; aman dijalankan ulang).
 - Bug yang diperbaiki: (1) daftar pilihan dan kalender di dalam dialog bergeser keluar layar karena animasi masuk dialog; (2) sempat terjadi dialog tergambar di bawah sidebar; (3) tombol "Decided by me" tertutup filter di layar 1024px.
 - Pemeriksaan browser 15d: `php p15d-setup.php p15d-setup.json`, `node layout.mjs p15d-setup.json activate`, `php p15d-setup.php seed p15d-setup.json`, `php p15d-setup-extra.php create p15d-setup.json`, `node layout.mjs p15d-setup.json activate`, `php p15d-setup-extra.php attach p15d-setup.json`; lalu `node p15d-g1.mjs p15d-setup.json` sampai `p15d-g5.mjs` (interaksi per kelompok) dan `node layout.mjs p15d-setup.json after-15d roles` (tiga peran, lima lebar, kontras, laci menu ponsel). Skrip tidak mengonfirmasi keputusan atau mengirim pengajuan karena keduanya mengirim email sungguhan lewat SMTP di `.env`. Bersihkan dengan `php p15c-cleanup.php` dan bandingkan `php counts.php`. Uji mutasi: `python C:\laragon\tmp\browser-check\p15d-mutate.py`.
+
+**Catatan Phase 15e (penyelesaian redesain).**
+- **Tabel di ponsel:** di bawah lebar 1024px setiap baris tabel tampil sebagai kartu. Setiap nilai diberi label kolomnya, nama baris di atas, menu aksi (titik tiga) di pojok kanan atas, dan tombol aksi di bawah; target sentuh minimal 44px. Tidak ada informasi yang hilang dibanding tabel. Saat dicetak, tabel tetap tabel.
+- **Halaman galat baru** untuk 403, 404, 419 (sesi kedaluwarsa), 429, 500 dan 503 (pemeliharaan), plus halaman umum untuk kode lain. Isinya hanya teks tetap yang aman (tanpa pesan teknis atau jejak tumpukan), dengan tombol "Kembali" dan "Ke beranda" (bila sudah masuk) atau "Ke halaman masuk". Alamat yang tidak dikenal menampilkan "Ke halaman awal" (aplikasi lalu mengarahkan ke beranda atau halaman masuk) dalam bahasa bawaan, karena di alamat itu sesi belum dibaca. Catatan: dengan `APP_DEBUG=true` (lokal), galat sungguhan tetap menampilkan halaman debug Laravel; halaman 500 baru terlihat di produksi (`APP_DEBUG=false`).
+- **Aksi Livewire yang gagal** (misalnya sesi kedaluwarsa saat menekan tombol) kini membuka dialog berbahasa pengguna dengan tombol "Muat ulang halaman", bukan kotak konfirmasi bawaan browser atau jendela berisi respons mentah.
+- **Keadaan kosong** membedakan "hasil filter kosong" (tombol "Hapus filter" / "Tampilkan semua status") dari "memang belum ada data" (penjelasan, dan tombol ajakan hanya bila peran itu boleh memakainya).
+- **Aksesibilitas:** hasil filter dan galat formulir diumumkan ke pembaca layar; dialog mengembalikan fokus ke tombol pembukanya; semua animasi berhenti bila sistem meminta "kurangi gerakan".
+- Galeri `/ui-kit` (lokal saja) memuat semua komponen akhir, contoh halaman galat (`/ui-kit/errors/403` dan seterusnya, dengan kode status aslinya) dan dialog kegagalan.
+- Dihapus karena tidak terpakai: komponen `x-ui.loading` dan halaman bawaan `welcome.blade.php`.
+- Satu migrasi teks: `2026_11_16_100000_load_finishing_texts` (sudah dijalankan di `hr_system` pada fase ini; aman dijalankan ulang).
+- Pemeriksaan browser 15e (semua di `C:\laragon\tmp\browser-check\`, jalankan dari folder proyek): `php p15e-setup.php p15e-setup.json`, `node layout.mjs p15e-setup.json activate`, `php p15e-setup.php seed p15e-setup.json`; lalu `node p15e-cards.mjs`, `p15e-a11y.mjs`, `p15e-keyboard.mjs`, `p15e-states.mjs`, `p15e-print.mjs`, `p15e-export.mjs` (masing-masing dengan `p15e-setup.json`) dan `WIDTHS=320,375,768,1024,1280 node layout.mjs p15e-setup.json after-15e roles`. Uji mutasi: `python C:\laragon\tmp\browser-check\p15e-mutate.py`.
+- **Alur end-to-end yang mengirim email** (`node p15e-e2e.mjs p15e-setup.json`) hanya boleh dijalankan saat `MAIL_MAILER=log`: simpan hash dan salinan `.env` di luar repositori, ubah sementara baris `MAIL_MAILER` saja, `php artisan config:clear`, jalankan, lalu kembalikan `.env` dari salinan, cocokkan hash, dan `php artisan config:clear` lagi. Bersihkan semua data uji dengan `php p15c-cleanup.php` dan bandingkan `php counts.php`.
 
 **Pemeriksaan lain sebelum commit:**
 
@@ -707,3 +719,6 @@ Hal berikut ditulis dari kode, konfigurasi, dan catatan phase sebelumnya, tetapi
 - Skrip puppeteer berada di luar repositori dan tidak ikut di clone baru.
 - Teks bahasa Indonesia ditulis oleh agen dan masih menunggu tinjauan pemilik.
 - Tombol Salin recovery code dengan Clipboard API sungguhan (perlu HTTPS); di hr-system.test hanya jalur "pilih semua" yang bisa diuji.
+- Pembaca layar sungguhan (NVDA, JAWS, VoiceOver, TalkBack), Safari, Firefox, dan perangkat sentuh nyata belum dicoba; aksesibilitas diperiksa lewat DOM dan keyboard di Chrome headless.
+- Halaman 500 untuk galat sungguhan hanya tampil bila `APP_DEBUG=false`; di `.env` lokal ini debug menyala. Halaman 503 diperiksa lewat pratinjau galeri, bukan `php artisan down`.
+- Unduhan CSV sungguhan di browser lewat http (Chrome headless menolaknya); isi respons ekspor yang diperiksa.

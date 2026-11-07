@@ -75,3 +75,8 @@ Read at the start of every phase, in this order:
 - `isolate` or a z-index on a page container traps the page's dialogs under the sidebar and header. Keep page containers free of stacking contexts.
 - One view must not mix inline `@php(...)` with `@php ... @endphp` blocks: Blade then compiles a broken file (500).
 - `.env` sends real email: a request submission or a decision emails real addresses. Browser checks open decision dialogs and test validation, but do not confirm decisions or submit requests unless the mail goes to the log.
+- A button with a Livewire `loading` state is disabled while its request runs and loses the focus; a dialog it opens must give the focus back to the remembered opener (`window.uiRestoreFocus`), not to the trap's memory (`<body>`).
+- `Route::fallback` answers GET on POST-only routes too (405 becomes 404). Do not add one.
+- Real-process race tests run without `RefreshDatabase`: their `tearDown` must not delete base data from migrations (leave categories), or later tests in the same run fail in random order.
+- On Windows, Python `open(p, 'w')` writes CRLF: edit files in binary mode or with the Edit tool, and check `git diff` for line-ending noise before committing.
+- Headless Chrome refuses downloads over plain http; check an export by fetching its link with the page's session.

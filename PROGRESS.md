@@ -28,7 +28,8 @@
 - Phase 15c (auth pages): done on branch `ui-redesign`, see "Phase 15c" at the end.
 - Brand, dialogs and forms (between 15c and 15d): done on branch `ui-redesign`, see "Brand, dialogs and forms" at the end. Logo and primary blue now come from `design/brand/logo.jpg`.
 - Phase 15d (application pages in five groups, company name): done on branch `ui-redesign`, see "Phase 15d" at the end.
-- **Next: Phase 15e (error pages, empty states, tables as cards on phones, accessibility audit)**, started by the owner. Phase 16 (deployment) stays deferred.
+- Phase 15e (error pages, empty states, tables as cards on phones, accessibility, end-to-end per role): done on branch `ui-redesign`, see "Phase 15e" at the end. **Phase 15 is complete; the branch waits for the owner's review before it is merged into `main`.**
+- **Next:** the owner reviews `ui-redesign` (see "Ready to merge?" in Phase 15e). Phase 16 (deployment) stays deferred.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -1112,3 +1113,70 @@ Branch `ui-redesign`, not merged, not pushed. One migration (texts only). Five g
 - Review the 5 new Indonesian texts. Nothing to run: the migration was applied to `hr_system`.
 - When available: an SVG logo and the official colour code (README "Mengganti logo nanti").
 - Next: 15e (error pages, empty states, tables as cards on phones, accessibility audit). Not started.
+
+## Phase 15e: error pages, phone cards, empty states, accessibility, end-to-end (2026-11-07)
+Branch `ui-redesign`, not merged, not pushed. One migration (texts only). Local commits: 20a173f (cards, empty states), 16c7a38 (error pages, failure dialogs, accessibility), 4a8411d (gallery), part 4 (texts, tests) and this documentation commit.
+
+### Plan (Step 0)
+- No tables, columns or permissions. Business behaviour, validation, authorisation and business texts unchanged.
+- Routes: one, `GET /ui-kit/errors/{code}` (local only, gallery preview of the error pages). A `Route::fallback` was tried and dropped (see Bugs found).
+- Error views in `resources/views/errors/` on one standalone layout; a dialog for failed Livewire actions; tables as cards below 1024 px through `data-label` cells; empty states filtered vs empty; live announcements, `role=alert` on errors, reduced motion, dialog focus return; gallery completed; print rules; unused component and page removed.
+- One migration `2026_11_16_100000_load_finishing_texts` (39 texts in English and Indonesian).
+- Browser scripts in `C:\laragon\tmp\browser-check\` (`p15e-*.mjs`), zz-check accounts from `p15e-setup.php` (Employee ×2, Approver ×2, HR Admin).
+
+### Done
+- Error pages 403, 404, 419, 429, 500, 503 and generic 4xx/5xx: drawn illustration with the code, safe fixed texts, Go back (when there is history), Try again (500/503 only), Go to dashboard / Go to login / Go to the home page (unknown address), no referrer, no script but one inline helper, robust against a failing database (`rescue()`).
+- Failed Livewire actions: 419 → "Your session has expired" with Reload page; 403/404, 429 and other failures → their own dialogs. Replaces Livewire's `confirm()` and raw-response frame.
+- Tables as cards below 1024 px on every table (15 tables); title first, row menu top right, actions at the bottom, 44 px targets; print keeps tables. Segmented control wraps at 320 px.
+- Empty states: My requests, Approvals, Recap (both tabs), Users, History, ledger (see TECHNICAL-DECISIONS "Phase 15e").
+- Accessibility: polite announcer for list results, `role=alert` on field and OTP errors and danger alerts, global reduced-motion rule, dialogs give the focus back to their opener.
+- Gallery `/ui-kit`: every final component, error page links, failure dialogs. Removed `x-ui.loading` and `welcome.blade.php`.
+- Bundle (`npm run build`): `app.css` 88.66 kB (16.27 kB gzip; 15d: 103.77 kB, the removed stock page carried many classes), `app.js` 12.71 kB (4.37 kB gzip; 15d 12.27 kB), `auth.js` 4.56 kB (1.65 kB gzip), fonts unchanged.
+- THIRD-PARTY-NOTICES.md checked: still accurate (shadcn-admin only; nothing new copied; no new package).
+
+### Verified
+- `php artisan test` on `hr_system_test`: **1269 passed** (11,217 assertions), in the default order and with `--order-by=random --random-order-seed=20261107`. New: `ErrorPagesTest` (20), `FinishingDesignTest` (16).
+- Mutation check `p15e-mutate.py`: **37 of 37 safeguards caught**, each file restored and confirmed by SHA-256 (error page message, referrer and its position, rescue, dashboard/login/start link, language, no script, retry per code, gallery guards, Livewire dialog and its 419 mapping and reload, card class, value box, screen-only cards, 44 px, labels and label/header match, card actions, filtered empty states, CTA without approval path, Clear filters condition, alerts, announcer, reduced motion, focus return, focus memory, print rule).
+- `hr_system`: counts before the phase in `C:\laragon\tmp\browser-check\p15e-counts-before.json` (users 3, translations 1703, audit max id 1382, sessions 2, …); `migrate:status` with one pending; backup `C:\laragon\backup\hr-system\hr_system-before-phase15e-20261107-140724.sql` (1,602,591 bytes, "Dump completed", INSERTs for 23 tables); `migrate` ran it (translations 1781: +78 = 39 × 2); `app:translations-missing`: every key present.
+- Browser before the end-to-end flows: cards **90/90** (320, 375, 768 px cards and 1024 px tables, three roles, a row menu on a phone), layout `roles` at 320–1280 px **278/281** (the three failures: the recap's segmented switch at 320 px, fixed), accessibility audit **61/61** pages, keyboard **39/39**, contrast in states **31/31**, print **6/6** (A4 PDFs looked at).
+- End-to-end with the log mailer (`p15e-e2e.mjs`, 19 checks + `p15e-export.mjs` 3/3): Employee submitted a leave (toast, mail to the supervisor in the log), cancelled it while pending, submitted overtime; refused on the server: a past start date (forged value), more days than the balance, overtime on an approved leave date (no mail for refused ones). Approver: view-only for the second Approver with the holder's name, approved emp2's leave to the end (mail logged; used 0 → 2, remaining 12 → 10), reject refused without a reason, then rejected with one (mail logged). HR Admin: approved the Approver's overtime (mail logged), suspend dialog warned "1 pending requests", suspended (the pending request rejected by the system, no mail), adjusted a balance +1 with its reason in the ledger, moved all subordinates of one Approver to another, CSV exports of history and both recap tabs (200, `text/csv`, attachment, header row; headless Chrome refuses http downloads, so the link's URL was fetched with the page's session). Every logged mail went to a zz-check address. The rows were checked in the database afterwards.
+- `.env`: SHA-256 and a copy saved outside the repository before the flows, only `MAIL_MAILER` changed to `log`, `config:clear`; after the flows the copy was put back, **the hash equals the original**, `config:clear` again, the mailer is no longer `log`, the copy deleted. `.env` was never printed or committed.
+- Final browser runs after the migration: error pages **27/27** (guest, HR Admin, Indonesian Approver; 375 and 1280 px; each way-on link followed), accessibility **61/61**, keyboard **39/39**, states **31/31**, print **6/6**, exports **3/3**, cards 83/89 and layout `roles` (320–1920 px) 324/336: every failure is a page the flows changed on purpose (both inboxes empty after the decisions, so no table; the Approver's two detail pages answer 404 after the bulk move), 0 texts below AA, public pages 15/15 measured.
+- Screenshots looked at: users, recap and my requests as cards (320/375), real 419 dialog and 419 page, Indonesian 403 at 375, 500 at 1280 (before and after the button fix), print PDFs of a request and the recap.
+- `npm run build`, Pint, `composer audit`, `npm audit`: clean.
+- Cleanup: the 5 zz-check accounts (IDs 151 to 155) and the zz-check holiday listed, then deleted in one checked transaction by `p15c-cleanup.php` (audit 138, login history 66, recovery codes 50, invitations 5, sessions 62, roles 5, supervisor links 3, leave requests 6 with 3 allocations, overtime 3, ledger 8, periods 5), then the 27 guest sessions of my runs (25 HeadlessChrome, 2 curl; listed first, `p15e-sessions-cleanup.php 27`). Against `p15e-counts-before.json` every count is equal, the owner's three accounts with the same `updated_at`, audit max id 1382, except translations +78 (the migration) and **sessions 2 → 1**: the missing row is the guest session `B4FRN4` of a normal browser, last active 10:33:26, past the 120-minute lifetime from 12:33:26. It was already gone at the listing before any delete of mine, and my deletes only match zz-check user IDs and HeadlessChrome/curl guests. Laravel's session garbage collection (lottery 2/100) deletes expired rows; 1,915 PHP requests reached Apache after it expired, so the chance that none ran the collection is about 1.6e-17. The owner's logged-in session was not touched.
+
+### Bugs found (and fixed)
+- **Dialogs gave the focus to `<body>` on closing** (since 15a): the opening button is disabled while its Livewire request runs, so it had lost the focus when the trap started. Fixed with a focus memory and `x-trap.noreturn` (see TECHNICAL-DECISIONS). Found by the keyboard script.
+- **Recap segmented switch pushed the page sideways at 320 px.** Found by the layout run at 320 px.
+- **Error page buttons wrapped their labels** at 1280 px with three buttons (seen in a screenshot); `whitespace-nowrap`, a wider card.
+- **`Route::fallback` changed behaviour:** it answered GET on POST-only routes (`GET /logout` 404 instead of 405); caught by the suite, removed.
+- **Test isolation (pre-existing):** `RequestConcurrencyTest` and `ApprovalConcurrencyTest` deleted every leave category in `tearDown`; a later test in the same run then had none (5 errors with the random seed). The base rows now stay.
+- My own tooling: Python text-mode writes turned LF into CRLF in 28 files during the work; converted back before committing (the diff holds real changes only).
+
+### Test changes
+- `RequestConcurrencyTest`, `ApprovalConcurrencyTest`: `tearDown` no longer deletes the leave categories (base data from a migration). No assertion changed. No other existing test changed.
+
+### Not proven
+- No real screen reader (NVDA, JAWS, VoiceOver, TalkBack): roles, names and live regions were checked in the DOM and by keyboard only. Safari, Firefox and real touch devices not tried (headless Chrome only). Forced-colours mode not viewed.
+- The 500 view for a real exception is only what `APP_DEBUG=false` shows; this local `.env` has debug on, so on hr-system.test a real exception still shows Laravel's debug page (`abort(500)` shows the view).
+- 503 was shown through the gallery preview (a real `abort(503)`), not by `php artisan down` (that would take the owner's local site down).
+- An unknown address is in the default language even for an Indonesian user (no session there).
+- Disabled controls: exempt from WCAG 1.4.3 and not required to reach AA; two disabled pagination icons measured 3.80:1.
+- Real CSV download in a browser over http (headless Chrome refuses it); the responses were checked instead.
+- The Indonesian texts await the owner's review.
+
+### Deviations and notes
+- SPEC.md Phase 15 said "No database migration"; as in 15b to 15d the texts go through one migration.
+- The DECISIONS.md section 1 style note is unchanged.
+- The cards breakpoint is 1024 px (not 768 px): below it the tables did not fit beside the sidebar without scrolling.
+
+### Owner steps
+- Review the branch before merging (see "Ready to merge?" below and in the final report). Review the 39 new Indonesian texts.
+- Nothing to run on `hr_system`: the migration was applied in this phase.
+
+### Ready to merge?
+- Compared with `main` (9a0c651, unchanged since the branch started): 15 commits on `ui-redesign` (15a to 15e), about 160 files changed (+8,800 / −1,700 lines), 4 migrations, all texts only (`2026_11_13`, `_14`, `_15`, `_16`, each runs the idempotent `TranslationSeeder`); no schema change, no new package, no new permission.
+- Risk: no conflict expected (`main` has no commit after the branch point, so the merge is a fast-forward). Data: the four migrations only insert missing translation rows; they are already applied on `hr_system`. Built assets (`public/build`) must be rebuilt after the merge.
+- Suggested steps (owner): `git switch main`, `git merge --ff-only ui-redesign`, `composer install`, `npm install`, `npm run build`, back up `hr_system`, `php artisan migrate` (nothing pending on this machine), then `php artisan test`.
+- Look at yourself before approving: login and two-factor pages, the dashboard and every menu page per role at 1280 px and on a phone, the cards on phones, an error page (`/ui-kit/errors/403` etc.), the Indonesian texts, the logo and the measured brand colour.

@@ -20,7 +20,7 @@ Tests per phase: success path, validation failure, authorization denial, throttl
 | 12 | Dashboard | Done |
 | 13 | Email notifications (optional, small) | Done (real delivery untested) |
 | 14 | Full verification and documentation (plus DECISIONS.md section 11) | Done |
-| 15 | UI redesign (15a to 15e) | In progress on branch `ui-redesign`: 15a, 15b and 15c done |
+| 15 | UI redesign (15a to 15e) | Done on branch `ui-redesign` (15a to 15e); waiting for the owner's review before merging into `main` |
 | 16 | Deployment (VPS, Nginx, Docker, backup, performance) | Deferred: owner starts it |
 
 ---
@@ -179,7 +179,7 @@ Email to the approver(s) when a request is submitted and to the requester when i
 - Run the full suite, mutation checks on the critical services, build, Pint, audits.
 - Sync SPEC.md, README.md and PROGRESS.md. List known limitations and the owner's manual steps (migration, scheduler, deployment notes).
 
-## Phase 15: UI redesign (started 2026-11-05)
+## Phase 15: UI redesign (started 2026-11-05, finished 2026-11-07)
 Started by the owner, with their direction. Work on the branch `ui-redesign`, never merged into `main` without the owner. Design reference: https://github.com/satnaing/shadcn-admin (MIT), cloned outside the project as reading material only; the design is rewritten as Blade, Tailwind CSS 4 and Alpine (no React, TypeScript, Radix or new package). Credit in `THIRD-PARTY-NOTICES.md`. Font: IBM Plex Sans. Light theme only, with tokens structured so a dark theme can be added later. Primary is the blue of PT Peranti Digital Solusindo, `#2370B5`, measured from `design/brand/logo.jpg` (approved by the owner). Logo: the round mark from `design/brand/` beside the company name as text, never shown larger than 128 px (raster crop). Every new UI text in English and Indonesian. No database migration.
 
 | Stage | Content | Status |
@@ -188,7 +188,7 @@ Started by the owner, with their direction. Work on the branch `ui-redesign`, ne
 | 15b | Form components after the reference's Select, Command, Popover, Calendar and input OTP: searchable select, multi-select for filters, date picker, six-box OTP input; filters with several values; one migration for the texts | Done |
 | 15c | Auth pages (login, two-factor, activation, password reset, recovery codes) after the reference's sign-in and OTP pages, with the logo | Done |
 | 15d | Every application page, in five groups (users and departments; supervisors, balance and holidays; requests and approvals; history, recap and dashboard; profile and security) after the reference's data table, settings and dashboard pages: page heading with icon, back link and a quiet backdrop; toolbar, row menus, skeleton and pagination footer; section cards with footers; figure cards with icon chips; empty states with a call to action; company name "Peranti Digital Solusindo" (legal "PT Peranti Digital Solusindo") everywhere; one migration for the texts | Done |
-| 15e | Error pages, empty states, tables as cards on phones, accessibility audit, final verification | Pending |
+| 15e | Error pages (403, 404, 419, 429, 500, 503, safe texts only) and a dialog for failed Livewire actions; empty states that tell filtered from empty, with calls to action per role; tables as cards below 1024 px; accessibility audit (labels, names, headings, landmarks, ARIA, ids, language), keyboard and focus checks, live announcements, reduced motion, contrast in states; gallery completed; print view; end-to-end flows per role; one migration for the texts | Done |
 
 ## Phase 16: Deployment (deferred)
 Started by the owner only: VPS, Nginx, optional Docker, backup/restore, performance checks, HTTPS cookie settings, re-measure the forgot-password timing on the production web server.
