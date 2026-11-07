@@ -663,6 +663,43 @@ Branch `ui-redesign`. No new package, no migration, no new text. DECISIONS.md se
 ### Checks
 - `C:\laragon\tmp\browser-check\p15-brand.mjs` (puppeteer, 1024 and 375 px): logo mark and favicon load on the auth and app layouts, the primary colour, the referrer policy first; every dialog opened by its real trigger (row menus opened first), its badge and tone, radius, inside the screen, focus inside, no covered button, Escape; input icons inside their fields; the password page's show/hide and submit state; a Livewire dialog button disabled with a spinner while a delayed request runs. It saves nothing: the forms it sends are refused by validation (no mail is sent; `.env` has a real SMTP server).
 
+## Phase 15d: application pages
+
+Branch `ui-redesign`. No new package. One migration, `2026_11_15_100000_load_application_page_texts` (idempotent `TranslationSeeder`, texts only). Reference re-read from the clone at `C:\laragon\tmp\ref\shadcn-admin` (`e16c87f`): `components/data-table/*` (toolbar, faceted filter, pagination, row actions), `features/users/*`, `features/settings/*` (content section, sidebar nav), `features/dashboard/*`, `components/ui/tabs.tsx`, `skeleton.tsx`. Rewritten as Blade; nothing copied.
+
+### Company name
+- Owner's decision: `config('app.company')` = "Peranti Digital Solusindo" (beside the logo in the sidebar and on the auth pages, in every page title as `<page> - <APP_NAME> - <company>`, in the email header as `<company> <APP_NAME>`), `config('app.company_legal')` = "PT Peranti Digital Solusindo" (copyright line of the auth footer and of every email). The curved lettering of `design/brand/logo.jpg` is not used. `APP_NAME` stays "HR System" (the product); the authenticator issuer (`config('app.name')` in the TOTP URI) is unchanged, so enrolled authenticators keep their label. The recovery-codes file title reads `<company> <APP_NAME>: Recovery codes`.
+- Laravel's mail layout is published only for `html/message` and `text/message` (`resources/views/vendor/mail/`), the two files that print the name; every other mail component still comes from the framework.
+- CSV exports carry no company name (file names and columns unchanged).
+
+### Shared pieces
+- `x-ui.page`: `icon` (a tinted chip beside the title, hidden below 640 px), `back` (`['href', 'label']`, a small link above the title on detail pages; the old "Back to ..." buttons became this link, same texts; the decision page keeps its button because it releases the review lock) and a dotted backdrop (`.page-backdrop` in `app.css`: brand-blue dots at 22% and a 7% glow, masked to fade out, 14 rem high). The backdrop is the container's first child, absolutely placed, and every other child except fixed ones is `relative`, so content paints over it. The container creates **no stacking context**: an earlier `isolate` kept the page's dialogs (fixed, z-50) under the sidebar and the sticky header. Breadcrumbs stay in the header bar (one trail per page, from the layout data); the page heading does not repeat them.
+- `x-ui.card`: `icon` + `tone` (chip in the header), `actions` (header slot) and `footer` (muted bar, `mt-auto`, so cards of unequal height in a grid keep their footer at the bottom). The card is a flex column.
+- `x-ui.icon-chip` (tones primary, green, amber, red, violet, teal, gray; icon at 3:1 or more on its tint), used by `x-ui.stat` (new `tone`), cards, the page heading, table cells and the progress card.
+- `x-ui.badge dot`: a small circle in the text colour before the label; `x-ui.status-badge` passes it on.
+- `x-ui.toolbar`: filters in a grid (1, 2, 4 columns) that becomes a wrapping flex row from `xl`; actions (Clear filters) on the right. `x-ui.segmented`: shadcn's Tabs list as a toggle group (`wire:click="$set(...)"`, `aria-pressed`, a label above like a field's); it spans two toolbar columns and keeps its own width in the flex row (at 1024 px it overflowed one column and the next filter covered it).
+- `x-ui.row-actions`: a three-dot icon button opening `x-ui.dropdown` with `anchored` (fixed strategy). Every row menu in a table is anchored fixed; the select and date-picker panels use `float()` (15b).
+- `x-ui.pagination`: range, "Page X of Y", first / previous / next / last icon buttons with screen-reader names (`gotoPage`, `previousPage`, `nextPage`); a slot for rows per page (Users). Replaces the six hand-made footers.
+- `x-ui.table-skeleton`: placeholder rows shown with `wire:loading.delay.block` for the same targets as the table, which is wrapped in `wire:loading.delay.remove`; pulsing only under `motion-safe`. Quick answers show no skeleton.
+- `x-ui.empty-state`: a drawing made for the project (rings, a dotted orbit, two soft cards; inline SVG in the theme colour, decorative) behind the icon, and a slot for the call to action (Add department, Add holiday, New leave/overtime request when an approval path exists, Clear filters).
+- 25 icons drawn for the project (more-horizontal, plus, pencil, trash, user-plus/check/x, arrows, chevrons, briefcase, refresh, globe, monitor, smartphone, history, file-text, send, wallet, flag, hourglass, list).
+
+### Pages
+- Users (toolbar, Clear filters in one request: three `$wire.$set(..., false)` and a last one that sends, avatars, status dots, icon row menu with a separator before Suspend, rows per page in the footer), user detail (back link, card icons, actions in footers, avatars in the supervisor and subordinate lists), departments (figure cards computed from the list already loaded, building chips, row menu), leave balance (figure cards with a bar, footers, current period highlighted, coloured ledger changes), holidays (calendar leaves, row menu).
+- My requests and the decision page share `requests/partials/balance-slots` (tiles per period; the requester sees Available, the decider Remaining after used days; the data attributes are unchanged). Request detail and history detail show `requests/partials/progress` (submitted, then cancelled, decided with the decider, or waiting), built from the record's own dates. The final warning of both decision dialogs is an amber notice with an icon (same sentence).
+- History and recap: toolbar, skeleton, pagination; recap tabs as the segmented control. Dashboard: tones on the figure cards and icons on the cards and the login list. Profile tabs as the Tabs track (links with `aria-current`), profile forms submitted from the card footers through the `form` attribute; security pages with icons.
+
+### Defects found
+- **Fixed panels inside dialogs:** the dialog's entrance animation filled `both`, so its transform stayed in effect and Chrome made the dialog the containing block of the `position: fixed` select and date-picker panels: they were shifted by the dialog's offset and fell off the screen (since "Brand, dialogs and forms"). The animation now fills `backwards`; a test refuses `both`/`forwards`.
+- **Dialogs under the sidebar:** see the page container above (found in a screenshot of the overtime dialog).
+- **Segmented switch covered** at 1024 px (see above; found by a real click that landed on the next filter).
+- **Blade:** a view that mixes an inline `@php(...)` with an `@php ... @endphp` block compiles to a broken file; `balance-slots` uses blocks only.
+
+### Checks
+- `layout.mjs <setup> <label> roles [routes]`: logs in as the zz-check HR Admin, Approver and Employee of `p15d-setup.php`, records each role's sidebar links, measures and photographs the phone drawer, and checks every route the role reaches (sidebar pages, detail pages of the seeded requests, profile, security and the four pages behind the confirmation) at 375, 768, 1024, 1280 and 1920 px with the contrast scan at every width.
+- `p15d-g1.mjs` to `p15d-g5.mjs` drive each group with real clicks (helpers in `p15d-lib.mjs`; a row menu is clicked on its visible copy, and the last item of a short and a long list is checked to be the element on top at its centre). No decision is confirmed and no request is submitted in the browser: both email real addresses through the SMTP server of `.env`.
+- `p15d-mutate.py`: the safeguards touched in this phase, one at a time, restored and confirmed by SHA-256.
+
 ## Language
 
 The interface is in English or Indonesian. Each user picks a language in My Profile; guests, users who never chose, and users whose language was deactivated get the default, `APP_FALLBACK_LOCALE` (English). Account emails go out in the recipient's language: a password reset follows the user's choice, and an invitation is always in the default language, because the invitee has not chosen yet.

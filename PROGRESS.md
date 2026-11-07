@@ -27,7 +27,8 @@
 - Phase 15b (form components, filters with several values): done on branch `ui-redesign`, see "Phase 15b" at the end. The session was cut by a Windows restart before the docs and commit; resumed and finished on 2026-11-06.
 - Phase 15c (auth pages): done on branch `ui-redesign`, see "Phase 15c" at the end.
 - Brand, dialogs and forms (between 15c and 15d): done on branch `ui-redesign`, see "Brand, dialogs and forms" at the end. Logo and primary blue now come from `design/brand/logo.jpg`.
-- **Next: Phase 15d (application pages in groups)**, started by the owner. Phase 16 (deployment) stays deferred.
+- Phase 15d (application pages in five groups, company name): done on branch `ui-redesign`, see "Phase 15d" at the end.
+- **Next: Phase 15e (error pages, empty states, tables as cards on phones, accessibility audit)**, started by the owner. Phase 16 (deployment) stays deferred.
 - Working rules changed: everything is verified through Laragon at http://hr-system.test, Laragon is started by the owner, and `hr_system` is migrated only at the end of a phase after a verified backup. See CLAUDE.md.
 
 ## Lessons carried over from the discarded work (2026-10-31 to 2026-11-04)
@@ -1056,3 +1057,58 @@ Owner's five points, between 15c and 15d. Branch `ui-redesign`. No migration, no
 - Confirm the company name (logo lettering vs. config) and, if available, supply an SVG logo and the official colour code.
 - Nothing to run: no migration. `npm run build` was run.
 - Next: 15d (application pages in groups). Not started.
+
+## Phase 15d: application pages (2026-11-07)
+Branch `ui-redesign`, not merged, not pushed. One migration (texts only). Five groups, one local commit each (064f81f, 21d90a2, 4b891ef, 2ac3dd6, 719de1b) plus this closing commit.
+
+### Plan (Step 0)
+- No tables, columns, permissions or routes. Business behaviour, validation, authorisation and business texts unchanged.
+- Company name decided by the owner: `app.company` "Peranti Digital Solusindo", new `app.company_legal` "PT Peranti Digital Solusindo"; titles, sidebar, auth footer, emails (only Laravel's `mail/{html,text}/message` published), recovery-code file title.
+- New components: `x-ui.icon-chip`, `toolbar`, `segmented`, `row-actions`, `pagination`, `table-skeleton`; extended `page` (icon, back, backdrop), `card` (icon, tone, actions, footer), `stat` (tone), `badge` (dot), `empty-state` (drawing, call to action); 25 icons. Partials `requests/partials/balance-slots` and `progress`.
+- One migration `2026_11_15_100000_load_application_page_texts` (5 texts in English and Indonesian).
+- Browser checks with new zz-check accounts (`p15d-setup.php`, `p15d-setup-extra.php`: Employee ×2, Approver ×2, HR Admin), `layout.mjs … roles`, `p15d-g1.mjs` … `p15d-g5.mjs`, mutation script `p15d-mutate.py`.
+
+### Done
+- Group 1: Users (toolbar, Clear filters, avatars, dots, icon row menus, rows per page in the footer), user detail, departments (figure cards, row menus).
+- Group 2: supervisor and subordinate cards and the move dialog (in the user detail view), leave balance and ledger, holidays.
+- Group 3: My requests (balance tiles, segmented type, skeleton, pagination, empty state with the new-request action), leave/overtime dialogs, request detail (progress card), approvals, decision page (view-only and free notices, final warning notice in both dialogs).
+- Group 4: request history and detail, recap, dashboard.
+- Group 5: profile (tabs, footers), language, sessions, login history, security and its four sub-pages, confirmation page.
+- Details in docs/TECHNICAL-DECISIONS.md "Phase 15d".
+
+### Verified
+- `php artisan test` on `hr_system_test`, full suite with `--order-by=random --random-order-seed=20261107`: **1234 passed** (9347 assertions; 15c+brand had 1201+). New `ApplicationPagesDesignTest` (29).
+- Mutation check `p15d-mutate.py`, 30 safeguards removed one at a time, each file restored and confirmed by SHA-256: 26 caught at first; 4 survived (edit item behind its policy, department delete only without employees, final warning in the second dialog, decided step built from the record); tests added, all 4 caught on the re-run (`p15d-mutate-rerun.log`).
+- Layout per group (`layout.mjs … roles <routes>`): 26/26, 26/26, 66/66, 66/66, 131/131. Final run after the migration, every route of every role at 375, 768, 1024, 1280 and 1920 px with contrast at every width, sidebar links and phone drawer per role: **281/281**, 0 console errors, 0 texts below AA.
+- Interactions after the migration: g1 **64/64** (first final run 62/64: the script still expected four zz-check accounts after a fifth was added; fixed and re-run), g2 **24/24** (holiday creation and the saved adjustment were proven in earlier runs), g3 **45/45**, g4 **36/36**, g5 **20/20**; 0 console errors. Earlier runs per group: g1 64/64, g2 27 checks over three runs (creation, ledger, rest), g3 45/45, g4 36/36, g5 20/20.
+- Before screenshots `design/screens/before-15d/` (276/276, all three roles), after `design/screens/after-15d/` (+ `g1` … `g5`); looked at: users, user detail, departments, leave balance, holidays, dialogs with pickers, my requests (375), overtime dialog, view-only decision, history, recap, dashboard, profile, security, phone drawer.
+- `npm run build`, Pint, `composer audit`, `npm audit`: clean. `app:translations-missing`: passes.
+- `hr_system`: counts before the phase in `C:\laragon\tmp\browser-check\p15d-counts-before.json` (users 3, translations 1693, audit max id 1382, sessions 3, …); `migrate:status` with one pending; backup `C:\laragon\backup\hr-system\hr_system-before-phase15d-20261107-121221.sql` (1,478,237 bytes, "Dump completed", INSERTs for 24 tables); `migrate` ran it (translations 1703: +10 = 5 texts × 2).
+- Cleanup: 5 zz-check accounts (IDs 146 to 150) and the zz-check holiday listed, then deleted in one checked transaction by `p15c-cleanup.php` (audit 130, login history 66, recovery codes 50, invitations 5, sessions 64, roles 5, supervisor links 4, leave requests 4 with 2 allocations, overtime 2, ledger 10, periods 5), then the 5 headless guest sessions (listed first, `p15brand-sessions-cleanup.php 5`). Against `p15d-counts-before.json` every count is equal, the owner's three accounts with the same `updated_at` and the audit max id 1382, except: translations +10 (the migration) and sessions 3 → 2. My deletes targeted only zz-check user IDs and headless guest rows; the missing row was most likely an expired session removed by Laravel's session garbage collection (not proven). The owner's logged-in session was not touched.
+
+### Bugs found (and fixed)
+- **Select and date-picker panels off screen inside dialogs** (since "Brand, dialogs and forms"): the dialog's entrance animation filled `both`, keeping a transform in effect; fixed panels were placed from the dialog. Now `backwards`.
+- **Dialogs drawn under the sidebar and header** (introduced and fixed in this phase): `isolate` on the page container. Removed; the backdrop sits under positioned siblings instead; fixed children excluded.
+- **Segmented switch covered at 1024 px** by the next filter (overflowing its grid column).
+- A view mixing inline `@php(...)` and an `@php` block compiled to a broken file (500 in tests); blocks only.
+- Lessons added to CLAUDE.md.
+
+### Test changes
+- `ProfilePageTest::test_each_profile_page_has_the_profile_tabs_and_breadcrumbs`: read the current tab's label right after the opening tag; the tab now starts with an icon, so the label is read from the parsed page (DOMXPath). No other existing test changed.
+
+### Not proven
+- No decision was confirmed and no request submitted in the browser: `.env` now has a real sender, so both would email real addresses (`@example.test` included) through the owner's SMTP server. The dialogs, validation refusals, review lock, release, "Start reviewing" path and view-only mode were driven; the final confirm is covered by the test suite only.
+- Safari, Firefox, screen readers, real touch (headless Chrome only). Hover, focus and open-menu states not contrast-scanned.
+- The 128 px limit for the logo mark is kept by the code (largest use 1.75 em ≈ 31 px on the auth panel); no automated check.
+- The Indonesian texts await the owner's review.
+
+### Deviations and notes
+- SPEC.md said "No database migration" for Phase 15; as in 15b/15c the texts go through one migration.
+- Breadcrumbs stay in the header bar instead of being repeated inside `x-ui.page` (one trail per page); the page heading has a back link on detail pages.
+- Tables on phones scroll inside their box (cards are 15e).
+- The authenticator issuer stays `APP_NAME` ("HR System"); changing it would only relabel new enrolments.
+
+### Owner steps
+- Review the 5 new Indonesian texts. Nothing to run: the migration was applied to `hr_system`.
+- When available: an SVG logo and the official colour code (README "Mengganti logo nanti").
+- Next: 15e (error pages, empty states, tables as cards on phones, accessibility audit). Not started.

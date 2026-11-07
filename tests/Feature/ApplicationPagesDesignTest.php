@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PermissionName;
 use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Livewire\Users\Index as UsersIndex;
@@ -393,6 +394,65 @@ class ApplicationPagesDesignTest extends TestCase
         preg_match_all('#data-card-footer>(.*?)</footer>#s', $html, $footers);
         $links = collect($footers[1])->flatMap(fn ($footer) => preg_match_all('#href="([^"]+)"#', $footer, $m) ? $m[1] : [])->all();
         $this->assertSame([route('security.authenticator'), route('security.recovery-codes'), route('security.password')], $links);
+    }
+
+    // ---- Added after the mutation check ---------------------------------------------------------------------
+
+    public function test_row_menu_items_follow_the_policies(): void
+    {
+        $viewer = $this->userWithRole(RoleName::Employee);
+        $viewer->givePermissionTo(PermissionName::UsersView->value);
+        $other = $this->userWithRole(RoleName::Employee);
+
+        $html = $this->actingAs($viewer->fresh())->get(route('users.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('aria-controls="user-actions-'.$other->id.'"', $html);
+        $this->assertStringNotContainsString('wire:click="openEdit('.$other->id.')"', $html);
+        $this->assertStringNotContainsString('wire:click="openSuspend('.$other->id.')"', $html);
+
+        $admin = $this->userWithRole(RoleName::HrAdmin);
+        $html = $this->actingAs($admin)->get(route('users.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('wire:click="openEdit('.$other->id.')"', $html);
+    }
+
+    public function test_a_department_with_employees_offers_no_delete(): void
+    {
+        $admin = $this->userWithRole(RoleName::HrAdmin);
+        $used = Department::create(['name' => 'Finance', 'is_active' => true]);
+        $empty = Department::create(['name' => 'Archive', 'is_active' => true]);
+        $this->userWithRole(RoleName::Employee, ['department_id' => $used->id]);
+
+        $html = $this->actingAs($admin)->get(route('departments.index'))->assertOk()->getContent();
+        $this->assertStringNotContainsString('wire:click="openDelete('.$used->id.')"', $html);
+        $this->assertStringContainsString('wire:click="openDelete('.$empty->id.')"', $html);
+    }
+
+    public function test_both_decision_dialogs_say_the_decision_is_final(): void
+    {
+        $employee = $this->userWithRole(RoleName::Employee);
+        $supervisor = $this->userWithRole(RoleName::Approver);
+        app(Supervisors::class)->attach($this->userWithRole(RoleName::HrAdmin), $employee, (string) $supervisor->id);
+        $monday = CarbonImmutable::today()->next(CarbonImmutable::MONDAY);
+        $request = app(LeaveRequests::class)->submit($employee, ['category' => 'sick', 'starts_on' => $monday->toDateString(), 'ends_on' => $monday->toDateString(), 'reason' => 'Doctor appointment in town.']);
+
+        $html = $this->actingAs($supervisor)->get(route('approvals.show', ['type' => 'leave', 'id' => $request->id]))->assertOk()->getContent();
+        $this->assertSame(2, preg_match_all('#data-final-warning>\s*<svg[^>]*>.*?</svg>\s*<span>This decision is final\. It cannot be undone or changed later\.</span>#s', $html));
+    }
+
+    public function test_the_decided_step_carries_its_time_and_decider(): void
+    {
+        $employee = $this->userWithRole(RoleName::Employee);
+        $supervisor = $this->userWithRole(RoleName::Approver, ['name' => 'Budi Penyetuju']);
+        app(Supervisors::class)->attach($this->userWithRole(RoleName::HrAdmin), $employee, (string) $supervisor->id);
+        $monday = CarbonImmutable::today()->next(CarbonImmutable::MONDAY);
+        $request = app(OvertimeRequests::class)->submit($employee, ['start_at' => $monday->toDateString().' 18:00', 'end_at' => $monday->toDateString().' 20:00', 'reason' => 'Release night support.']);
+        app(Decisions::class)->approve($supervisor, 'overtime', $request->id);
+
+        $html = $this->actingAs($employee)->get(route('requests.show', ['type' => 'overtime', 'id' => $request->id]))->assertOk()->getContent();
+        $this->assertSame(1, preg_match('#data-step="1">(.*?)</li>#s', $html, $step));
+        $this->assertStringContainsString('Approved', $step[1]);
+        $this->assertStringContainsString('WIB', $step[1]);
+        $this->assertStringContainsString('Budi Penyetuju', $step[1]);
+        $this->assertStringContainsString('data-icon-chip="green"', $step[1]);
     }
 
     public function test_an_empty_departments_page_offers_the_first_department(): void

@@ -71,3 +71,7 @@ Read at the start of every phase, in this order:
 - Livewire 4 reserves `$slots` in views; a view variable with that name renders nothing.
 - MySQL limits index names to 64 characters; name long composite indexes yourself.
 - `x-anchor` without `.fixed` places a menu absolutely: inside an `overflow` box (a table) it is clipped and its items cannot be clicked. Use `x-anchor.fixed`, and click a menu item in a short list in the browser.
+- An animation that fills forwards (`both`, `forwards`) keeps its transform in effect after it ends, and Chrome then places `position: fixed` children from that element: select and date-picker panels inside a dialog fell off the screen. Fill backwards only.
+- `isolate` or a z-index on a page container traps the page's dialogs under the sidebar and header. Keep page containers free of stacking contexts.
+- One view must not mix inline `@php(...)` with `@php ... @endphp` blocks: Blade then compiles a broken file (500).
+- `.env` sends real email: a request submission or a decision emails real addresses. Browser checks open decision dialogs and test validation, but do not confirm decisions or submit requests unless the mail goes to the log.

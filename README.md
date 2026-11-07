@@ -28,7 +28,7 @@ Catatan teknis yang rinci (keputusan desain, urutan kunci database, matriks otor
 
 ## 1. Ringkasan
 
-**Apa aplikasinya.** Sistem HR berbasis web untuk PT: data karyawan dan departemen, relasi atasan, saldo cuti tahunan, pengajuan izin dan lembur, persetujuan satu tingkat, riwayat, rekap, ekspor CSV, dan dashboard. Semua akun wajib memakai autentikasi dua faktor (2FA, kode 6 digit dari aplikasi autentikator).
+**Apa aplikasinya.** Sistem HR berbasis web untuk PT Peranti Digital Solusindo: data karyawan dan departemen, relasi atasan, saldo cuti tahunan, pengajuan izin dan lembur, persetujuan satu tingkat, riwayat, rekap, ekspor CSV, dan dashboard. Semua akun wajib memakai autentikasi dua faktor (2FA, kode 6 digit dari aplikasi autentikator).
 
 **Siapa penggunanya.** Seluruh karyawan PT. Setiap akun punya satu dari tiga peran: Employee (Karyawan), Approver (Penyetuju), atau HR Admin (Admin HR). Aplikasi berjalan di komputer kantor lewat Laragon di alamat `http://hr-system.test`. Deploy ke server (VPS) belum dikerjakan (Phase 16).
 
@@ -268,7 +268,7 @@ Hasil yang diharapkan: dua baris, `0 2 * * * php artisan app:prune-expired-token
 
 | Variabel | Fungsi | Contoh |
 |---|---|---|
-| `APP_NAME` | Nama aplikasi (judul, email) | `"HR System"` |
+| `APP_NAME` | Nama produk (judul tab, email, aplikasi autentikator). Nama perusahaan ada di `config/app.php` (`company`, `company_legal`) | `"HR System"` |
 | `APP_ENV` | Lingkungan | `local` |
 | `APP_KEY` | Kunci enkripsi. Dibuat oleh `key:generate`. **Jangan diganti setelah ada pengguna.** | (dibuat otomatis) |
 | `APP_DEBUG` | Tampilkan detail error. `false` di server produksi. | `true` |
@@ -489,7 +489,7 @@ php artisan config:clear
 php artisan test
 ```
 
-Hasil terakhir yang tercatat (Phase 15c, cabang `ui-redesign`): 1201 tes lulus. Tes race kadang menolak satu putaran dengan pesan "a competitor started late, so this run proved nothing" bila komputer sedang sibuk; jalankan ulang tes itu saja. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
+Hasil terakhir yang tercatat (Phase 15d, cabang `ui-redesign`): 1234 tes lulus, juga dengan urutan acak (`php artisan test --order-by=random`). Tes race kadang menolak satu putaran dengan pesan "a competitor started late, so this run proved nothing" bila komputer sedang sibuk; jalankan ulang tes itu saja. Database `hr_system_test` harus sudah ada; tes membuat tabelnya sendiri.
 
 **Satu berkas atau satu kelompok tes:**
 
@@ -539,6 +539,13 @@ php artisan test --filter=ConcurrencyTest
 - Halaman **Ganti kata sandi** dan **Ganti username atau email** memakai komponen halaman login: tombol tampil/sembunyi kata sandi dan tombol kirim dengan keadaan memuat.
 - Bug yang diperbaiki: menu "Actions" di baris User Management terpotong oleh kotak tabel bila barisnya sedikit, sehingga item bawahnya tidak bisa diklik. Sekarang menu ditempatkan `fixed`.
 - Pemeriksaan browser: `php p15-setup.php <setup.json>`, `node layout.mjs <setup.json> activate`, `php p15-setup.php seed <setup.json>`, lalu `node p15-brand.mjs <setup.json>` (logo, favicon, warna, setiap dialog dibuka lewat tombol aslinya, ikon input, keadaan memuat; tidak ada yang disimpan dan tidak ada email). Bersihkan dengan `php p15c-cleanup.php` dan bandingkan `php counts.php`. Uji mutasi: `python C:\laragon\tmp\browser-check\p15brand-mutate.py`.
+
+**Catatan Phase 15d (semua halaman aplikasi).**
+- Nama perusahaan: **Peranti Digital Solusindo** di samping logo (sidebar, halaman masuk), di judul tab setiap halaman (`<halaman> - HR System - Peranti Digital Solusindo`) dan di kepala email; nama resmi **PT Peranti Digital Solusindo** di baris hak cipta (kaki halaman masuk dan setiap email). Keduanya ada di `config/app.php` (`company`, `company_legal`). `APP_NAME` tetap "HR System" (nama produk); label di aplikasi autentikator tidak berubah. Tulisan "Solusi Peranti Digital" di logo tidak dipakai; lambang bulat tidak pernah ditampilkan lebih besar dari 128px.
+- Gaya halaman mengikuti shadcn-admin dengan biru PT: kepala halaman dengan ikon, tautan kembali di halaman detail, latar titik-titik halus; toolbar tabel (cari, filter, "Clear filters"), menu aksi baris berikon titik tiga, kerangka (skeleton) saat memuat, kaki tabel dengan nomor halaman; kartu bagian dengan tombol di kaki kartu; kartu angka dengan ikon berwarna; keadaan kosong dengan gambar kecil dan tombol ajakan. Perilaku, validasi, hak akses, dan teks bisnis tidak berubah.
+- Satu migrasi teks: `2026_11_15_100000_load_application_page_texts` (sudah dijalankan di `hr_system` pada fase ini; aman dijalankan ulang).
+- Bug yang diperbaiki: (1) daftar pilihan dan kalender di dalam dialog bergeser keluar layar karena animasi masuk dialog; (2) sempat terjadi dialog tergambar di bawah sidebar; (3) tombol "Decided by me" tertutup filter di layar 1024px.
+- Pemeriksaan browser 15d: `php p15d-setup.php p15d-setup.json`, `node layout.mjs p15d-setup.json activate`, `php p15d-setup.php seed p15d-setup.json`, `php p15d-setup-extra.php create p15d-setup.json`, `node layout.mjs p15d-setup.json activate`, `php p15d-setup-extra.php attach p15d-setup.json`; lalu `node p15d-g1.mjs p15d-setup.json` sampai `p15d-g5.mjs` (interaksi per kelompok) dan `node layout.mjs p15d-setup.json after-15d roles` (tiga peran, lima lebar, kontras, laci menu ponsel). Skrip tidak mengonfirmasi keputusan atau mengirim pengajuan karena keduanya mengirim email sungguhan lewat SMTP di `.env`. Bersihkan dengan `php p15c-cleanup.php` dan bandingkan `php counts.php`. Uji mutasi: `python C:\laragon\tmp\browser-check\p15d-mutate.py`.
 
 **Pemeriksaan lain sebelum commit:**
 
