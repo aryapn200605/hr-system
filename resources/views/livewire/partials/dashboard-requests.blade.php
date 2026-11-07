@@ -8,7 +8,7 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @if ($summary['balance'] !== null)
                 @php($balance = $summary['balance'])
-                <x-ui.stat :label="__('Annual leave available')" icon="calendar" :value="__(':count days', ['count' => $balance->available()])" data-balance>
+                <x-ui.stat :label="__('Annual leave available')" icon="wallet" tone="green" :value="__(':count days', ['count' => $balance->available()])" data-balance>
                     <p data-balance-period>{{ __('Current period') }}: <x-ui.date :value="$balance->startsOn" /> – <x-ui.date :value="$balance->endsOn" /></p>
                     @if ($balance->pending > 0)
                         <p data-balance-pending>{{ __(':count days are held by pending requests.', ['count' => $balance->pending]) }}</p>
@@ -17,7 +17,7 @@
             @endif
 
             @if ($summary['ownPending'] !== null)
-                <x-ui.stat :label="__('My pending requests')" icon="clipboard" :value="$summary['ownPending']" data-own-pending>
+                <x-ui.stat :label="__('My pending requests')" icon="clipboard" tone="amber" :value="$summary['ownPending']" data-own-pending>
                     @if ($summary['ownPending'] > 0)
                         <a href="{{ route('history.index', ['status' => \App\Enums\RequestStatus::Pending->value]) }}" class="{{ $link }}" data-own-pending-link>{{ __('View in request history') }}</a>
                     @else
@@ -37,7 +37,7 @@
             @endif
 
             @if ($summary['pendingTotal'] !== null)
-                <x-ui.stat :label="__('Pending requests in the organization')" icon="clock" :value="$summary['pendingTotal']" data-pending-total>
+                <x-ui.stat :label="__('Pending requests in the organization')" icon="hourglass" tone="amber" :value="$summary['pendingTotal']" data-pending-total>
                     @if ($summary['pendingTotal'] > 0)
                         <a href="{{ route('history.index', ['status' => \App\Enums\RequestStatus::Pending->value]) }}" class="{{ $link }}" data-pending-total-link>{{ __('View in request history') }}</a>
                     @else
@@ -47,7 +47,7 @@
             @endif
 
             @if ($summary['withoutSupervisor'] !== null)
-                <x-ui.stat :label="__('Employees without a supervisor')" icon="users" :value="$summary['withoutSupervisor']" data-without-supervisor>
+                <x-ui.stat :label="__('Employees without a supervisor')" icon="users" :tone="$summary['withoutSupervisor'] > 0 ? 'red' : 'gray'" :value="$summary['withoutSupervisor']" data-without-supervisor>
                     @if ($summary['withoutSupervisor'] > 0)
                         <a href="{{ route('users.index', ['supervisor' => 'none']) }}" class="{{ $link }}" data-without-supervisor-link>{{ __('Show them in User Management') }}</a>
                     @else

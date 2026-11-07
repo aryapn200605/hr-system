@@ -342,6 +342,35 @@ class ApplicationPagesDesignTest extends TestCase
         $this->assertMatchesRegularExpression('#data-final-warning>\s*<svg[^>]*>.*?</svg>\s*<span>This decision is final\. It cannot be undone or changed later\.</span>#s', $html);
     }
 
+    // ---- Group 4: history, recap, dashboard ----------------------------------------------------------------
+
+    public function test_history_and_recap_use_the_toolbar_skeleton_and_pagination(): void
+    {
+        $admin = $this->userWithRole(RoleName::HrAdmin);
+
+        $history = $this->actingAs($admin)->get(route('history.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('data-toolbar', $history);
+        $this->assertStringContainsString('data-history-total', $history);
+        $this->assertStringContainsString('wire:target="employee,department,type,category,status,from,to,clearFilters,gotoPage,nextPage,previousPage"', $history);
+        $this->assertStringContainsString('data-export', $history);
+
+        $recap = $this->actingAs($admin)->get(route('recap.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('data-segmented="tab"', $recap);
+        $this->assertMatchesRegularExpression('#aria-pressed="true"\s+data-tab="balance"#', $recap);
+        $this->assertStringContainsString('data-toolbar', $recap);
+    }
+
+    public function test_the_dashboard_figure_cards_carry_tinted_icons(): void
+    {
+        $admin = $this->userWithRole(RoleName::HrAdmin);
+
+        $html = $this->actingAs($admin)->get(route('dashboard'))->assertOk()->getContent();
+        foreach (['green', 'amber'] as $tone) {
+            $this->assertStringContainsString('data-icon-chip="'.$tone.'"', $html);
+        }
+        $this->assertMatchesRegularExpression('#data-pending-total[^>]*>.*?data-icon-chip="amber"#s', $html);
+    }
+
     public function test_an_empty_departments_page_offers_the_first_department(): void
     {
         $html = $this->actingAs($this->userWithRole(RoleName::HrAdmin))->get(route('departments.index'))->assertOk()->getContent();

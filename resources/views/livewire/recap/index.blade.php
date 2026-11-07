@@ -1,4 +1,4 @@
-<x-ui.page :title="__('Recap')" :subtitle="$seesOthers ? __('Leave balance and requests of the employees you may see.') : __('Your leave balance and requests.')">
+<x-ui.page :title="__('Recap')" :subtitle="$seesOthers ? __('Leave balance and requests of the employees you may see.') : __('Your leave balance and requests.')" icon="chart">
     <x-slot:actions>
         <x-ui.button variant="secondary" size="sm" :href="$exportUrl" data-export>
             <x-ui.icon name="download" class="size-4" />
@@ -7,18 +7,11 @@
     </x-slot:actions>
 
     <x-ui.card>
-        <div class="flex flex-col gap-4 border-b border-slate-200 p-5">
-            <div class="inline-flex self-start rounded-lg border border-slate-300 p-0.5" role="group" aria-label="{{ __('Recap') }}">
-                @foreach (['balance' => __('Leave balance'), 'departments' => __('By department and month')] as $value => $label)
-                    <button type="button" wire:click="$set('tab', '{{ $value }}')" aria-pressed="{{ $shownTab === $value ? 'true' : 'false' }}" data-tab="{{ $value }}" @class([
-                        'cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium',
-                        'bg-primary text-primary-foreground' => $shownTab === $value,
-                        'text-slate-700 hover:bg-slate-100' => $shownTab !== $value,
-                    ])>{{ $label }}</button>
-                @endforeach
-            </div>
+        <div class="border-b border-border px-4 pt-4 sm:px-5 sm:pt-5">
+            <x-ui.segmented :label="__('Recap')" :options="['balance' => __('Leave balance'), 'departments' => __('By department and month')]" :value="$shownTab" property="tab" data-attribute="tab" class="[&>span]:sr-only [&>div]:mt-0" />
+        </div>
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <x-ui.toolbar>
                 {{-- Several values in one filter: any of them; several filters: all of them. --}}
                 @if ($shownTab === 'balance' && $seesOthers)
                     <x-ui.select :label="__('Employee')" id="filter-employee" multiple remote="searchEmployees" :labels="$employeeLabels" :placeholder="__('All employees')" wire:model.live="employee" />
@@ -42,12 +35,13 @@
                             ->merge(collect($statuses)->reject(fn ($option) => $option === \App\Enums\RequestStatus::Approved)->mapWithKeys(fn ($option) => [$option->value => $option->label()]))
                             ->put(\App\Services\Reports\ReportFilters::ALL_STATUSES, __('All statuses'))->all()" />
                 @endif
-            </div>
-        </div>
+        </x-ui.toolbar>
 
-        <div wire:loading.class="opacity-60" wire:target="tab,employee,department,periods,year,status,nextPage,previousPage">
+        <x-ui.table-skeleton target="tab,employee,department,periods,year,status,gotoPage,nextPage,previousPage" :columns="6" :rows="5" />
+        <div wire:loading.delay.remove wire:target="tab,employee,department,periods,year,status,gotoPage,nextPage,previousPage">
             @if ($shownTab === 'balance')
-                <p class="border-b border-slate-200 px-5 py-2.5 text-sm text-slate-600">
+                <p class="flex items-start gap-2 border-b border-border bg-muted/30 px-5 py-2.5 text-sm text-muted-foreground">
+                    <x-ui.icon name="info" class="mt-0.5 size-4 shrink-0" />
                     {{ __('Remaining is the entitlement minus used days minus approved leave that is deducted when its period opens. Days in pending requests are not subtracted.') }}
                 </p>
 
@@ -69,9 +63,14 @@
 
                         @foreach ($users as $member)
                             <tr wire:key="balance-{{ $member->id }}" class="bg-slate-50" data-balance-employee="{{ $member->id }}">
-                                <th scope="colgroup" colspan="6" class="text-left font-medium text-slate-900">
-                                    {{ $member->name }}
-                                    <span class="font-normal text-slate-600">· {{ $member->department?->name ?? __('No department') }}</span>
+                                <th scope="colgroup" colspan="6" class="text-left font-medium text-foreground">
+                                    <span class="flex items-center gap-3">
+                                        <x-ui.avatar :name="$member->name" class="bg-primary/10 text-primary-hover" />
+                                        <span>
+                                            {{ $member->name }}
+                                            <span class="font-normal text-muted-foreground">· {{ $member->department?->name ?? __('No department') }}</span>
+                                        </span>
+                                    </span>
                                 </th>
                             </tr>
                             @forelse ($lines[$member->id] ?? [] as $line)
@@ -86,11 +85,11 @@
                                     <td class="px-3!">{{ $line->used }}</td>
                                     <td class="px-3!">{{ $line->approvedNotDeducted }}</td>
                                     <td class="px-3!">{{ $line->pending }}</td>
-                                    <td class="px-3! font-medium text-slate-900" data-remaining>{{ $line->remaining() }}</td>
+                                    <td class="px-3! font-semibold text-green-800" data-remaining>{{ $line->remaining() }}</td>
                                 </tr>
                             @empty
                                 <tr wire:key="balance-{{ $member->id }}-none" data-balance-row="{{ $member->id }}">
-                                    <td colspan="6" class="text-slate-600">{{ __('No leave period yet.') }}</td>
+                                    <td colspan="6" class="text-muted-foreground">{{ __('No leave period yet.') }}</td>
                                 </tr>
                             @endforelse
                         @endforeach
@@ -115,7 +114,7 @@
 
                         @foreach ($rows as $row)
                             <tr wire:key="department-{{ $row['department_id'] ?? 'none' }}-{{ $row['month'] }}" data-department-row="{{ $row['department_id'] ?? 'none' }}-{{ $row['month'] }}">
-                                <th scope="row" class="text-left font-medium whitespace-normal! text-slate-900">{{ $row['department'] ?? __('No department') }}</th>
+                                <th scope="row" class="text-left font-medium whitespace-normal! text-foreground">{{ $row['department'] ?? __('No department') }}</th>
                                 <td class="px-3!">{{ \Carbon\CarbonImmutable::create($shownYear, $row['month'], 1)->translatedFormat('M Y') }}</td>
                                 @foreach ($categories as $category)
                                     <td class="px-3!" data-category="{{ $category->code }}">{{ $row['leave'][$category->id] ?? 0 }}</td>
@@ -129,14 +128,8 @@
             @endif
         </div>
 
-        @if ($shownTab === 'balance' && $users->hasPages())
-            <nav aria-label="{{ __('Pagination') }}" class="flex items-center justify-between gap-2 border-t border-slate-200 px-5 py-3.5">
-                <p class="text-sm text-slate-600">{{ __('Page :page of :pages', ['page' => $users->currentPage(), 'pages' => $users->lastPage()]) }}</p>
-                <div class="flex gap-2">
-                    <x-ui.button variant="secondary" size="sm" wire:click="previousPage" loading="previousPage" :disabled="$users->onFirstPage()">{{ __('Previous') }}</x-ui.button>
-                    <x-ui.button variant="secondary" size="sm" wire:click="nextPage" loading="nextPage" :disabled="! $users->hasMorePages()">{{ __('Next') }}</x-ui.button>
-                </div>
-            </nav>
+        @if ($shownTab === 'balance')
+            <x-ui.pagination :paginator="$users" />
         @endif
     </x-ui.card>
 </x-ui.page>
