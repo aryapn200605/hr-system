@@ -11,15 +11,15 @@
 
     @foreach ($record->allocations as $allocation)
         <tr wire:key="allocation-{{ $allocation->id }}" data-allocation="{{ $allocation->id }}">
-            <td>
+            <td data-label="{{ __('Period') }}">
                 <x-ui.date :value="$allocation->period_starts_on" /> – <x-ui.date :value="$allocation->period_ends_on" />
                 @if ($allocation->isProjected())
                     <x-ui.badge class="ml-1">{{ __('Projected') }}</x-ui.badge>
                 @endif
             </td>
-            <td><x-ui.date :value="$allocation->starts_on" /> – <x-ui.date :value="$allocation->ends_on" /></td>
-            <td>{{ $allocation->days }}</td>
-            <td data-allocation-state>
+            <td data-label="{{ __('Dates in this period') }}"><x-ui.date :value="$allocation->starts_on" /> – <x-ui.date :value="$allocation->ends_on" /></td>
+            <td data-label="{{ __('Working days') }}">{{ $allocation->days }}</td>
+            <td data-allocation-state data-label="{{ __('Balance') }}">
                 @if ($allocation->charged_at)
                     {{ __('Deducted') }}
                 @elseif ($record->status === \App\Enums\RequestStatus::Approved)

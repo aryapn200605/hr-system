@@ -13,7 +13,7 @@
 
 @if ($paginator->count() > 0)
     <nav aria-label="{{ $label ?? __('Pagination') }}" {{ $attributes->class('flex flex-col gap-3 border-t border-border px-5 py-3 sm:flex-row sm:items-center sm:justify-between') }} data-pagination>
-        <p class="text-sm text-muted-foreground" data-pagination-range>
+        <p class="text-sm text-muted-foreground" data-pagination-range data-announce>
             @if ($lengthAware)
                 {{ __('Showing :first to :last of :total', ['first' => $paginator->firstItem(), 'last' => $paginator->lastItem(), 'total' => $paginator->total()]) }}
             @else

@@ -66,16 +66,16 @@
 
             @foreach ($periods as $period)
                 <tr wire:key="period-{{ $period->id }}" @class(['bg-primary/[0.03]' => $period->is($current)])>
-                    <td>
+                    <td data-label="{{ __('Start') }}">
                         <x-ui.date :value="$period->starts_on" />
                         @if ($period->is($current))
                             <x-ui.badge tone="green" dot class="ml-1">{{ __('Current') }}</x-ui.badge>
                         @endif
                     </td>
-                    <td><x-ui.date :value="$period->ends_on" /></td>
-                    <td class="tabular-nums">{{ $period->entitlement }}</td>
-                    <td class="tabular-nums">{{ $period->used }}</td>
-                    <td class="font-medium tabular-nums">{{ $period->remaining() }}</td>
+                    <td data-label="{{ __('End') }}"><x-ui.date :value="$period->ends_on" /></td>
+                    <td class="tabular-nums" data-label="{{ __('Entitlement') }}">{{ $period->entitlement }}</td>
+                    <td class="tabular-nums" data-label="{{ __('Used') }}">{{ $period->used }}</td>
+                    <td class="font-medium tabular-nums" data-label="{{ __('Remaining') }}">{{ $period->remaining() }}</td>
                 </tr>
             @endforeach
         </x-ui.table>
@@ -85,7 +85,7 @@
         <x-ui.table-skeleton target="gotoPage,nextPage,previousPage" :columns="5" :rows="5" />
         <div wire:loading.delay.remove wire:target="gotoPage,nextPage,previousPage">
             @if ($entries->isEmpty())
-                <x-ui.empty-state :title="__('No entries yet')" icon="history" />
+                <x-ui.empty-state :title="__('No entries yet')" :description="__('Every change to this balance is listed here, with who made it and why.')" icon="history" data-empty="none" />
             @else
                 <x-ui.table :caption="__('Ledger')">
                     <x-slot:head>
@@ -102,13 +102,13 @@
 
                     @foreach ($entries as $entry)
                         <tr wire:key="entry-{{ $entry->id }}">
-                            <td><x-ui.datetime :value="$entry->created_at" /></td>
-                            <td>{{ $entry->type->label() }} <span @class(['font-medium tabular-nums', 'text-green-800' => $entry->change > 0, 'text-red-800' => $entry->change < 0])>({{ $entry->change > 0 ? '+'.$entry->change : $entry->change }})</span></td>
-                            <td><x-ui.date :value="$entry->period->starts_on" /> – <x-ui.date :value="$entry->period->ends_on" /></td>
-                            <td class="tabular-nums">{{ $entry->before }}</td>
-                            <td class="tabular-nums">{{ $entry->after }}</td>
-                            <td>{{ $entry->actor?->name ?? __('System') }}</td>
-                            <td class="whitespace-normal! min-w-64 text-muted-foreground">{{ $entry->reason ?? '—' }}</td>
+                            <td data-label="{{ __('When') }}"><x-ui.datetime :value="$entry->created_at" /></td>
+                            <td data-label="{{ __('Change') }}">{{ $entry->type->label() }} <span @class(['font-medium tabular-nums', 'text-green-800' => $entry->change > 0, 'text-red-800' => $entry->change < 0])>({{ $entry->change > 0 ? '+'.$entry->change : $entry->change }})</span></td>
+                            <td data-label="{{ __('Period') }}"><x-ui.date :value="$entry->period->starts_on" /> – <x-ui.date :value="$entry->period->ends_on" /></td>
+                            <td class="tabular-nums" data-label="{{ __('Before') }}">{{ $entry->before }}</td>
+                            <td class="tabular-nums" data-label="{{ __('After') }}">{{ $entry->after }}</td>
+                            <td data-label="{{ __('By') }}">{{ $entry->actor?->name ?? __('System') }}</td>
+                            <td class="whitespace-normal! min-w-64 text-muted-foreground" data-label="{{ __('Reason') }}">{{ $entry->reason ?? '—' }}</td>
                         </tr>
                     @endforeach
                 </x-ui.table>

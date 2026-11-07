@@ -138,6 +138,20 @@
         outline-offset: 2px;
     }
 
+    /* Phase 15e: one rule for every animation and transition, including those of the components and of
+       Alpine's x-transition, so nothing moves when the system asks for reduced motion. The few entrances that
+       already use motion-safe: are simply not started. */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        ::before,
+        ::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+
     /* Alpine parts hidden until Alpine starts. */
     [x-cloak] {
         display: none !important;
@@ -346,5 +360,162 @@
             radial-gradient(60% 80% at 100% 0%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 70%);
         background-size: 18px 18px, 100% 100%;
         mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+    }
+}
+
+/*
+ * Phase 15e: tables as cards below 1024 px (x-ui.table, class table-cards). Not in a layer, so these rules win over
+ * the table's utility classes (padding, nowrap, min-width) without !important. Each body row is a card; each cell
+ * is a two-column grid: its column's label (data-label, from the header) and its value (div[data-cell], added by
+ * the component). Cells without a label span the card: the title on top, a row menu in the top right corner
+ * (44 px target), action buttons at the bottom (44 px high). The header row is hidden; the labels carry its text.
+ * Screen only: a printed page keeps the plain table, which reads better on paper.
+ */
+@media screen and (width < 64rem) {
+    .table-cards,
+    .table-cards > tbody {
+        display: block;
+    }
+
+    .table-cards > thead {
+        display: none;
+    }
+
+    .table-cards > tbody {
+        padding: 0.75rem;
+    }
+
+    .table-cards > tbody > tr {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--card);
+        padding: 0.5rem 1rem;
+        box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    }
+
+    .table-cards > tbody > tr:last-child {
+        margin-bottom: 0;
+    }
+
+    .table-cards > tbody > tr > td,
+    .table-cards > tbody > tr > th {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        column-gap: 1rem;
+        align-items: baseline;
+        min-width: 0;
+        height: auto;
+        padding: 0.375rem 0;
+        text-align: start;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .table-cards > tbody > tr > td[data-label]::before {
+        content: attr(data-label);
+        font-size: 0.8125rem;
+        color: var(--muted-foreground);
+        overflow-wrap: normal;
+    }
+
+    .table-cards > tbody > tr > td:not([data-label]),
+    .table-cards > tbody > tr > th {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* The row's name: first, a little larger, clear of the menu button. */
+    .table-cards > tbody > tr > [data-card='title'] {
+        order: -1;
+        padding-inline-end: 3rem;
+        font-size: 0.9375rem;
+    }
+
+    /* A heading row inside the body (the recap's employee rows): a plain heading above its cards. */
+    .table-cards > tbody > tr:has(> th[colspan]) {
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        padding: 0.75rem 0 0;
+        margin-bottom: 0.5rem;
+    }
+
+    .table-cards > tbody > tr > [data-card='menu'] {
+        position: absolute;
+        top: 0.25rem;
+        inset-inline-end: 0.25rem;
+        padding: 0;
+    }
+
+    .table-cards > tbody > tr > [data-card='actions'] {
+        margin-top: 0.375rem;
+        border-top: 1px solid var(--border);
+        padding-top: 0.75rem;
+    }
+
+    /* Touch targets of at least 44 x 44 px for every control in a card. */
+    .table-cards [data-card='menu'] button,
+    .table-cards [data-card='actions'] :is(a, button) {
+        min-height: 2.75rem;
+        min-width: 2.75rem;
+    }
+
+    .table-cards [data-card='actions'] :is(a, button) {
+        width: 100%;
+    }
+
+    .table-cards td a {
+        display: inline-block;
+        min-height: 1.5rem;
+    }
+}
+
+/*
+ * Phase 15e: print. A printed page (the recap, a request's detail, the history) shows its content only: no sidebar,
+ * header, skip link, toasts, dialogs, filters, buttons, row menus, pagination buttons or backdrop, on white, with
+ * tables at full width (not scrolled, not cards) and rows kept whole across pages.
+ */
+@media print {
+    [data-sidebar-desktop],
+    body > a[href='#main'],
+    [data-content] > header,
+    [data-toasts],
+    [data-announcer],
+    [data-request-failed],
+    [role='dialog'],
+    [data-page-actions],
+    [data-page-back],
+    [data-page-backdrop],
+    [data-toolbar],
+    [data-skeleton],
+    [data-card-footer],
+    [data-pagination] button,
+    [data-card='menu'],
+    [data-card='actions'],
+    th:has(> .sr-only:only-child) {
+        display: none !important;
+    }
+
+    body,
+    [data-content] {
+        background: white !important;
+    }
+
+    [data-content] {
+        margin: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+
+    [role='region'] {
+        overflow: visible !important;
+    }
+
+    tr,
+    [data-card] {
+        break-inside: avoid;
     }
 }

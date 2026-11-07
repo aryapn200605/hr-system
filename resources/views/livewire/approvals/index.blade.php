@@ -13,11 +13,18 @@
 
         <x-ui.table-skeleton target="tab,type,gotoPage,nextPage,previousPage" :columns="3" :rows="4" />
         <div wire:loading.delay.remove wire:target="tab,type,gotoPage,nextPage,previousPage">
-            @if ($rows->isEmpty())
+            @if ($rows->isEmpty() && $type !== [])
+                {{-- Phase 15e: the type filter hides every row; offer to show both types again. --}}
+                <x-ui.empty-state :title="__('No requests of this type')" :description="__('Show both types to see every request in this list.')" icon="search" data-empty="filtered">
+                    <x-ui.button variant="secondary" size="sm" wire:click="$set('type', [])" data-clear-filters>{{ __('Clear filters') }}</x-ui.button>
+                </x-ui.empty-state>
+            @elseif ($rows->isEmpty())
                 @if ($shownTab === 'waiting')
-                    <x-ui.empty-state :title="__('Nothing waits for you')" :description="__('Requests you may decide appear here.')" icon="inbox" />
+                    <x-ui.empty-state :title="__('Nothing waits for you')" :description="__('Requests you may decide appear here.')" icon="inbox" data-empty="none">
+                        <x-ui.button variant="secondary" size="sm" wire:click="$set('tab', 'decided')" data-show-decided>{{ __('Decided by me') }}</x-ui.button>
+                    </x-ui.empty-state>
                 @else
-                    <x-ui.empty-state :title="__('No decisions yet')" :description="__('Requests you approve or reject appear here.')" icon="check-circle" />
+                    <x-ui.empty-state :title="__('No decisions yet')" :description="__('Requests you approve or reject appear here.')" icon="check-circle" data-empty="none" />
                 @endif
             @else
                 <x-ui.table :caption="$shownTab === 'waiting' ? __('Requests waiting for me') : __('Requests decided by me')">
@@ -33,7 +40,7 @@
                     @foreach ($rows as $row)
                         @php($isLeave = $row instanceof \App\Models\LeaveRequest)
                         <tr wire:key="{{ $row->routeType() }}-{{ $row->id }}" data-row="{{ $row->routeType() }}-{{ $row->id }}">
-                            <td>
+                            <td data-card="title">
                                 <span class="flex items-center gap-3">
                                     <x-ui.avatar :name="$row->user->name" class="bg-primary/10 text-primary-hover" />
                                     <span class="min-w-0">
@@ -47,7 +54,7 @@
                                     </span>
                                 </span>
                             </td>
-                            <td>
+                            <td data-label="{{ __('When') }}">
                                 @if ($isLeave)
                                     <x-ui.date :value="$row->starts_on" /> – <x-ui.date :value="$row->ends_on" />
                                 @else
@@ -56,9 +63,9 @@
                                 <span class="block text-muted-foreground">{{ $isLeave ? __(':count working days', ['count' => $row->working_days]) : __(':count hours', ['count' => $row->hours]) }}</span>
                             </td>
                             @if ($shownTab === 'waiting')
-                                <td><x-ui.datetime :value="$row->created_at" /></td>
+                                <td data-label="{{ __('Submitted') }}"><x-ui.datetime :value="$row->created_at" /></td>
                             @else
-                                <td>
+                                <td data-label="{{ __('Decision') }}">
                                     <x-ui.badge :tone="$row->status->tone()" dot>{{ $row->status->label() }}</x-ui.badge>
                                     <span class="block text-muted-foreground"><x-ui.datetime :value="$row->decided_at" /></span>
                                 </td>

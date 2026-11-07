@@ -21,10 +21,10 @@
                     @php($result = \App\Enums\LoginResult::from($login->result))
 
                     <tr wire:key="login-{{ $login->id }}">
-                        <td><x-ui.datetime :value="$login->occurred_at" /></td>
-                        <td>{{ $login->ip_address ?? __('Unknown') }}</td>
-                        <td title="{{ $login->user_agent }}">{{ \App\Support\UserAgentLabel::for($login->user_agent) }}</td>
-                        <td><x-ui.badge :tone="$result->tone()" dot>{{ $result->label() }}</x-ui.badge></td>
+                        <td data-card="title"><x-ui.datetime :value="$login->occurred_at" /></td>
+                        <td data-label="{{ __('IP address') }}">{{ $login->ip_address ?? __('Unknown') }}</td>
+                        <td title="{{ $login->user_agent }}" data-label="{{ __('User agent') }}">{{ \App\Support\UserAgentLabel::for($login->user_agent) }}</td>
+                        <td data-label="{{ __('Result') }}"><x-ui.badge :tone="$result->tone()" dot>{{ $result->label() }}</x-ui.badge></td>
                     </tr>
                 @endforeach
             </x-ui.table>

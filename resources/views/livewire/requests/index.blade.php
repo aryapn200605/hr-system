@@ -26,8 +26,13 @@
 
         <x-ui.table-skeleton target="type,statusFilter,gotoPage,nextPage,previousPage" :columns="5" :rows="4" />
         <div wire:loading.delay.remove wire:target="type,statusFilter,gotoPage,nextPage,previousPage">
-            @if ($requests->isEmpty())
-                <x-ui.empty-state :title="__('No requests found')" :description="__('Requests you submit appear here.')" :icon="$shownType === 'leave' ? 'calendar' : 'clock'">
+            @if ($requests->isEmpty() && $statusFilter !== '')
+                {{-- Phase 15e: a filter that hides every request is not the same as having none. --}}
+                <x-ui.empty-state :title="__('No requests with this status')" :description="__('Choose another status to see your other requests.')" icon="search" data-empty="filtered">
+                    <x-ui.button variant="secondary" size="sm" wire:click="$set('statusFilter', '')" data-show-all>{{ __('Show all statuses') }}</x-ui.button>
+                </x-ui.empty-state>
+            @elseif ($requests->isEmpty())
+                <x-ui.empty-state :title="__('No requests found')" :description="$problem === null ? __('Requests you submit appear here.') : __('You can submit requests once you have an approval path.')" :icon="$shownType === 'leave' ? 'calendar' : 'clock'" data-empty="none">
                     @if ($problem === null)
                         @if ($shownType === 'leave')
                             <x-ui.button size="sm" wire:click="openLeave" loading="openLeave"><x-ui.icon name="plus" class="size-4" wire:loading.remove wire:target="openLeave" />{{ __('New leave request') }}</x-ui.button>
@@ -51,17 +56,17 @@
 
                     @foreach ($requests as $row)
                         <tr wire:key="leave-{{ $row->id }}">
-                            <td>
+                            <td data-card="title">
                                 <span class="flex items-center gap-3">
                                     <x-ui.icon-chip icon="calendar" size="sm" />
                                     <span class="font-medium text-foreground">{{ $row->category->label() }}</span>
                                 </span>
                             </td>
-                            <td><x-ui.date :value="$row->starts_on" /> – <x-ui.date :value="$row->ends_on" /></td>
-                            <td class="tabular-nums">{{ $row->working_days }}</td>
-                            <td><x-ui.badge :tone="$row->status->tone()" dot>{{ $row->status->label() }}</x-ui.badge></td>
-                            <td><x-ui.datetime :value="$row->created_at" /></td>
-                            <td class="text-right"><x-ui.button variant="secondary" size="sm" :href="route('requests.show', ['type' => 'leave', 'id' => $row->id])"><x-ui.icon name="eye" class="size-4" />{{ __('View') }}</x-ui.button></td>
+                            <td data-label="{{ __('Dates') }}"><x-ui.date :value="$row->starts_on" /> – <x-ui.date :value="$row->ends_on" /></td>
+                            <td class="tabular-nums" data-label="{{ __('Working days') }}">{{ $row->working_days }}</td>
+                            <td data-label="{{ __('Status') }}"><x-ui.badge :tone="$row->status->tone()" dot>{{ $row->status->label() }}</x-ui.badge></td>
+                            <td data-label="{{ __('Submitted') }}"><x-ui.datetime :value="$row->created_at" /></td>
+                            <td class="text-right" data-card="actions"><x-ui.button variant="secondary" size="sm" :href="route('requests.show', ['type' => 'leave', 'id' => $row->id])"><x-ui.icon name="eye" class="size-4" />{{ __('View') }}</x-ui.button></td>
                         </tr>
                     @endforeach
                 </x-ui.table>
@@ -80,17 +85,17 @@
 
                     @foreach ($requests as $row)
                         <tr wire:key="overtime-{{ $row->id }}">
-                            <td>
+                            <td data-label="{{ __('Start') }}">
                                 <span class="flex items-center gap-3">
                                     <x-ui.icon-chip icon="clock" size="sm" tone="teal" />
                                     <span class="font-medium text-foreground"><x-ui.datetime :value="$row->start_at" /></span>
                                 </span>
                             </td>
-                            <td><x-ui.datetime :value="$row->end_at" /></td>
-                            <td class="tabular-nums">{{ $row->hours }}</td>
-                            <td><x-ui.badge :tone="$row->status->tone()" dot>{{ $row->status->label() }}</x-ui.badge></td>
-                            <td><x-ui.datetime :value="$row->created_at" /></td>
-                            <td class="text-right"><x-ui.button variant="secondary" size="sm" :href="route('requests.show', ['type' => 'overtime', 'id' => $row->id])"><x-ui.icon name="eye" class="size-4" />{{ __('View') }}</x-ui.button></td>
+                            <td data-label="{{ __('End') }}"><x-ui.datetime :value="$row->end_at" /></td>
+                            <td class="tabular-nums" data-label="{{ __('Hours') }}">{{ $row->hours }}</td>
+                            <td data-label="{{ __('Status') }}"><x-ui.badge :tone="$row->status->tone()" dot>{{ $row->status->label() }}</x-ui.badge></td>
+                            <td data-label="{{ __('Submitted') }}"><x-ui.datetime :value="$row->created_at" /></td>
+                            <td class="text-right" data-card="actions"><x-ui.button variant="secondary" size="sm" :href="route('requests.show', ['type' => 'overtime', 'id' => $row->id])"><x-ui.icon name="eye" class="size-4" />{{ __('View') }}</x-ui.button></td>
                         </tr>
                     @endforeach
                 </x-ui.table>

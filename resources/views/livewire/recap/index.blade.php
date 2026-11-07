@@ -37,6 +37,14 @@
                 @endif
         </x-ui.toolbar>
 
+        @php
+            // Phase 15e: an empty result because of the filters gets a "Clear filters" button; a recap that is
+            // simply empty explains why instead. Defaults: all employees and departments, this year, Approved.
+            $balanceFiltered = $employee !== [] || $department !== [];
+            $departmentsFiltered = $department !== [] || $year !== '' || $status !== '';
+            $clearFilters = "\$wire.\$set('employee', [], false); \$wire.\$set('department', [], false); \$wire.\$set('year', '', false); \$wire.\$set('status', '')";
+        @endphp
+
         <x-ui.table-skeleton target="tab,employee,department,periods,year,status,gotoPage,nextPage,previousPage" :columns="6" :rows="5" />
         <div wire:loading.delay.remove wire:target="tab,employee,department,periods,year,status,gotoPage,nextPage,previousPage">
             @if ($shownTab === 'balance')
@@ -46,18 +54,24 @@
                 </p>
 
                 @if ($users->isEmpty())
-                    <x-ui.empty-state :title="__('No employees found')" :description="__('Try other filters.')" icon="users" />
+                    @if ($balanceFiltered)
+                        <x-ui.empty-state :title="__('No employees found')" :description="__('Try other filters.')" icon="search" data-empty="filtered">
+                            <x-ui.button variant="secondary" size="sm" x-on:click="{{ $clearFilters }}" data-clear-filters>{{ __('Clear filters') }}</x-ui.button>
+                        </x-ui.empty-state>
+                    @else
+                        <x-ui.empty-state :title="__('No employees found')" :description="__('Employees you may see are listed here with their leave periods.')" icon="users" data-empty="none" />
+                    @endif
                 @else
                     {{-- One heading row per employee and narrow number columns with wrapping headers, so the table fits beside the menu at 1024px. --}}
                     <x-ui.table :caption="__('Leave balance per employee and period')">
                         <x-slot:head>
                             <tr>
                                 <th scope="col">{{ __('Period') }}</th>
-                                <th scope="col" class="px-3! align-bottom whitespace-normal!">{{ __('Entitlement') }}</th>
-                                <th scope="col" class="px-3! align-bottom whitespace-normal!">{{ __('Used') }}</th>
-                                <th scope="col" class="px-3! align-bottom whitespace-normal!">{{ __('Approved, not deducted yet') }}</th>
-                                <th scope="col" class="px-3! align-bottom whitespace-normal!">{{ __('In pending requests') }}</th>
-                                <th scope="col" class="px-3! align-bottom whitespace-normal!">{{ __('Remaining') }}</th>
+                                <th scope="col" class="lg:px-3! align-bottom whitespace-normal!">{{ __('Entitlement') }}</th>
+                                <th scope="col" class="lg:px-3! align-bottom whitespace-normal!">{{ __('Used') }}</th>
+                                <th scope="col" class="lg:px-3! align-bottom whitespace-normal!">{{ __('Approved, not deducted yet') }}</th>
+                                <th scope="col" class="lg:px-3! align-bottom whitespace-normal!">{{ __('In pending requests') }}</th>
+                                <th scope="col" class="lg:px-3! align-bottom whitespace-normal!">{{ __('Remaining') }}</th>
                             </tr>
                         </x-slot:head>
 
@@ -75,17 +89,17 @@
                             </tr>
                             @forelse ($lines[$member->id] ?? [] as $line)
                                 <tr wire:key="balance-{{ $member->id }}-{{ $loop->index }}" data-balance-row="{{ $member->id }}">
-                                    <td>
+                                    <td data-label="{{ __('Period') }}">
                                         <x-ui.date :value="$line->startsOn" /> – <x-ui.date :value="$line->endsOn" />
                                         @if ($line->projected)
                                             <span class="mt-1 block"><x-ui.badge>{{ __('Projected') }}</x-ui.badge></span>
                                         @endif
                                     </td>
-                                    <td class="px-3!">{{ $line->entitlement }}</td>
-                                    <td class="px-3!">{{ $line->used }}</td>
-                                    <td class="px-3!">{{ $line->approvedNotDeducted }}</td>
-                                    <td class="px-3!">{{ $line->pending }}</td>
-                                    <td class="px-3! font-semibold text-green-800" data-remaining>{{ $line->remaining() }}</td>
+                                    <td class="lg:px-3!" data-label="{{ __('Entitlement') }}">{{ $line->entitlement }}</td>
+                                    <td class="lg:px-3!" data-label="{{ __('Used') }}">{{ $line->used }}</td>
+                                    <td class="lg:px-3!" data-label="{{ __('Approved, not deducted yet') }}">{{ $line->approvedNotDeducted }}</td>
+                                    <td class="lg:px-3!" data-label="{{ __('In pending requests') }}">{{ $line->pending }}</td>
+                                    <td class="lg:px-3! font-semibold text-green-800" data-remaining data-label="{{ __('Remaining') }}">{{ $line->remaining() }}</td>
                                 </tr>
                             @empty
                                 <tr wire:key="balance-{{ $member->id }}-none" data-balance-row="{{ $member->id }}">
@@ -97,30 +111,36 @@
                 @endif
             @else
                 @if ($rows === [])
-                    <x-ui.empty-state :title="__('No requests found')" :description="__('Try other filters.')" icon="chart" />
+                    @if ($departmentsFiltered)
+                        <x-ui.empty-state :title="__('No requests found')" :description="__('Try other filters.')" icon="search" data-empty="filtered">
+                            <x-ui.button variant="secondary" size="sm" x-on:click="{{ $clearFilters }}" data-clear-filters>{{ __('Clear filters') }}</x-ui.button>
+                        </x-ui.empty-state>
+                    @else
+                        <x-ui.empty-state :title="__('No approved requests in :year', ['year' => $shownYear])" :description="__('Approved leave and overtime are counted here per department and month.')" icon="chart" data-empty="none" />
+                    @endif
                 @else
                     <x-ui.table :caption="__('Requests per department and month')">
                         <x-slot:head>
                             <tr>
                                 <th scope="col" class="align-bottom">{{ __('Department') }}</th>
-                                <th scope="col" class="px-3! align-bottom">{{ __('Month') }}</th>
+                                <th scope="col" class="lg:px-3! align-bottom">{{ __('Month') }}</th>
                                 @foreach ($categories as $category)
-                                    <th scope="col" class="px-3! align-bottom whitespace-normal!">{{ $category->label() }}</th>
+                                    <th scope="col" class="lg:px-3! align-bottom whitespace-normal!">{{ $category->label() }}</th>
                                 @endforeach
-                                <th scope="col" class="px-3! align-bottom whitespace-normal!">{{ __('Overtime requests') }}</th>
-                                <th scope="col" class="px-3! align-bottom whitespace-normal!">{{ __('Overtime hours') }}</th>
+                                <th scope="col" class="lg:px-3! align-bottom whitespace-normal!">{{ __('Overtime requests') }}</th>
+                                <th scope="col" class="lg:px-3! align-bottom whitespace-normal!">{{ __('Overtime hours') }}</th>
                             </tr>
                         </x-slot:head>
 
                         @foreach ($rows as $row)
                             <tr wire:key="department-{{ $row['department_id'] ?? 'none' }}-{{ $row['month'] }}" data-department-row="{{ $row['department_id'] ?? 'none' }}-{{ $row['month'] }}">
-                                <th scope="row" class="text-left font-medium whitespace-normal! text-foreground">{{ $row['department'] ?? __('No department') }}</th>
-                                <td class="px-3!">{{ \Carbon\CarbonImmutable::create($shownYear, $row['month'], 1)->translatedFormat('M Y') }}</td>
+                                <th scope="row" class="text-left font-medium whitespace-normal! text-foreground" data-card="title">{{ $row['department'] ?? __('No department') }}</th>
+                                <td class="lg:px-3!" data-label="{{ __('Month') }}">{{ \Carbon\CarbonImmutable::create($shownYear, $row['month'], 1)->translatedFormat('M Y') }}</td>
                                 @foreach ($categories as $category)
-                                    <td class="px-3!" data-category="{{ $category->code }}">{{ $row['leave'][$category->id] ?? 0 }}</td>
+                                    <td class="lg:px-3!" data-category="{{ $category->code }}" data-label="{{ $category->label() }}">{{ $row['leave'][$category->id] ?? 0 }}</td>
                                 @endforeach
-                                <td class="px-3!" data-overtime-requests>{{ $row['overtime_requests'] }}</td>
-                                <td class="px-3!" data-overtime-hours>{{ $row['overtime_hours'] }}</td>
+                                <td class="lg:px-3!" data-overtime-requests data-label="{{ __('Overtime requests') }}">{{ $row['overtime_requests'] }}</td>
+                                <td class="lg:px-3!" data-overtime-hours data-label="{{ __('Overtime hours') }}">{{ $row['overtime_hours'] }}</td>
                             </tr>
                         @endforeach
                     </x-ui.table>

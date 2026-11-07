@@ -112,10 +112,10 @@
 
                     @foreach ($days as $day)
                         <tr wire:key="day-{{ $day['date']->toDateString() }}" data-day="{{ $day['date']->toDateString() }}">
-                            <td><x-ui.date :value="$day['date']" /></td>
-                            <td>{{ __(':count hours', ['count' => $day['approved']]) }}</td>
-                            <td>{{ __(':count hours', ['count' => $day['pending']]) }}</td>
-                            <td class="font-medium text-foreground" data-day-total>{{ __(':count hours', ['count' => $day['approved'] + $day['pending']]) }}</td>
+                            <td data-card="title"><x-ui.date :value="$day['date']" /></td>
+                            <td data-label="{{ __('Approved') }}">{{ __(':count hours', ['count' => $day['approved']]) }}</td>
+                            <td data-label="{{ __('Pending, this request included') }}">{{ __(':count hours', ['count' => $day['pending']]) }}</td>
+                            <td class="font-medium text-foreground" data-day-total data-label="{{ __('Total') }}">{{ __(':count hours', ['count' => $day['approved'] + $day['pending']]) }}</td>
                         </tr>
                     @endforeach
                 </x-ui.table>

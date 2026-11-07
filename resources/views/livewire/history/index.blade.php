@@ -46,7 +46,7 @@
         <x-ui.table-skeleton target="employee,department,type,category,status,from,to,clearFilters,gotoPage,nextPage,previousPage" :columns="3" :rows="5" />
         <div wire:loading.delay.remove wire:target="employee,department,type,category,status,from,to,clearFilters,gotoPage,nextPage,previousPage">
             @if ($rows->isEmpty())
-                <x-ui.empty-state :title="__('No requests found')" :description="$filtered ? __('Try other filters.') : __('Requests appear here once they are submitted.')" icon="history">
+                <x-ui.empty-state :title="__('No requests found')" :description="$filtered ? __('Try other filters.') : __('Requests appear here once they are submitted.')" :icon="$filtered ? 'search' : 'history'" :data-empty="$filtered ? 'filtered' : 'none'">
                     @if ($filtered)
                         <x-ui.button variant="secondary" size="sm" wire:click="clearFilters" loading="clearFilters">{{ __('Clear filters') }}</x-ui.button>
                     @endif
@@ -66,7 +66,7 @@
                         @php($key = $row->type.'-'.$row->id)
                         @php($title = $seesOthers ? $row->requester : $row->kindLabel())
                         <tr wire:key="{{ $key }}" data-row="{{ $key }}">
-                            <td>
+                            <td data-card="title">
                                 <span class="flex items-center gap-3">
                                 @if ($seesOthers)
                                     <x-ui.avatar :name="$row->requester" class="bg-primary/10 text-primary-hover" />
@@ -91,7 +91,7 @@
                                 </span>
                                 </span>
                             </td>
-                            <td>
+                            <td data-label="{{ __('When') }}">
                                 @if ($row->isLeave())
                                     <x-ui.date :value="$row->start" /> – <x-ui.date :value="$row->end" />
                                 @else
@@ -99,7 +99,7 @@
                                 @endif
                                 <span class="block text-muted-foreground">{{ $row->isLeave() ? __(':count working days', ['count' => $row->amount]) : __(':count hours', ['count' => $row->amount]) }}</span>
                             </td>
-                            <td>
+                            <td data-label="{{ __('Status') }}">
                                 <x-ui.badge :tone="$row->status->tone()" dot>{{ $row->status->label() }}</x-ui.badge>
                                 @if ($row->decider !== null)
                                     <span class="block text-muted-foreground">{{ __('by :name', ['name' => $row->decider]) }}</span>

@@ -28,7 +28,7 @@
 
                     @foreach ($holidays as $holiday)
                         <tr wire:key="holiday-{{ $holiday->id }}">
-                            <td>
+                            <td data-label="{{ __('Date') }}">
                                 <span class="flex items-center gap-3">
                                     {{-- A small calendar leaf: month above the day number (decorative, the date follows). --}}
                                     <span class="flex w-10 shrink-0 flex-col overflow-hidden rounded-md border border-border text-center leading-none shadow-xs" aria-hidden="true">
@@ -38,9 +38,9 @@
                                     <x-ui.date :value="$holiday->date" />
                                 </span>
                             </td>
-                            <td>{{ $holiday->date->translatedFormat('l') }}</td>
-                            <td class="font-medium text-foreground whitespace-normal! min-w-48">{{ $holiday->name }}</td>
-                            <td class="text-right">
+                            <td data-label="{{ __('Day') }}">{{ $holiday->date->translatedFormat('l') }}</td>
+                            <td class="font-medium text-foreground whitespace-normal! min-w-48" data-card="title">{{ $holiday->name }}</td>
+                            <td class="text-right" data-card="menu">
                                 <x-ui.row-actions :id="'holiday-actions-'.$holiday->id" :label="__('Actions for :name', ['name' => $holiday->name])">
                                     <x-ui.dropdown-item wire:click="openEdit({{ $holiday->id }})" icon="pencil">{{ __('Edit') }}</x-ui.dropdown-item>
                                     <div class="-mx-1 my-1 h-px bg-border" role="none"></div>

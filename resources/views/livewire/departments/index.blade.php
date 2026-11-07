@@ -34,21 +34,21 @@
 
                 @foreach ($departments as $department)
                     <tr wire:key="department-{{ $department->id }}">
-                        <td>
+                        <td data-card="title">
                             <span class="flex items-center gap-3">
                                 <x-ui.icon-chip icon="building" size="sm" :tone="$department->is_active ? 'primary' : 'gray'" />
                                 <span class="font-medium text-foreground">{{ $department->name }}</span>
                             </span>
                         </td>
-                        <td>
+                        <td data-label="{{ __('Status') }}">
                             @if ($department->is_active)
                                 <x-ui.badge tone="green" dot>{{ __('Active') }}</x-ui.badge>
                             @else
                                 <x-ui.badge dot>{{ __('Inactive') }}</x-ui.badge>
                             @endif
                         </td>
-                        <td class="tabular-nums">{{ $department->users_count }}</td>
-                        <td class="text-right">
+                        <td class="tabular-nums" data-label="{{ __('Employees') }}">{{ $department->users_count }}</td>
+                        <td class="text-right" data-card="menu">
                             <x-ui.row-actions :id="'department-actions-'.$department->id" :label="__('Actions for :name', ['name' => $department->name])">
                                 <x-ui.dropdown-item wire:click="openEdit({{ $department->id }})" icon="pencil">{{ __('Edit') }}</x-ui.dropdown-item>
                                 @if ($department->users_count === 0)

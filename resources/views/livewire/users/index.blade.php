@@ -42,7 +42,7 @@
         <x-ui.table-skeleton :target="$loadingTarget" :columns="6" :rows="min((int) $perPage, 8)" />
         <div wire:loading.delay.remove wire:target="{{ $loadingTarget }}">
             @if ($users->isEmpty())
-                <x-ui.empty-state :title="__('No users found')" :description="__('Try a different search or filter.')" icon="users">
+                <x-ui.empty-state :title="__('No users found')" :description="__('Try a different search or filter.')" :icon="$filtered ? 'search' : 'users'" :data-empty="$filtered ? 'filtered' : 'none'">
                     @if ($filtered)
                         <x-ui.button variant="secondary" size="sm" x-on:click="{{ $clearFilters }}">{{ __('Clear filters') }}</x-ui.button>
                     @endif
@@ -67,39 +67,39 @@
 
                     @foreach ($users as $row)
                         <tr wire:key="user-{{ $row->id }}">
-                            <td class="text-muted-foreground tabular-nums">{{ $row->id }}</td>
-                            <td>
+                            <td class="text-muted-foreground tabular-nums" data-label="{{ __('ID') }}">{{ $row->id }}</td>
+                            <td data-card="title">
                                 <span class="flex items-center gap-3">
                                     <x-ui.avatar :name="$row->name" class="bg-primary/10 text-primary-hover" />
                                     <span class="font-medium text-foreground">{{ $row->name }}</span>
                                 </span>
                             </td>
-                            <td class="text-muted-foreground">{{ $row->username }}</td>
-                            <td class="text-muted-foreground">{{ $row->email }}</td>
-                            <td>{{ $row->department?->name ?? '—' }}</td>
-                            <td>
+                            <td class="text-muted-foreground" data-label="{{ __('Username') }}">{{ $row->username }}</td>
+                            <td class="text-muted-foreground" data-label="{{ __('Email') }}">{{ $row->email }}</td>
+                            <td data-label="{{ __('Department') }}">{{ $row->department?->name ?? '—' }}</td>
+                            <td data-label="{{ __('Role') }}">
                                 <x-ui.role-badge :user="$row" />
                                 @if ($row->needsSupervisor() && $row->status !== \App\Enums\UserStatus::Suspended && ! $row->supervised)
                                     <x-ui.badge tone="amber" class="ml-1" data-no-supervisor>{{ __('No supervisor') }}</x-ui.badge>
                                 @endif
                             </td>
-                            <td><x-ui.status-badge :status="$row->status" dot /></td>
-                            <td>
+                            <td data-label="{{ __('Status') }}"><x-ui.status-badge :status="$row->status" dot /></td>
+                            <td data-label="{{ __('2FA') }}">
                                 @if ($row->hasCompletedTwoFactorEnrollment())
                                     <x-ui.badge tone="green" dot>{{ __('Enabled') }}</x-ui.badge>
                                 @else
                                     <x-ui.badge dot>{{ __('Not enabled') }}</x-ui.badge>
                                 @endif
                             </td>
-                            <td>
+                            <td data-label="{{ __('Last login') }}">
                                 @if ($row->last_login_at)
                                     <x-ui.datetime :value="$row->last_login_at" />
                                 @else
                                     <span class="text-muted-foreground">{{ __('Never') }}</span>
                                 @endif
                             </td>
-                            <td><x-ui.datetime :value="$row->created_at" /></td>
-                            <td class="text-right">
+                            <td data-label="{{ __('Created') }}"><x-ui.datetime :value="$row->created_at" /></td>
+                            <td class="text-right" data-card="menu">
                                 <x-ui.row-actions :id="'user-actions-'.$row->id" :label="__('Actions for :name', ['name' => $row->name])">
                                     <x-ui.dropdown-item :href="route('users.show', $row->id)" icon="eye" wire:navigate.off>{{ __('View details') }}</x-ui.dropdown-item>
 

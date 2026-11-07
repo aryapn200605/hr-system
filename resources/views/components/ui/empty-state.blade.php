@@ -18,10 +18,10 @@
             <x-ui.icon :name="$icon" class="size-6" />
         </span>
     </div>
-    <p class="mt-4 text-sm font-semibold text-foreground">{{ $title }}</p>
+    <p class="mt-4 text-sm font-semibold text-foreground" data-announce>{{ $title }}</p>
 
     @if ($description)
-        <p class="mt-1 max-w-sm text-sm text-muted-foreground">{{ $description }}</p>
+        <p class="mt-1 max-w-sm text-sm text-muted-foreground" data-announce>{{ $description }}</p>
     @endif
 
     @if (! $slot->isEmpty())
