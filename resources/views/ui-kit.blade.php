@@ -166,17 +166,77 @@
                         <th scope="col">{{ __('Role') }}</th>
                         <th scope="col">{{ __('Status') }}</th>
                         <th scope="col">{{ __('Member since') }}</th>
+                        <th scope="col" class="w-px"><span class="sr-only">{{ __('Actions') }}</span></th>
                     </tr>
                 </x-slot:head>
+                {{-- Phase 15e: below 1024 px each row is a card; every cell names its column (data-label). --}}
                 @foreach ([['Rina Kartika', \App\Enums\RoleName::HrAdmin, \App\Enums\UserStatus::Active], ['Budi Santoso', \App\Enums\RoleName::Approver, \App\Enums\UserStatus::Pending], ['Siti Aminah', \App\Enums\RoleName::Employee, \App\Enums\UserStatus::Suspended]] as [$name, $role, $status])
                     <tr>
-                        <td class="font-medium">{{ $name }}</td>
-                        <td><x-ui.badge :tone="$role->tone()">{{ $role->label() }}</x-ui.badge></td>
-                        <td><x-ui.status-badge :status="$status" /></td>
-                        <td><x-ui.date :value="now()->startOfYear()" /></td>
+                        <td class="font-medium" data-card="title">{{ $name }}</td>
+                        <td data-label="{{ __('Role') }}"><x-ui.badge :tone="$role->tone()">{{ $role->label() }}</x-ui.badge></td>
+                        <td data-label="{{ __('Status') }}"><x-ui.status-badge :status="$status" dot /></td>
+                        <td data-label="{{ __('Member since') }}"><x-ui.date :value="now()->startOfYear()" /></td>
+                        <td class="text-right" data-card="menu">
+                            <x-ui.row-actions :id="'kit-row-'.$loop->index" :label="__('Actions for :name', ['name' => $name])">
+                                <x-ui.dropdown-item icon="eye">{{ __('View details') }}</x-ui.dropdown-item>
+                                <x-ui.dropdown-item icon="pencil">{{ __('Edit') }}</x-ui.dropdown-item>
+                            </x-ui.row-actions>
+                        </td>
                     </tr>
                 @endforeach
             </x-ui.table>
+            <x-ui.pagination :paginator="new \Illuminate\Pagination\LengthAwarePaginator(range(1, 10), 42, 10, 2)" />
+        </x-ui.card>
+
+        {{-- Phase 15e: the pieces of the application pages (15d) and the auth pages (15c), so the gallery shows every final component. --}}
+        <x-ui.card :title="__('Page parts')" icon="list" data-kit="parts">
+            <x-ui.toolbar>
+                <div class="flex items-end sm:col-span-2 xl:w-auto!">
+                    <x-ui.segmented :label="__('Request type')" :options="['leave' => __('Leave'), 'overtime' => __('Overtime')]" value="leave" property="kitType" />
+                </div>
+                <x-ui.select :label="__('Status')" id="kit-toolbar-status" :options="$kitStatuses" />
+                <x-slot:actions>
+                    <x-ui.button variant="ghost" size="sm">{{ __('Clear filters') }}<x-ui.icon name="close" class="size-4" /></x-ui.button>
+                </x-slot:actions>
+            </x-ui.toolbar>
+            <div class="grid grid-cols-1 gap-6 p-5 lg:grid-cols-2">
+                <div class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-2" data-kit-chips>
+                        @foreach (['primary', 'green', 'amber', 'red', 'violet', 'teal', 'gray'] as $tone)
+                            <x-ui.icon-chip icon="calendar" :tone="$tone" />
+                        @endforeach
+                    </div>
+                    <x-ui.auth-heading :title="__('Log in')" icon="log-in" :level="2" class="mb-0!" />
+                    <p class="flex flex-wrap items-center gap-2"><x-ui.role-badge :user="auth()->user()" /><x-ui.badge tone="amber">{{ __('No supervisor') }}</x-ui.badge></p>
+                    <x-ui.steps :steps="[__('Password'), __('Authenticator'), __('Recovery codes')]" :current="2" />
+                    <x-ui.password-input :label="__('Password')" id="kit-password" name="kit-password" autocomplete="new-password" />
+                    <x-ui.submit-button icon="log-in">{{ __('Log in') }}</x-ui.submit-button>
+                </div>
+                <x-ui.card :title="__('Section card')" icon="wallet" tone="green">
+                    <p class="px-5 py-4 text-sm text-muted-foreground">{{ __('The base components in their variants. Shown only when APP_ENV is local.') }}</p>
+                    <x-slot:footer>
+                        <x-ui.button variant="secondary" size="sm"><x-ui.icon name="pencil" class="size-4" />{{ __('Edit') }}</x-ui.button>
+                    </x-slot:footer>
+                </x-ui.card>
+            </div>
+            <x-ui.table-skeleton class="block!" :rows="2" :columns="4" />
+        </x-ui.card>
+
+        <x-ui.card :title="__('Error pages')" icon="alert-triangle" tone="red" data-kit="errors">
+            <div class="space-y-4 p-5">
+                <p class="text-sm text-muted-foreground">{{ __('Each link opens the page with its real status code.') }}</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (\App\Http\Controllers\UiKitController::ERROR_CODES as $code)
+                        <x-ui.button variant="secondary" size="sm" :href="route('ui-kit.error', $code)" data-kit-error="{{ $code }}">{{ $code }}</x-ui.button>
+                    @endforeach
+                </div>
+                <p class="text-sm text-muted-foreground">{{ __('A Livewire action that fails shows one of these dialogs instead of the raw response.') }}</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach ([419, 403, 429, 500] as $code)
+                        <x-ui.button variant="secondary" size="sm" x-on:click="$dispatch('request-failed', { status: {{ $code }} })" data-kit-failure="{{ $code }}">{{ $code }}</x-ui.button>
+                    @endforeach
+                </div>
+            </div>
         </x-ui.card>
 
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -192,7 +252,6 @@
                     <x-ui.detail :label="__('Status')"><x-ui.status-badge :status="\App\Enums\UserStatus::Active" /></x-ui.detail>
                     <x-ui.detail :label="__('Member since')"><x-ui.datetime :value="now()->startOfYear()" /></x-ui.detail>
                 </dl>
-                <x-ui.loading />
             </x-ui.card>
         </div>
     </x-ui.page>

@@ -7,6 +7,7 @@
         <x-ui.date-picker :label="__('Date')" id="lw-date" wire:model.live="date" />
         <x-ui.date-picker :label="__('Date range')" id="lw-range" range wire-start="from" wire-end="to" live />
         <x-ui.hour-select :label="__('Hour')" id="lw-hour" wire:model.live="hour" />
+        <x-ui.date-hour :legend="__('Start')" id="lw-start" date="date" hour="hour" :date-label="__('Start date')" :hour-label="__('Start time')" />
         <x-ui.otp-input :label="__('Authentication code')" id="lw-code" wire:model.live="code" />
     </div>
 
