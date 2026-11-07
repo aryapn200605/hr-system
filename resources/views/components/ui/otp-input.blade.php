@@ -96,6 +96,6 @@
     @endif
 
     @if ($message)
-        <p id="{{ $id }}-error" class="mt-3 text-sm text-destructive">{{ $message }}</p>
+        <p id="{{ $id }}-error" class="mt-3 text-sm text-destructive" role="alert">{{ $message }}</p>
     @endif
 </div>

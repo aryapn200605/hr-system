@@ -10,7 +10,7 @@
         'warning' => 'border-amber-200 bg-amber-50 text-amber-900',
         'danger' => 'border-red-200 bg-red-50 text-red-900',
     },
-]) }} role="status">
+]) }} role="{{ $tone === 'danger' ? 'alert' : 'status' }}">
     <x-ui.icon :name="match ($tone) { 'success' => 'check-circle', 'warning' => 'alert-triangle', 'danger' => 'x-circle', default => 'info' }" class="mt-0.5 size-4" />
     <div class="min-w-0">
         @if ($title)

@@ -26,13 +26,18 @@
         @livewireStyles
 
         <script>
-            // The server already refused the action. This only replaces Livewire's error modal with the login page.
+            // The server already refused the action. This only replaces Livewire's own reaction: the login page for
+            // 401, and for every other failure (419 expired session, 403, 404, 429, 5xx) the "request-failed" dialog
+            // below instead of Livewire's untranslated confirm() or its frame that shows the raw response.
             document.addEventListener('livewire:init', () => {
                 Livewire.interceptRequest(({ onError }) => {
                     onError(({ response, preventDefault }) => {
                         if (response.status === 401) {
                             preventDefault();
                             window.location.href = @js(route('login'));
+                        } else if (response.status >= 400) {
+                            preventDefault();
+                            window.dispatchEvent(new CustomEvent('request-failed', { detail: { status: response.status } }));
                         }
                     });
                 });
@@ -161,7 +166,30 @@
             </div>
 
             <x-ui.toast />
+
+            @include('layouts.partials.request-failed')
         </div>
+
+        {{-- Phase 15e: the one polite live region for list results. After a Livewire update, the summary of a list
+             (the pagination range, or an empty state's title) is read out when it changed, so a screen reader hears
+             the result of a filter. It exists from the first paint: a region added later is not announced. --}}
+        <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-announcer></div>
+        <script>
+            document.addEventListener('livewire:init', () => {
+                let said = new WeakMap();
+                let summary = (el) => [...el.querySelectorAll('[data-announce]')].map((n) => n.textContent.replace(/\s+/g, ' ').trim()).join('. ');
+                Livewire.hook('component.init', ({ component }) => said.set(component, summary(component.el)));
+                Livewire.hook('morphed', ({ component }) => {
+                    let text = summary(component.el);
+                    if (text === said.get(component)) return;
+                    said.set(component, text);
+                    let region = document.querySelector('[data-announcer]');
+                    if (! region || ! text) return;
+                    region.textContent = '';
+                    setTimeout(() => region.textContent = text, 50);
+                });
+            });
+        </script>
 
         @livewireScripts
     </body>

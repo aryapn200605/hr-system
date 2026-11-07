@@ -1,16 +1,19 @@
 @props(['name', 'title', 'footer' => null, 'description' => null, 'icon' => null, 'tone' => 'default'])
 
-{{-- shadcn's Dialog. Always rendered and only shown or hidden, so its focus trap never outlives it.
+{{-- shadcn's Dialog. Always rendered and only shown or hidden, so its focus trap never outlives it. On closing, the
+     focus goes back to the control that opened it (window.uiRestoreFocus in ui.js, Phase 15e), not to the trap's own
+     memory, which is <body> when the opening button was disabled by its Livewire request.
      Open with $dispatch('open-modal', { name: '...' }), or dispatch('open-modal', name: '...') from Livewire.
      Styled like the auth card (15c): rounded-2xl, soft shadow, the same short entrance (motion-safe only), and an
      optional icon badge beside the title. icon: an x-ui.icon name; tone: default (primary tint), danger, warning. --}}
 <div
-    x-data="{ open: false }"
-    x-on:open-modal.window="if ($event.detail.name === @js($name)) open = true"
+    x-data="{ open: false, back: null }"
+    x-init="$watch('open', (value) => value || $nextTick(() => window.uiRestoreFocus?.(back)))"
+    x-on:open-modal.window="if ($event.detail.name === @js($name)) { if (! open) back = window.uiLastFocus ?? document.activeElement; open = true }"
     x-on:close-modal.window="if ($event.detail.name === @js($name)) open = false"
     x-on:keydown.escape.window="open = false"
     x-bind:class="{ hidden: ! open, flex: open }"
-    x-trap.noscroll="open"
+    x-trap.noscroll.noreturn="open"
     class="fixed inset-0 z-50 hidden items-end justify-center p-4 sm:items-center"
     role="dialog"
     aria-modal="true"

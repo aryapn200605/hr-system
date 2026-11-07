@@ -24,4 +24,20 @@ class UiKitController extends Controller
 
         return view('ui-kit');
     }
+
+    /**
+     * The error codes the gallery can show (Phase 15e).
+     */
+    public const ERROR_CODES = [403, 404, 419, 429, 500, 503];
+
+    /**
+     * Show one error page exactly as a real failure shows it: the request is aborted with that status and the
+     * exception handler renders the page. Local only, like the gallery.
+     */
+    public function error(int $code): never
+    {
+        abort_unless(app()->isLocal() && in_array($code, self::ERROR_CODES, true), 404);
+
+        abort($code);
+    }
 }

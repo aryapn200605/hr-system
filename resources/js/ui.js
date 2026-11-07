@@ -708,3 +708,32 @@ document.addEventListener('alpine:init', () => {
     window.Alpine.data('uiDatePicker', uiDatePicker)
     window.Alpine.data('uiOtp', uiOtp)
 })
+
+/*
+ * Phase 15e: where the focus goes back when a dialog closes. A dialog's button often starts a Livewire request
+ * first (openCreate, openEdit): while it runs the button is disabled, and a disabled button loses the focus, so
+ * by the time the dialog opens the focus is on <body> and the focus trap would "return" it there. Instead the
+ * last control focused outside any dialog is remembered here, and the dialog gives the focus back to it, or, for
+ * an item of a menu that is closed by then, to the menu's button. A control replaced by a Livewire update is
+ * found again by its id or the element it controls.
+ */
+document.addEventListener('focusin', (event) => {
+    if (! event.target.closest?.('[role=dialog][aria-modal=true]')) window.uiLastFocus = event.target
+})
+
+window.uiRestoreFocus = (element) => {
+    let target = element
+    if (target && ! target.isConnected) {
+        target = (target.id && document.getElementById(target.id)) || null
+    }
+    let menu = target?.closest?.('[role=menu]')
+    if (menu) target = document.querySelector(`[aria-controls="${menu.id}"]`)
+    if (! target || ! target.isConnected) return
+    let attempts = 0
+    let tryFocus = () => {
+        // Still disabled while its own request finishes: try again shortly.
+        if (target.disabled && attempts++ < 20) return setTimeout(tryFocus, 50)
+        target.focus({ preventScroll: true })
+    }
+    tryFocus()
+}

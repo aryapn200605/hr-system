@@ -179,6 +179,7 @@ Route::middleware(['fully.authenticated', 'auth.session'])->group(function () {
 
     // The component gallery: 404 unless APP_ENV is local (checked in the controller, so a cached route list cannot keep it).
     Route::get('/ui-kit', UiKitController::class)->name('ui-kit');
+    Route::get('/ui-kit/errors/{code}', [UiKitController::class, 'error'])->whereNumber('code')->name('ui-kit.error');
 
     // Every Livewire action passes through this one route. Livewire's own route has
     // only the web group, and custom route middleware is not reapplied to its updates.
