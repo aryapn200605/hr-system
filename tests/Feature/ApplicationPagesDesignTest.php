@@ -371,6 +371,30 @@ class ApplicationPagesDesignTest extends TestCase
         $this->assertMatchesRegularExpression('#data-pending-total[^>]*>.*?data-icon-chip="amber"#s', $html);
     }
 
+    // ---- Group 5: profile and security ---------------------------------------------------------------------
+
+    public function test_profile_forms_submit_from_their_card_footers(): void
+    {
+        $user = $this->userWithRole(RoleName::Employee);
+
+        $html = $this->actingAs($user)->get(route('profile.show'))->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('#<form id="profile-name-form" wire:submit="save"#', $html);
+        $this->assertMatchesRegularExpression('#data-card-footer>(?:(?!</footer>).)*?<button[^>]*type="submit"[^>]*form="profile-name-form"#s', $html);
+        $this->assertMatchesRegularExpression('#<form id="profile-locale-form" wire:submit="saveLocale"#', $html);
+        $this->assertMatchesRegularExpression('#data-card-footer>(?:(?!</footer>).)*?<button[^>]*type="submit"[^>]*form="profile-locale-form"#s', $html);
+        $this->assertSame(1, substr_count($html, 'data-profile-nav'));
+    }
+
+    public function test_security_settings_put_their_links_in_card_footers(): void
+    {
+        $user = $this->userWithRole(RoleName::Employee);
+
+        $html = $this->actingAs($user)->get(route('security.index'))->assertOk()->getContent();
+        preg_match_all('#data-card-footer>(.*?)</footer>#s', $html, $footers);
+        $links = collect($footers[1])->flatMap(fn ($footer) => preg_match_all('#href="([^"]+)"#', $footer, $m) ? $m[1] : [])->all();
+        $this->assertSame([route('security.authenticator'), route('security.recovery-codes'), route('security.password')], $links);
+    }
+
     public function test_an_empty_departments_page_offers_the_first_department(): void
     {
         $html = $this->actingAs($this->userWithRole(RoleName::HrAdmin))->get(route('departments.index'))->assertOk()->getContent();

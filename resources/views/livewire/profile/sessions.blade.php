@@ -1,21 +1,24 @@
-<x-ui.page :title="__('My Profile')" x-data="{ handle: null }">
+<x-ui.page :title="__('My Profile')" icon="user" x-data="{ handle: null }">
     @include('profile.partials.nav')
 
-    <x-ui.card :title="__('Active sessions')">
-        <ul class="divide-y divide-slate-200">
+    <x-ui.card :title="__('Active sessions')" icon="monitor">
+        <ul class="divide-y divide-border">
             @foreach ($sessions as $session)
                 <li class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" wire:key="session-{{ $session['handle'] ?? 'current' }}">
+                    <div class="flex min-w-0 items-start gap-3">
+                        <x-ui.icon-chip :icon="preg_match('/android|iphone|ipad|ios|mobile/i', $session['device']) ? 'smartphone' : 'monitor'" :tone="$session['current'] ? 'green' : 'gray'" size="sm" />
                     <div class="min-w-0">
-                        <p class="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-900">
+                        <p class="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
                             {{ $session['device'] }}
                             @if ($session['current'])
-                                <x-ui.badge tone="green">{{ __('This session') }}</x-ui.badge>
+                                <x-ui.badge tone="green" dot>{{ __('This session') }}</x-ui.badge>
                             @endif
                         </p>
-                        <p class="mt-1 text-sm wrap-anywhere text-slate-600">
+                        <p class="mt-1 text-sm wrap-anywhere text-muted-foreground">
                             {{ $session['ip_address'] ?? __('Unknown address') }}
                             · {{ __('Last active') }} <x-ui.datetime :value="$session['last_active']" />
                         </p>
+                    </div>
                     </div>
 
                     @unless ($session['current'])
@@ -24,17 +27,17 @@
                             size="sm"
                             class="shrink-0 self-start sm:self-auto"
                             x-on:click="handle = '{{ $session['handle'] }}'; $dispatch('open-modal', { name: 'end-session' })"
-                        >{{ __('End session') }}</x-ui.button>
+                        ><x-ui.icon name="log-out" class="size-4" />{{ __('End session') }}</x-ui.button>
                     @endunless
                 </li>
             @endforeach
         </ul>
 
-        <div class="flex flex-col gap-2 border-t border-slate-200 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div class="mt-auto flex flex-col gap-2 rounded-b-xl border-t border-border bg-muted/40 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
             @if ($sessions->count() > 1)
                 <x-ui.button variant="danger" size="sm" x-on:click="handle = null; $dispatch('open-modal', { name: 'end-session' })">{{ __('End all other sessions') }}</x-ui.button>
             @else
-                <p class="text-sm text-slate-600">{{ __('You have no other sessions.') }}</p>
+                <p class="text-sm text-muted-foreground">{{ __('You have no other sessions.') }}</p>
             @endif
 
             <form method="POST" action="{{ route('logout') }}">

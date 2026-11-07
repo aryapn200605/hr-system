@@ -173,7 +173,12 @@ class ProfilePageTest extends TestCase
             $this->assertStringContainsString('href="'.route($tab).'"', $html);
         }
 
-        $this->assertMatchesRegularExpression('/aria-current="page"[^>]*>\s*'.preg_quote($label, '/').'\s*</', $html);
+        // Phase 15d: the tab carries an icon before its label, so the current tab is read from the parsed page.
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $current = (new \DOMXPath($dom))->query('//nav[@data-profile-nav]//a[@aria-current="page"]');
+        $this->assertSame(1, $current->length);
+        $this->assertSame($label, trim($current->item(0)->textContent));
         $this->assertStringNotContainsString('href="'.url('/security/sessions').'"', $html);
 
         preg_match('/<nav aria-label="Breadcrumb".*?<\/nav>/s', $html, $breadcrumb);

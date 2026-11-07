@@ -8,7 +8,7 @@
          JavaScript the hidden one is disabled so only one is sent, without it both are shown with the hint. --}}
     @vite('resources/js/auth.js')
 
-    <x-ui.page width="narrow" :title="__('Confirm your identity')" :subtitle="__('Enter your password and a second factor to continue. This confirmation lasts for one action, for up to 10 minutes.')">
+    <x-ui.page width="narrow" icon="shield" :title="__('Confirm your identity')" :subtitle="__('Enter your password and a second factor to continue. This confirmation lasts for one action, for up to 10 minutes.')">
 
         <x-ui.card class="p-5 sm:p-6" data-card>
             <form method="POST" action="{{ route('security.confirm.store') }}" class="grid gap-5">

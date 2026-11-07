@@ -3,7 +3,7 @@
     ['label' => __('Security Settings'), 'href' => route('security.index')],
     ['label' => __('Regenerate recovery codes')],
 ]">
-    <x-ui.page width="narrow" :title="__('Regenerate recovery codes')">
+    <x-ui.page width="narrow" icon="key" :title="__('Regenerate recovery codes')">
 
         <x-ui.alert tone="warning">{{ __('Every existing recovery code stops working at once. The new codes are shown only one time.') }}</x-ui.alert>
 

@@ -3,9 +3,9 @@
     ['label' => __('Security Settings'), 'href' => route('security.index')],
     ['label' => __('Reconfigure authenticator')],
 ]">
-    <x-ui.page width="narrow" :title="__('Reconfigure authenticator')" :subtitle="__('Scan this new code. Your current authenticator keeps working until a code from the new one is confirmed. Your recovery codes are then replaced and other sessions end.')">
+    <x-ui.page width="narrow" icon="smartphone" :title="__('Reconfigure authenticator')" :subtitle="__('Scan this new code. Your current authenticator keeps working until a code from the new one is confirmed. Your recovery codes are then replaced and other sessions end.')">
 
-        <x-ui.card class="p-5">
+        <x-ui.card class="p-5 sm:p-6" data-card>
             @include('auth.partials.two-factor-setup', ['action' => route('security.authenticator.store')])
         </x-ui.card>
 

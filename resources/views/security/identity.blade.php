@@ -6,7 +6,7 @@
     {{-- A controller page: the auth pages' submit state (plain JavaScript). Without JavaScript the form is unchanged. --}}
     @vite('resources/js/auth.js')
 
-    <x-ui.page width="narrow" :title="__('Change username or email')" :subtitle="__('You log in with either one, and password reset links go to your email.')">
+    <x-ui.page width="narrow" icon="mail" :title="__('Change username or email')" :subtitle="__('You log in with either one, and password reset links go to your email.')">
 
         <x-ui.alert tone="warning">{{ __('No email is sent to confirm a new address. Check it carefully: reset links will go only to this address.') }}</x-ui.alert>
 

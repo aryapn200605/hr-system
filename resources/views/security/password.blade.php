@@ -7,7 +7,7 @@
          submit state). Without JavaScript the form is unchanged. --}}
     @vite('resources/js/auth.js')
 
-    <x-ui.page width="narrow" :title="__('Change password')" :subtitle="__('All your other sessions will end. This one stays logged in.')">
+    <x-ui.page width="narrow" icon="lock" :title="__('Change password')" :subtitle="__('All your other sessions will end. This one stays logged in.')">
 
         <x-ui.card class="p-5 sm:p-6" data-card>
             <form method="POST" action="{{ route('security.password.update') }}" class="space-y-4">
