@@ -7,7 +7,9 @@ use App\Enums\UserStatus;
 use App\Livewire\Users\Index as UsersIndex;
 use App\Mail\PasswordResetMail;
 use App\Models\Department;
+use App\Models\Holiday;
 use App\Models\User;
+use App\Services\Supervisors;
 use App\Support\MailDelivery;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -217,6 +219,56 @@ class ApplicationPagesDesignTest extends TestCase
         $html = $this->actingAs($admin)->get(route('departments.index'))->assertOk()->getContent();
         $this->assertMatchesRegularExpression('#data-department-stats>.*?Departments.*?data-value>2</p>.*?Active.*?data-value>1</p>.*?Employees.*?data-value>0</p>#s', $html);
         $this->assertStringContainsString('department-actions-', $html);
+    }
+
+    // ---- Group 2: supervisors, leave balance, holidays -----------------------------------------------------
+
+    public function test_the_leave_balance_page_shows_figure_cards_and_card_footers(): void
+    {
+        $admin = $this->userWithRole(RoleName::HrAdmin);
+        $employee = $this->userWithRole(RoleName::Employee);
+
+        $html = $this->actingAs($admin)->get(route('users.leave-balance', $employee->id))->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('#data-balance-stats>.*?Entitlement.*?Used.*?Remaining#s', $html);
+        $this->assertMatchesRegularExpression('#data-page-back>.*?Back to user\s*</a>#s', $html);
+        // The adjust, reset and anchor buttons sit in the cards' footers, only for someone who may adjust.
+        $this->assertMatchesRegularExpression('#data-card-footer>.*?wire:click="openAdjust".*?wire:click="openReset"#s', $html);
+        $this->assertMatchesRegularExpression('#data-card-footer>.*?wire:click="openAnchor"#s', $html);
+
+        // Their own balance: the notice, no footer buttons.
+        $own = $this->actingAs($admin)->get(route('users.leave-balance', $admin->id))->assertOk()->getContent();
+        $this->assertStringContainsString('data-self-notice', $own);
+        $this->assertStringNotContainsString('wire:click="openAdjust"', $own);
+    }
+
+    public function test_the_holidays_page_uses_a_toolbar_row_menus_and_an_empty_state_with_an_action(): void
+    {
+        $admin = $this->userWithRole(RoleName::HrAdmin);
+
+        $empty = $this->actingAs($admin)->get(route('holidays.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('data-toolbar', $empty);
+        $this->assertMatchesRegularExpression('#data-empty-state>.*?wire:click="openCreate"#s', $empty);
+
+        $holiday = Holiday::create(['date' => now()->year.'-12-25', 'name' => 'Christmas Day']);
+        $html = $this->actingAs($admin)->get(route('holidays.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('aria-controls="holiday-actions-'.$holiday->id.'"', $html);
+        $this->assertStringContainsString('aria-label="Actions for Christmas Day"', $html);
+        $this->assertMatchesRegularExpression('#wire:click="openDelete\('.$holiday->id.'\)"[^>]*>.*?Delete#s', $html);
+    }
+
+    public function test_supervisor_and_subordinate_cards_keep_their_actions_in_footers(): void
+    {
+        $admin = $this->userWithRole(RoleName::HrAdmin);
+        $approver = $this->userWithRole(RoleName::Approver);
+        $employee = $this->userWithRole(RoleName::Employee);
+        app(Supervisors::class)->attach($admin, $employee, (string) $approver->id);
+
+        $html = $this->actingAs($admin)->get(route('users.show', $approver->id))->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('#data-card-footer>.*?wire:click="openMove"#s', $html);
+        $this->assertMatchesRegularExpression('#data-card-footer>.*?wire:click="openAddSupervisor"#s', $html);
+
+        $view = $this->actingAs($employee)->get(route('users.show', $approver->id));
+        $view->assertForbidden();
     }
 
     public function test_an_empty_departments_page_offers_the_first_department(): void

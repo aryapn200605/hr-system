@@ -1,15 +1,25 @@
-<x-ui.page :title="__('Leave balance of :name', ['name' => $user->name])" :subtitle="__(':count days per period, reset on each anniversary of the anchor date. Remaining days do not carry over.', ['count' => \App\Services\LeaveBalance::ENTITLEMENT])">
-    <x-slot:actions>
-        <x-ui.button variant="secondary" size="sm" :href="route('users.show', $user->id)">{{ __('Back to user') }}</x-ui.button>
-    </x-slot:actions>
-
+<x-ui.page :title="__('Leave balance of :name', ['name' => $user->name])" :subtitle="__(':count days per period, reset on each anniversary of the anchor date. Remaining days do not carry over.', ['count' => \App\Services\LeaveBalance::ENTITLEMENT])" icon="wallet" :back="['href' => route('users.show', $user->id), 'label' => __('Back to user')]">
     @if ($isSelf)
         <x-ui.alert data-self-notice>{{ __('This is your own balance. Another HR Admin must adjust or reset it, or change its anchor date.') }}</x-ui.alert>
     @endif
 
+    @php
+        $share = $current->entitlement > 0 ? min(100, max(0, (int) round($current->remaining() / $current->entitlement * 100))) : 0;
+    @endphp
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3" data-balance-stats>
+        <x-ui.stat :label="__('Entitlement')" :value="__(':count days', ['count' => $current->entitlement])" icon="calendar" />
+        <x-ui.stat :label="__('Used')" :value="__(':count days', ['count' => $current->used])" icon="clock" tone="amber" />
+        <x-ui.stat :label="__('Remaining')" :value="__(':count days', ['count' => $current->remaining()])" icon="wallet" tone="green">
+            {{-- The share of the entitlement still free; the number above is the value. --}}
+            <span class="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                <span class="block h-full rounded-full bg-success" style="width: {{ $share }}%"></span>
+            </span>
+        </x-ui.stat>
+    </div>
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <x-ui.card :title="__('Current period')">
-            <dl class="divide-y divide-slate-200 px-5 py-2">
+        <x-ui.card :title="__('Current period')" icon="calendar">
+            <dl class="divide-y divide-border px-5 py-2">
                 <x-ui.detail :label="__('Period')"><x-ui.date :value="$current->starts_on" /> – <x-ui.date :value="$current->ends_on" /></x-ui.detail>
                 <x-ui.detail :label="__('Entitlement')">{{ __(':count days', ['count' => $current->entitlement]) }}</x-ui.detail>
                 <x-ui.detail :label="__('Used')">{{ __(':count days', ['count' => $current->used]) }}</x-ui.detail>
@@ -17,29 +27,32 @@
             </dl>
 
             @if ($canAdjust)
-                <div class="flex flex-wrap gap-2 border-t border-slate-200 px-5 py-3.5">
-                    <x-ui.button variant="secondary" size="sm" wire:click="openAdjust" loading="openAdjust">{{ __('Adjust balance') }}</x-ui.button>
-                    <x-ui.button variant="secondary" size="sm" wire:click="openReset" loading="openReset">{{ __('Reset period') }}</x-ui.button>
-                </div>
+                <x-slot:footer>
+                    <x-ui.button variant="secondary" size="sm" wire:click="openAdjust" loading="openAdjust"><x-ui.icon name="pencil" class="size-4" wire:loading.remove wire:target="openAdjust" />{{ __('Adjust balance') }}</x-ui.button>
+                    <x-ui.button variant="secondary" size="sm" wire:click="openReset" loading="openReset"><x-ui.icon name="refresh" class="size-4" wire:loading.remove wire:target="openReset" />{{ __('Reset period') }}</x-ui.button>
+                </x-slot:footer>
             @endif
         </x-ui.card>
 
-        <x-ui.card :title="__('Anchor date')">
-            <dl class="divide-y divide-slate-200 px-5 py-2">
+        <x-ui.card :title="__('Anchor date')" icon="flag" tone="teal">
+            <dl class="divide-y divide-border px-5 py-2">
                 <x-ui.detail :label="__('Anchor date')"><x-ui.date :value="$user->leave_anchor_date" /></x-ui.detail>
                 <x-ui.detail :label="__('Account created')"><x-ui.date :value="$user->created_at" /></x-ui.detail>
             </dl>
-            <p class="px-5 pb-4 text-sm text-slate-600">{{ __('A new period starts on every anniversary of this date. A change applies from the next period.') }}</p>
+            <p class="flex items-start gap-2 px-5 pb-4 text-sm text-muted-foreground">
+                <x-ui.icon name="info" class="mt-0.5 size-4 shrink-0" />
+                <span>{{ __('A new period starts on every anniversary of this date. A change applies from the next period.') }}</span>
+            </p>
 
             @if ($canAdjust)
-                <div class="border-t border-slate-200 px-5 py-3.5">
-                    <x-ui.button variant="secondary" size="sm" wire:click="openAnchor" loading="openAnchor">{{ __('Change anchor date') }}</x-ui.button>
-                </div>
+                <x-slot:footer>
+                    <x-ui.button variant="secondary" size="sm" wire:click="openAnchor" loading="openAnchor"><x-ui.icon name="calendar" class="size-4" wire:loading.remove wire:target="openAnchor" />{{ __('Change anchor date') }}</x-ui.button>
+                </x-slot:footer>
             @endif
         </x-ui.card>
     </div>
 
-    <x-ui.card :title="__('Periods')">
+    <x-ui.card :title="__('Periods')" icon="list" tone="gray">
         <x-ui.table :caption="__('Periods')">
             <x-slot:head>
                 <tr>
@@ -52,59 +65,57 @@
             </x-slot:head>
 
             @foreach ($periods as $period)
-                <tr wire:key="period-{{ $period->id }}">
+                <tr wire:key="period-{{ $period->id }}" @class(['bg-primary/[0.03]' => $period->is($current)])>
                     <td>
                         <x-ui.date :value="$period->starts_on" />
                         @if ($period->is($current))
-                            <x-ui.badge tone="green" class="ml-1">{{ __('Current') }}</x-ui.badge>
+                            <x-ui.badge tone="green" dot class="ml-1">{{ __('Current') }}</x-ui.badge>
                         @endif
                     </td>
                     <td><x-ui.date :value="$period->ends_on" /></td>
-                    <td>{{ $period->entitlement }}</td>
-                    <td>{{ $period->used }}</td>
-                    <td>{{ $period->remaining() }}</td>
+                    <td class="tabular-nums">{{ $period->entitlement }}</td>
+                    <td class="tabular-nums">{{ $period->used }}</td>
+                    <td class="font-medium tabular-nums">{{ $period->remaining() }}</td>
                 </tr>
             @endforeach
         </x-ui.table>
     </x-ui.card>
 
-    <x-ui.card :title="__('Ledger')">
-        @if ($entries->isEmpty())
-            <x-ui.empty-state :title="__('No entries yet')" />
-        @else
-            <x-ui.table :caption="__('Ledger')">
-                <x-slot:head>
-                    <tr>
-                        <th scope="col">{{ __('When') }}</th>
-                        <th scope="col">{{ __('Change') }}</th>
-                        <th scope="col">{{ __('Period') }}</th>
-                        <th scope="col">{{ __('Before') }}</th>
-                        <th scope="col">{{ __('After') }}</th>
-                        <th scope="col">{{ __('By') }}</th>
-                        <th scope="col">{{ __('Reason') }}</th>
-                    </tr>
-                </x-slot:head>
+    <x-ui.card :title="__('Ledger')" icon="history" tone="gray">
+        <x-ui.table-skeleton target="gotoPage,nextPage,previousPage" :columns="5" :rows="5" />
+        <div wire:loading.delay.remove wire:target="gotoPage,nextPage,previousPage">
+            @if ($entries->isEmpty())
+                <x-ui.empty-state :title="__('No entries yet')" icon="history" />
+            @else
+                <x-ui.table :caption="__('Ledger')">
+                    <x-slot:head>
+                        <tr>
+                            <th scope="col">{{ __('When') }}</th>
+                            <th scope="col">{{ __('Change') }}</th>
+                            <th scope="col">{{ __('Period') }}</th>
+                            <th scope="col">{{ __('Before') }}</th>
+                            <th scope="col">{{ __('After') }}</th>
+                            <th scope="col">{{ __('By') }}</th>
+                            <th scope="col">{{ __('Reason') }}</th>
+                        </tr>
+                    </x-slot:head>
 
-                @foreach ($entries as $entry)
-                    <tr wire:key="entry-{{ $entry->id }}">
-                        <td><x-ui.datetime :value="$entry->created_at" /></td>
-                        <td>{{ $entry->type->label() }} ({{ $entry->change > 0 ? '+'.$entry->change : $entry->change }})</td>
-                        <td><x-ui.date :value="$entry->period->starts_on" /> – <x-ui.date :value="$entry->period->ends_on" /></td>
-                        <td>{{ $entry->before }}</td>
-                        <td>{{ $entry->after }}</td>
-                        <td>{{ $entry->actor?->name ?? __('System') }}</td>
-                        <td class="whitespace-normal! min-w-64">{{ $entry->reason ?? '—' }}</td>
-                    </tr>
-                @endforeach
-            </x-ui.table>
-        @endif
+                    @foreach ($entries as $entry)
+                        <tr wire:key="entry-{{ $entry->id }}">
+                            <td><x-ui.datetime :value="$entry->created_at" /></td>
+                            <td>{{ $entry->type->label() }} <span @class(['font-medium tabular-nums', 'text-green-800' => $entry->change > 0, 'text-red-800' => $entry->change < 0])>({{ $entry->change > 0 ? '+'.$entry->change : $entry->change }})</span></td>
+                            <td><x-ui.date :value="$entry->period->starts_on" /> – <x-ui.date :value="$entry->period->ends_on" /></td>
+                            <td class="tabular-nums">{{ $entry->before }}</td>
+                            <td class="tabular-nums">{{ $entry->after }}</td>
+                            <td>{{ $entry->actor?->name ?? __('System') }}</td>
+                            <td class="whitespace-normal! min-w-64 text-muted-foreground">{{ $entry->reason ?? '—' }}</td>
+                        </tr>
+                    @endforeach
+                </x-ui.table>
+            @endif
+        </div>
 
-        @if ($entries->hasPages())
-            <nav aria-label="{{ __('Pagination') }}" class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3.5">
-                <x-ui.button variant="secondary" size="sm" wire:click="previousPage" loading="previousPage" :disabled="$entries->onFirstPage()">{{ __('Previous') }}</x-ui.button>
-                <x-ui.button variant="secondary" size="sm" wire:click="nextPage" loading="nextPage" :disabled="! $entries->hasMorePages()">{{ __('Next') }}</x-ui.button>
-            </nav>
-        @endif
+        <x-ui.pagination :paginator="$entries" />
     </x-ui.card>
 
     <x-ui.modal name="balance-adjust" icon="calendar" :title="__('Adjust balance')">
