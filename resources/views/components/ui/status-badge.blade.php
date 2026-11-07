@@ -1,3 +1,3 @@
-@props(['status'])
+@props(['status', 'dot' => false])
 
-<x-ui.badge :tone="$status->tone()" {{ $attributes }}>{{ $status->label() }}</x-ui.badge>
+<x-ui.badge :tone="$status->tone()" :dot="$dot" {{ $attributes }}>{{ $status->label() }}</x-ui.badge>

@@ -1,8 +1,10 @@
-@props(['tone' => 'gray'])
+@props(['tone' => 'gray', 'dot' => false])
 
-{{-- shadcn's Badge shape (rounded-md, border, text-xs). Soft tones, each with 4.5:1 text on its background. --}}
+{{-- shadcn's Badge shape (rounded-md, border, text-xs). Soft tones, each with 4.5:1 text on its background.
+     dot (Phase 15d): a small circle in the text colour before the label, for statuses in tables. --}}
 <span data-tone="{{ $tone }}" {{ $attributes->class([
     'inline-flex w-fit shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+    'gap-1.5' => $dot,
     match ($tone) {
         'gray' => 'border-slate-200 bg-slate-100 text-slate-700',
         'primary', 'blue' => 'border-primary/20 bg-primary/5 text-primary-hover',
@@ -14,4 +16,4 @@
         'solid' => 'border-transparent bg-primary text-primary-foreground',
         'outline' => 'border-border text-foreground',
     },
-]) }}>{{ $slot }}</span>
+]) }}>@if ($dot)<span class="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" data-badge-dot></span>@endif{{ $slot }}</span>

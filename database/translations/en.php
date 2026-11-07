@@ -709,6 +709,12 @@ return [
         'Submit overtime by the hour, decided by your supervisor.' => 'Submit overtime by the hour, decided by your supervisor.',
         'Supervisors and HR decide in one place, with a clear history.' => 'Supervisors and HR decide in one place, with a clear history.',
         'Every login is protected by two-factor authentication.' => 'Every login is protected by two-factor authentication.',
+        // Phase 15d: application pages.
+        'Go to first page' => 'Go to first page',
+        'Go to last page' => 'Go to last page',
+        'Loading…' => 'Loading…',
+        'Page :current' => 'Page :current',
+        'Page :current of :last' => 'Page :current of :last',
     ],
     'validation' => [
         'accepted' => 'The :attribute field must be accepted.',

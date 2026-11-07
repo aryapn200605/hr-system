@@ -1,8 +1,8 @@
-<x-ui.page :title="$user->name">
+<x-ui.page :title="$user->name" icon="user" :back="['href' => route('users.index'), 'label' => __('Back to users')]">
     <x-slot:subtitle>
         <span class="mt-1 flex flex-wrap items-center gap-2">
             <x-ui.role-badge :user="$user" />
-            <x-ui.status-badge :status="$user->status" />
+            <x-ui.status-badge :status="$user->status" dot />
             @if ($missingSupervisor)
                 <x-ui.badge tone="amber" data-no-supervisor>{{ __('No supervisor') }}</x-ui.badge>
             @endif
@@ -10,9 +10,8 @@
     </x-slot:subtitle>
     <x-slot:actions>
         @can('viewLeaveBalance', $user)
-            <x-ui.button variant="secondary" size="sm" :href="route('users.leave-balance', $user->id)">{{ __('Leave balance') }}</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" :href="route('users.leave-balance', $user->id)"><x-ui.icon name="wallet" class="size-4" />{{ __('Leave balance') }}</x-ui.button>
         @endcan
-        <x-ui.button variant="secondary" size="sm" :href="route('users.index')">{{ __('Back to users') }}</x-ui.button>
     </x-slot:actions>
 
     @if ($notice !== '')
@@ -20,8 +19,8 @@
     @endif
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <x-ui.card :title="__('Account information')">
-            <dl class="divide-y divide-slate-200 px-5 py-2">
+        <x-ui.card :title="__('Account information')" icon="user">
+            <dl class="divide-y divide-border px-5 py-2">
                 <x-ui.detail :label="__('ID')">{{ $user->id }}</x-ui.detail>
                 <x-ui.detail :label="__('Full name')">{{ $user->name }}</x-ui.detail>
                 <x-ui.detail :label="__('Username')">{{ $user->username }}</x-ui.detail>
@@ -32,11 +31,11 @@
             </dl>
         </x-ui.card>
 
-        <x-ui.card :title="__('Security')">
-            <dl class="divide-y divide-slate-200 px-5 py-2">
+        <x-ui.card :title="__('Security')" icon="shield">
+            <dl class="divide-y divide-border px-5 py-2">
                 <x-ui.detail :label="__('Two-factor authentication')">
                     @if ($user->hasCompletedTwoFactorEnrollment())
-                        <x-ui.badge tone="green">{{ __('Enabled') }}</x-ui.badge>
+                        <x-ui.badge tone="green" dot>{{ __('Enabled') }}</x-ui.badge>
                     @else
                         <x-ui.badge>{{ __('Not enabled') }}</x-ui.badge>
                     @endif
@@ -54,8 +53,8 @@
             </dl>
         </x-ui.card>
 
-        <x-ui.card :title="__('Employment')">
-            <dl class="divide-y divide-slate-200 px-5 py-2">
+        <x-ui.card :title="__('Employment')" icon="briefcase">
+            <dl class="divide-y divide-border px-5 py-2">
                 <x-ui.detail :label="__('Department')">
                     @if ($user->department)
                         {{ $user->department->name }}
@@ -63,42 +62,48 @@
                             <x-ui.badge class="ml-1">{{ __('Inactive') }}</x-ui.badge>
                         @endunless
                     @else
-                        <span class="font-normal text-slate-600">{{ __('None') }}</span>
+                        <span class="font-normal text-muted-foreground">{{ __('None') }}</span>
                     @endif
                 </x-ui.detail>
                 <x-ui.detail :label="__('Join date')">
                     @if ($user->join_date)
                         <x-ui.date :value="$user->join_date" />
                     @else
-                        <span class="font-normal text-slate-600">{{ __('Not set') }}</span>
+                        <span class="font-normal text-muted-foreground">{{ __('Not set') }}</span>
                     @endif
                 </x-ui.detail>
             </dl>
 
             @if ($canUpdate)
-                <div class="border-t border-slate-200 px-5 py-3.5">
-                    <x-ui.button variant="secondary" size="sm" wire:click="openEmployment" loading="openEmployment">{{ __('Edit employment') }}</x-ui.button>
-                </div>
+                <x-slot:footer>
+                    <x-ui.button variant="secondary" size="sm" wire:click="openEmployment" loading="openEmployment"><x-ui.icon name="pencil" class="size-4" wire:loading.remove wire:target="openEmployment" />{{ __('Edit employment') }}</x-ui.button>
+                </x-slot:footer>
             @endif
         </x-ui.card>
 
-        <x-ui.card :title="__('Supervisors')">
+        <x-ui.card :title="__('Supervisors')" icon="users">
             @if ($supervisors->isEmpty())
-                <p class="px-5 py-4 text-sm text-slate-600">
-                    {{ $user->needsSupervisor() ? __('No supervisor yet. This user cannot submit requests until one is added.') : __('No supervisor. Approvers do not need one: their requests go to any HR Admin.') }}
-                </p>
+                <div class="flex items-start gap-3 px-5 py-4">
+                    <x-ui.icon :name="$user->needsSupervisor() ? 'alert-triangle' : 'info'" @class(['mt-0.5 size-4 shrink-0', 'text-amber-700' => $user->needsSupervisor(), 'text-muted-foreground' => ! $user->needsSupervisor()]) />
+                    <p class="text-sm text-muted-foreground">
+                        {{ $user->needsSupervisor() ? __('No supervisor yet. This user cannot submit requests until one is added.') : __('No supervisor. Approvers do not need one: their requests go to any HR Admin.') }}
+                    </p>
+                </div>
             @else
-                <ul class="divide-y divide-slate-200">
+                <ul class="divide-y divide-border">
                     @foreach ($supervisors as $supervisor)
                         <li class="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between" wire:key="supervisor-{{ $supervisor->id }}">
+                            <div class="flex min-w-0 items-start gap-3">
+                            <x-ui.avatar :name="$supervisor->name" class="mt-0.5 bg-primary/10 text-primary-hover" />
                             <div class="min-w-0">
                                 <a href="{{ route('users.show', $supervisor->id) }}" class="text-sm font-medium wrap-anywhere text-primary underline-offset-2 hover:underline">{{ $supervisor->name }}</a>
                                 <p class="mt-1 flex flex-wrap items-center gap-2">
-                                    <x-ui.status-badge :status="$supervisor->status" />
+                                    <x-ui.status-badge :status="$supervisor->status" dot />
                                     @unless (in_array($supervisor->id, $counted, true))
                                         <x-ui.badge tone="amber">{{ __('Not counted while not an active Approver') }}</x-ui.badge>
                                     @endunless
                                 </p>
+                            </div>
                             </div>
 
                             @if ($canManage)
@@ -110,32 +115,33 @@
             @endif
 
             @if ($canManage)
-                <div class="border-t border-slate-200 px-5 py-3.5">
-                    <x-ui.button variant="secondary" size="sm" wire:click="openAddSupervisor" loading="openAddSupervisor">{{ __('Add supervisor') }}</x-ui.button>
-                </div>
+                <x-slot:footer>
+                    <x-ui.button variant="secondary" size="sm" wire:click="openAddSupervisor" loading="openAddSupervisor"><x-ui.icon name="plus" class="size-4" wire:loading.remove wire:target="openAddSupervisor" />{{ __('Add supervisor') }}</x-ui.button>
+                </x-slot:footer>
             @endif
         </x-ui.card>
 
         @if ($user->roleName() === \App\Enums\RoleName::Approver->value || $subordinates->isNotEmpty())
-            <x-ui.card :title="__('Subordinates')" class="lg:col-span-2">
+            <x-ui.card :title="__('Subordinates')" icon="users" tone="teal" class="lg:col-span-2">
                 @if ($subordinates->isEmpty())
-                    <p class="px-5 py-4 text-sm text-slate-600">{{ __('Nobody has this user as supervisor.') }}</p>
+                    <p class="px-5 py-4 text-sm text-muted-foreground">{{ __('Nobody has this user as supervisor.') }}</p>
                 @else
-                    <ul class="divide-y divide-slate-200">
+                    <ul class="divide-y divide-border">
                         @foreach ($subordinates as $subordinate)
                             <li class="flex flex-wrap items-center gap-2 px-5 py-3" wire:key="subordinate-{{ $subordinate->id }}">
+                                <x-ui.avatar :name="$subordinate->name" class="bg-teal-50 text-teal-800" />
                                 <a href="{{ route('users.show', $subordinate->id) }}" class="text-sm font-medium wrap-anywhere text-primary underline-offset-2 hover:underline">{{ $subordinate->name }}</a>
                                 <x-ui.role-badge :user="$subordinate" />
-                                <x-ui.status-badge :status="$subordinate->status" />
+                                <x-ui.status-badge :status="$subordinate->status" dot />
                             </li>
                         @endforeach
                     </ul>
                 @endif
 
                 @if ($canManage && $subordinates->isNotEmpty())
-                    <div class="border-t border-slate-200 px-5 py-3.5">
-                        <x-ui.button variant="secondary" size="sm" wire:click="openMove" loading="openMove">{{ __('Move subordinates') }}</x-ui.button>
-                    </div>
+                    <x-slot:footer>
+                        <x-ui.button variant="secondary" size="sm" wire:click="openMove" loading="openMove"><x-ui.icon name="arrow-right" class="size-4" wire:loading.remove wire:target="openMove" />{{ __('Move subordinates') }}</x-ui.button>
+                    </x-slot:footer>
                 @endif
             </x-ui.card>
         @endif
@@ -176,17 +182,17 @@
             <x-ui.select :label="__('New supervisor')" id="move-target" wire:model="target" remote="searchTargets" :labels="$approverLabels" :placeholder="__('Choose a supervisor')" />
 
             <fieldset class="space-y-2">
-                <legend class="text-sm font-medium text-slate-800">{{ __('Who moves') }}</legend>
+                <legend class="text-sm font-medium text-foreground">{{ __('Who moves') }}</legend>
 
-                <label class="flex items-center gap-2 text-sm text-slate-800">
+                <label class="flex items-center gap-2 text-sm text-foreground">
                     <input id="move-all" type="checkbox" class="size-4 rounded border-slate-500 accent-primary" wire:model.live="moveAll">
                     {{ __('All subordinates') }}
                 </label>
 
                 @unless ($moveAll)
-                    <div class="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">
+                    <div class="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-border p-3">
                         @foreach ($subordinates as $subordinate)
-                            <label class="flex items-center gap-2 text-sm text-slate-800" wire:key="move-{{ $subordinate->id }}">
+                            <label class="flex items-center gap-2 text-sm text-foreground" wire:key="move-{{ $subordinate->id }}">
                                 <input type="checkbox" class="size-4 rounded border-slate-500 accent-primary" value="{{ $subordinate->id }}" wire:model="selection">
                                 <span class="wrap-anywhere">{{ $subordinate->name }}</span>
                             </label>
@@ -197,7 +203,7 @@
                 <x-ui.error for="selection" id="move-selection-error" />
             </fieldset>
 
-            <p class="text-sm text-slate-600">{{ __('They lose this supervisor and get the new one, in one step. Other supervisors they have stay.') }}</p>
+            <p class="text-sm text-muted-foreground">{{ __('They lose this supervisor and get the new one, in one step. Other supervisors they have stay.') }}</p>
         </form>
 
         <x-slot:footer>

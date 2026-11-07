@@ -7,7 +7,7 @@
         {{-- Pages here carry tokens in their session step or show secrets: no referrer leaves them. --}}
         <meta name="referrer" content="no-referrer">
 
-        <title>{{ isset($title) ? $title.' - ' : '' }}{{ config('app.name') }}</title>
+        <title>{{ isset($title) ? $title.' - ' : '' }}{{ config('app.name') }} - {{ config('app.company') }}</title>
         @include('layouts.partials.favicon')
 
         {{-- No Livewire and no Alpine on these public pages: auth.js is plain JavaScript and only enhances. --}}
@@ -33,7 +33,7 @@
                     </div>
                 </div>
 
-                <footer class="text-center text-xs text-muted-foreground print:hidden">&copy; {{ now()->year }} {{ config('app.company') }} &middot; {{ config('app.name') }}</footer>
+                <footer class="text-center text-xs text-muted-foreground print:hidden">&copy; {{ now()->year }} {{ config('app.company_legal') }} &middot; {{ config('app.name') }}</footer>
             </main>
 
             <aside class="relative hidden overflow-hidden bg-linear-to-br from-(--brand-from) to-(--brand-to) text-white lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16 print:hidden" data-auth-panel="brand">

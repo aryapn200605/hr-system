@@ -1,7 +1,7 @@
-<x-ui.page :title="__('User Management')" :subtitle="__('Create accounts, change roles and control access.')">
+<x-ui.page :title="__('User Management')" :subtitle="__('Create accounts, change roles and control access.')" icon="users">
     @can('create', \App\Models\User::class)
         <x-slot:actions>
-            <x-ui.button size="sm" wire:click="openCreate" loading="openCreate">{{ __('Create user') }}</x-ui.button>
+            <x-ui.button size="sm" wire:click="openCreate" loading="openCreate"><x-ui.icon name="user-plus" class="size-4" wire:loading.remove wire:target="openCreate" />{{ __('Create user') }}</x-ui.button>
         </x-slot:actions>
     @endcan
 
@@ -9,8 +9,15 @@
         <x-ui.alert tone="warning" data-notice>{{ $notice }}</x-ui.alert>
     @endif
 
+    @php
+        $filtered = $search !== '' || $roleFilter !== [] || $statusFilter !== [] || $supervisorFilter !== '';
+        // Clears the four filters in one request: the first three $set calls wait for the last one.
+        $clearFilters = "\$wire.\$set('search', '', false); \$wire.\$set('roleFilter', [], false); \$wire.\$set('statusFilter', [], false); \$wire.\$set('supervisorFilter', '')";
+        $loadingTarget = 'search,roleFilter,statusFilter,supervisorFilter,perPage,setPage,gotoPage,nextPage,previousPage';
+    @endphp
+
     <x-ui.card>
-        <div class="grid grid-cols-1 gap-4 border-b border-slate-200 p-5 sm:grid-cols-2 lg:grid-cols-5">
+        <x-ui.toolbar>
             <x-ui.input :label="__('Search')" id="filter-search" icon="search" type="search" maxlength="100" :placeholder="__('Name, username or email')" wire:model.live.debounce.300ms="search" />
 
             {{-- Several values in one filter: any of them; several filters: all of them. --}}
@@ -23,13 +30,23 @@
             <x-ui.select :label="__('Supervisor')" id="filter-supervisor" wire:model.live="supervisorFilter"
                 :options="['' => __('Any'), 'none' => __('No supervisor')]" />
 
-            <x-ui.select :label="__('Rows per page')" id="filter-per-page" wire:model.live="perPage"
-                :options="collect($perPageOptions)->mapWithKeys(fn ($option) => [$option => $option])->all()" />
-        </div>
+            @if ($filtered)
+                <x-slot:actions>
+                    <x-ui.button variant="ghost" size="sm" x-on:click="{{ $clearFilters }}" data-clear-filters>
+                        <x-ui.icon name="close" class="size-4" />{{ __('Clear filters') }}
+                    </x-ui.button>
+                </x-slot:actions>
+            @endif
+        </x-ui.toolbar>
 
-        <div wire:loading.class="opacity-60" wire:target="search,roleFilter,statusFilter,perPage,setPage,nextPage,previousPage">
+        <x-ui.table-skeleton :target="$loadingTarget" :columns="6" :rows="min((int) $perPage, 8)" />
+        <div wire:loading.delay.remove wire:target="{{ $loadingTarget }}">
             @if ($users->isEmpty())
-                <x-ui.empty-state :title="__('No users found')" :description="__('Try a different search or filter.')" icon="users" />
+                <x-ui.empty-state :title="__('No users found')" :description="__('Try a different search or filter.')" icon="users">
+                    @if ($filtered)
+                        <x-ui.button variant="secondary" size="sm" x-on:click="{{ $clearFilters }}">{{ __('Clear filters') }}</x-ui.button>
+                    @endif
+                </x-ui.empty-state>
             @else
                 <x-ui.table :caption="__('Users')">
                     <x-slot:head>
@@ -44,16 +61,21 @@
                             <th scope="col">{{ __('2FA') }}</th>
                             <th scope="col">{{ __('Last login') }}</th>
                             <th scope="col">{{ __('Created') }}</th>
-                            <th scope="col">{{ __('Actions') }}</th>
+                            <th scope="col" class="w-px"><span class="sr-only">{{ __('Actions') }}</span></th>
                         </tr>
                     </x-slot:head>
 
                     @foreach ($users as $row)
                         <tr wire:key="user-{{ $row->id }}">
-                            <td>{{ $row->id }}</td>
-                            <td class="font-medium text-slate-900">{{ $row->name }}</td>
-                            <td>{{ $row->username }}</td>
-                            <td>{{ $row->email }}</td>
+                            <td class="text-muted-foreground tabular-nums">{{ $row->id }}</td>
+                            <td>
+                                <span class="flex items-center gap-3">
+                                    <x-ui.avatar :name="$row->name" class="bg-primary/10 text-primary-hover" />
+                                    <span class="font-medium text-foreground">{{ $row->name }}</span>
+                                </span>
+                            </td>
+                            <td class="text-muted-foreground">{{ $row->username }}</td>
+                            <td class="text-muted-foreground">{{ $row->email }}</td>
                             <td>{{ $row->department?->name ?? '—' }}</td>
                             <td>
                                 <x-ui.role-badge :user="$row" />
@@ -61,55 +83,51 @@
                                     <x-ui.badge tone="amber" class="ml-1" data-no-supervisor>{{ __('No supervisor') }}</x-ui.badge>
                                 @endif
                             </td>
-                            <td><x-ui.status-badge :status="$row->status" /></td>
+                            <td><x-ui.status-badge :status="$row->status" dot /></td>
                             <td>
                                 @if ($row->hasCompletedTwoFactorEnrollment())
-                                    <x-ui.badge tone="green">{{ __('Enabled') }}</x-ui.badge>
+                                    <x-ui.badge tone="green" dot>{{ __('Enabled') }}</x-ui.badge>
                                 @else
-                                    <x-ui.badge>{{ __('Not enabled') }}</x-ui.badge>
+                                    <x-ui.badge dot>{{ __('Not enabled') }}</x-ui.badge>
                                 @endif
                             </td>
                             <td>
                                 @if ($row->last_login_at)
                                     <x-ui.datetime :value="$row->last_login_at" />
                                 @else
-                                    <span class="text-slate-600">{{ __('Never') }}</span>
+                                    <span class="text-muted-foreground">{{ __('Never') }}</span>
                                 @endif
                             </td>
                             <td><x-ui.datetime :value="$row->created_at" /></td>
                             <td class="text-right">
-                                <x-ui.dropdown :id="'user-actions-'.$row->id" :label="__('Actions for :name', ['name' => $row->name])" anchored trigger-class="px-2.5 py-1.5" class="inline-block">
-                                    <x-slot:trigger>
-                                        <span>{{ __('Actions') }}</span>
-                                        <x-ui.icon name="chevron-down" class="size-4" />
-                                    </x-slot:trigger>
-
-                                    <x-ui.dropdown-item :href="route('users.show', $row->id)" wire:navigate.off>{{ __('View details') }}</x-ui.dropdown-item>
+                                <x-ui.row-actions :id="'user-actions-'.$row->id" :label="__('Actions for :name', ['name' => $row->name])">
+                                    <x-ui.dropdown-item :href="route('users.show', $row->id)" icon="eye" wire:navigate.off>{{ __('View details') }}</x-ui.dropdown-item>
 
                                     @can('update', $row)
-                                        <x-ui.dropdown-item wire:click="openEdit({{ $row->id }})">{{ __('Edit') }}</x-ui.dropdown-item>
+                                        <x-ui.dropdown-item wire:click="openEdit({{ $row->id }})" icon="pencil">{{ __('Edit') }}</x-ui.dropdown-item>
                                     @endcan
 
                                     @can('changeAnyRole', $row)
-                                        <x-ui.dropdown-item wire:click="openRole({{ $row->id }})">{{ __('Change role') }}</x-ui.dropdown-item>
+                                        <x-ui.dropdown-item wire:click="openRole({{ $row->id }})" icon="shield">{{ __('Change role') }}</x-ui.dropdown-item>
                                     @endcan
 
                                     @can('resendInvitation', $row)
-                                        <x-ui.dropdown-item wire:click="openResend({{ $row->id }})">{{ __('Resend invitation') }}</x-ui.dropdown-item>
+                                        <x-ui.dropdown-item wire:click="openResend({{ $row->id }})" icon="mail">{{ __('Resend invitation') }}</x-ui.dropdown-item>
                                     @endcan
 
                                     @if ($row->status === \App\Enums\UserStatus::Suspended)
                                         @if ($row->activated)
                                             @can('reactivate', $row)
-                                                <x-ui.dropdown-item wire:click="openReactivate({{ $row->id }})">{{ __('Reactivate') }}</x-ui.dropdown-item>
+                                                <x-ui.dropdown-item wire:click="openReactivate({{ $row->id }})" icon="user-check">{{ __('Reactivate') }}</x-ui.dropdown-item>
                                             @endcan
                                         @endif
                                     @else
                                         @can('suspend', $row)
-                                            <x-ui.dropdown-item wire:click="openSuspend({{ $row->id }})" class="text-red-800!">{{ __('Suspend') }}</x-ui.dropdown-item>
+                                            <div class="-mx-1 my-1 h-px bg-border" role="none"></div>
+                                            <x-ui.dropdown-item wire:click="openSuspend({{ $row->id }})" icon="user-x" variant="destructive">{{ __('Suspend') }}</x-ui.dropdown-item>
                                         @endcan
                                     @endif
-                                </x-ui.dropdown>
+                                </x-ui.row-actions>
                             </td>
                         </tr>
                     @endforeach
@@ -117,18 +135,13 @@
             @endif
         </div>
 
-        @if ($users->total() > 0)
-            <nav aria-label="{{ __('Pagination') }}" class="flex flex-col gap-3 border-t border-slate-200 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-sm text-slate-600">{{ __('Showing :first to :last of :total', ['first' => $users->firstItem(), 'last' => $users->lastItem(), 'total' => $users->total()]) }}</p>
-
-                @if ($users->hasPages())
-                    <div class="flex gap-2">
-                        <x-ui.button variant="secondary" size="sm" wire:click="previousPage" loading="previousPage" :disabled="$users->onFirstPage()">{{ __('Previous') }}</x-ui.button>
-                        <x-ui.button variant="secondary" size="sm" wire:click="nextPage" loading="nextPage" :disabled="! $users->hasMorePages()">{{ __('Next') }}</x-ui.button>
-                    </div>
-                @endif
-            </nav>
-        @endif
+        <x-ui.pagination :paginator="$users">
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-medium whitespace-nowrap" aria-hidden="true">{{ __('Rows per page') }}</span>
+                <x-ui.select :label="__('Rows per page')" id="filter-per-page" class="w-20 [&>button]:mt-0 [&>label]:sr-only" wire:model.live="perPage"
+                    :options="collect($perPageOptions)->mapWithKeys(fn ($option) => [$option => $option])->all()" />
+            </div>
+        </x-ui.pagination>
     </x-ui.card>
 
     <x-ui.modal name="user-form" icon="user" :title="$targetId === null ? __('Create user') : __('Edit :name', ['name' => $targetName])">

@@ -709,6 +709,12 @@ return [
         'Submit overtime by the hour, decided by your supervisor.' => 'Ajukan lembur per jam, diputuskan oleh atasan Anda.',
         'Supervisors and HR decide in one place, with a clear history.' => 'Atasan dan HR memutuskan di satu tempat, dengan riwayat yang jelas.',
         'Every login is protected by two-factor authentication.' => 'Setiap proses masuk dilindungi autentikasi dua faktor.',
+        // Phase 15d: application pages.
+        'Go to first page' => 'Ke halaman pertama',
+        'Go to last page' => 'Ke halaman terakhir',
+        'Loading…' => 'Memuat…',
+        'Page :current' => 'Halaman :current',
+        'Page :current of :last' => 'Halaman :current dari :last',
     ],
     'validation' => [
         'accepted' => ':Attribute harus diterima.',

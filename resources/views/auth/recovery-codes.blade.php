@@ -17,7 +17,7 @@
     <div
         data-recovery-codes
         data-file-name="{{ str(config('app.name'))->slug() }}-recovery-codes.txt"
-        data-file-title="{{ config('app.name') }}: {{ __('Recovery codes') }}"
+        data-file-title="{{ config('app.company') }} {{ config('app.name') }}: {{ __('Recovery codes') }}"
         data-file-note="{{ __('Each code works once. Keep this file somewhere safe and private.') }}"
         data-text-copied="{{ __('Copied to the clipboard.') }}"
         data-text-selected="{{ __('This browser does not allow copying from this page. The codes are selected: press Ctrl+C (or Cmd+C) to copy them.') }}"

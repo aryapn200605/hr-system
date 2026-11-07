@@ -15,8 +15,11 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
-    // Shown beside the logo in the sidebar (and, from Phase 15c, on the auth pages).
-    'company' => 'PT Peranti Digital Solusindo',
+    // The company, decided by the owner (Phase 15d): the short name everywhere a name is shown beside the logo,
+    // in page titles and on screens; the legal name in copyright lines (auth footer, emails). The curved
+    // lettering inside design/brand/logo.jpg is not used as a name.
+    'company' => 'Peranti Digital Solusindo',
+    'company_legal' => 'PT Peranti Digital Solusindo',
 
     /*
     |--------------------------------------------------------------------------

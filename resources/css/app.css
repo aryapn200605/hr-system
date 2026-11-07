@@ -165,8 +165,12 @@
     }
 }
 
+/* Phase 15d: "backwards", not "both". A finished animation that still fills forwards keeps a transform in
+   effect, and Chrome then makes the element the containing block of its position: fixed children: inside a
+   dialog, the select and date picker panels (placed from the viewport by float()) were shifted by the
+   dialog's offset and fell off the screen. */
 @utility animate-auth-enter {
-    animation: auth-enter 0.3s ease-out both;
+    animation: auth-enter 0.3s ease-out backwards;
 }
 
 /*
@@ -328,4 +332,19 @@
     }
     -ms-overflow-style: none;
     scrollbar-width: none;
+}
+
+/*
+ * Phase 15d: the quiet backdrop behind every page heading (x-ui.page). Dots in the brand blue at a low alpha,
+ * plus a faint glow at the top right, fading out downwards. Decoration only: it sits behind the content
+ * (z-index -1 inside the page's own stacking context) and never under a text it could weaken.
+ */
+@layer components {
+    .page-backdrop {
+        background-image:
+            radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--primary) 22%, transparent) 1px, transparent 0),
+            radial-gradient(60% 80% at 100% 0%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 70%);
+        background-size: 18px 18px, 100% 100%;
+        mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+    }
 }
