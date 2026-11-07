@@ -49,7 +49,7 @@ class RequestConcurrencyTest extends TestCase
         DB::table('audit_logs')->whereIn('actor_id', $this->userIds)->orWhereIn('subject_id', $this->userIds)->delete();
         // Requests, allocations, links, periods and ledger rows go with the users (foreign key cascade).
         DB::table('users')->whereIn('id', $this->userIds)->delete();
-        DB::table('leave_categories')->delete();
+        // The leave categories stay: they are base data from a migration, and later tests in the same run need them.
         DB::table('cache')->where('key', 'like', '%requests:submit:%')->delete();
         DB::table('role_has_permissions')->delete();
         DB::table('roles')->delete();
