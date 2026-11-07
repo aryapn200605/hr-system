@@ -9,8 +9,12 @@ use App\Mail\PasswordResetMail;
 use App\Models\Department;
 use App\Models\Holiday;
 use App\Models\User;
+use App\Services\Requests\Decisions;
+use App\Services\Requests\LeaveRequests;
+use App\Services\Requests\OvertimeRequests;
 use App\Services\Supervisors;
 use App\Support\MailDelivery;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -99,8 +103,13 @@ class ApplicationPagesDesignTest extends TestCase
         $this->assertMatchesRegularExpression('#<a href="/users"[^>]*data-page-back>\s*<svg[^>]*>.*?</svg>\s*Back to users\s*</a>#s', $html);
         $this->assertMatchesRegularExpression('#data-icon-chip="primary"#', $html);
         $this->assertMatchesRegularExpression('#class="page-backdrop[^"]*"\s+aria-hidden="true"\s+data-page-backdrop#', $html);
-        // The backdrop is clipped to the container, which is positioned, so it cannot widen the page.
-        $this->assertMatchesRegularExpression('#data-page\s+data-width="default"\s+class="relative isolate#', $html);
+        // The backdrop is clipped to the container, which is positioned, so it cannot widen the page; the other
+        // children are positioned so they paint over it. No stacking context: dialogs inside the page must still
+        // cover the sidebar and the header (with "isolate" they were drawn under them).
+        $this->assertMatchesRegularExpression('#data-page\s+data-width="default"\s+class="relative mx-auto[^"]*\[&amp;&gt;:not\(\[data-page-backdrop\],\.fixed\)\]:relative#', $html);
+        $this->assertDoesNotMatchRegularExpression('#data-page\s+data-width="default"\s+class="[^"]*(isolate|z-\d+)#', $html);
+        // Dialogs (fixed) keep their own position.
+        $this->assertDoesNotMatchRegularExpression('#<div class="[^"]*-z-\d+[^"]*"[^>]*data-page-backdrop#', $html);
 
         $plain = Blade::render('<x-ui.page title="Ana">Body</x-ui.page>');
         $this->assertStringNotContainsString('data-page-back>', $plain);
@@ -269,6 +278,68 @@ class ApplicationPagesDesignTest extends TestCase
 
         $view = $this->actingAs($employee)->get(route('users.show', $approver->id));
         $view->assertForbidden();
+    }
+
+    // ---- Group 3: requests and approvals --------------------------------------------------------------------
+
+    public function test_the_segmented_control_sets_its_property_and_marks_the_chosen_option(): void
+    {
+        $html = Blade::render('<x-ui.segmented label="List" :options="[\'waiting\' => \'Waiting\', \'decided\' => \'Decided\']" value="decided" property="tab" data-attribute="tab" />');
+
+        $this->assertMatchesRegularExpression('#role="group" aria-labelledby="segmented-tab-label"#', $html);
+        $this->assertMatchesRegularExpression('#wire:click="\$set\(\'tab\', \'waiting\'\)"\s+aria-pressed="false"\s+data-tab="waiting"#', $html);
+        $this->assertMatchesRegularExpression('#wire:click="\$set\(\'tab\', \'decided\'\)"\s+aria-pressed="true"\s+data-tab="decided"#', $html);
+    }
+
+    public function test_my_requests_shows_balance_tiles_and_an_empty_state_with_the_new_request_action(): void
+    {
+        $employee = $this->userWithRole(RoleName::Employee);
+        $supervisor = $this->userWithRole(RoleName::Approver);
+        app(Supervisors::class)->attach($this->userWithRole(RoleName::HrAdmin), $employee, (string) $supervisor->id);
+
+        $html = $this->actingAs($employee)->get(route('requests.index'))->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('#data-slot="0">.*?Entitlement.*?Used.*?In pending requests.*?<span\s+data-available\s*>#s', $html);
+        $this->assertStringContainsString('data-segmented="type"', $html);
+        $this->assertMatchesRegularExpression('#data-empty-state>.*?wire:click="openLeave"#s', $html);
+
+        // Without an approval path the empty state offers nothing (the header buttons are disabled instead).
+        $alone = $this->userWithRole(RoleName::Employee);
+        $html = $this->actingAs($alone)->get(route('requests.index'))->assertOk()->getContent();
+        $this->assertDoesNotMatchRegularExpression('#data-empty-state>(?:(?!</div>\s*</div>).)*wire:click="openLeave"#s', $html);
+    }
+
+    public function test_a_request_shows_its_progress(): void
+    {
+        $employee = $this->userWithRole(RoleName::Employee);
+        $supervisor = $this->userWithRole(RoleName::Approver);
+        app(Supervisors::class)->attach($this->userWithRole(RoleName::HrAdmin), $employee, (string) $supervisor->id);
+        $monday = CarbonImmutable::today()->next(CarbonImmutable::MONDAY);
+        $request = app(OvertimeRequests::class)->submit($employee, ['start_at' => $monday->toDateString().' 18:00', 'end_at' => $monday->toDateString().' 20:00', 'reason' => 'Release night support.']);
+
+        $pending = $this->actingAs($employee)->get(route('requests.show', ['type' => 'overtime', 'id' => $request->id]))->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('#data-step="0">.*?Submitted.*?data-step="1">.*?Pending approval#s', $pending);
+        $this->assertMatchesRegularExpression('#data-page-back>.*?Back to my requests#s', $pending);
+
+        app(Decisions::class)->reject($supervisor, 'overtime', $request->id, 'Not this week.');
+        $rejected = $this->actingAs($employee)->get(route('requests.show', ['type' => 'overtime', 'id' => $request->id]))->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('#data-step="1">.*?Rejected.*?'.preg_quote($supervisor->name, '#').'#s', $rejected);
+        $this->assertMatchesRegularExpression('#data-icon-chip="red"#', $rejected);
+    }
+
+    public function test_the_decision_page_keeps_its_markers_and_the_final_warning(): void
+    {
+        $employee = $this->userWithRole(RoleName::Employee);
+        $supervisor = $this->userWithRole(RoleName::Approver);
+        app(Supervisors::class)->attach($this->userWithRole(RoleName::HrAdmin), $employee, (string) $supervisor->id);
+        $monday = CarbonImmutable::today()->next(CarbonImmutable::MONDAY);
+        $request = app(LeaveRequests::class)->submit($employee, ['category' => 'sick', 'starts_on' => $monday->toDateString(), 'ends_on' => $monday->toDateString(), 'reason' => 'Doctor appointment in town.']);
+
+        $html = $this->actingAs($supervisor)->get(route('approvals.show', ['type' => 'leave', 'id' => $request->id]))->assertOk()->getContent();
+        foreach (['data-close', 'data-approve', 'data-reject', 'data-confirm-approve', 'data-confirm-reject', 'data-slot="0"', 'data-remaining', 'data-used'] as $marker) {
+            $this->assertStringContainsString($marker, $html);
+        }
+        $this->assertSame(2, substr_count($html, 'data-final-warning'));
+        $this->assertMatchesRegularExpression('#data-final-warning>\s*<svg[^>]*>.*?</svg>\s*<span>This decision is final\. It cannot be undone or changed later\.</span>#s', $html);
     }
 
     public function test_an_empty_departments_page_offers_the_first_department(): void

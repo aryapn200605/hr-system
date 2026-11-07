@@ -1,54 +1,41 @@
-<x-ui.page :title="__('My requests')" :subtitle="__('Submit leave and overtime requests and follow their status.')">
+<x-ui.page :title="__('My requests')" :subtitle="__('Submit leave and overtime requests and follow their status.')" icon="clipboard">
     {{-- The buttons stay in the page and are only disabled, so the dialogs are always rendered. --}}
     <x-slot:actions>
-        <x-ui.button size="sm" wire:click="openLeave" loading="openLeave" :disabled="$problem !== null" data-new-leave>{{ __('New leave request') }}</x-ui.button>
-        <x-ui.button variant="secondary" size="sm" wire:click="openOvertime" loading="openOvertime" :disabled="$problem !== null" data-new-overtime>{{ __('New overtime request') }}</x-ui.button>
+        <x-ui.button size="sm" wire:click="openLeave" loading="openLeave" :disabled="$problem !== null" data-new-leave><x-ui.icon name="calendar" class="size-4" wire:loading.remove wire:target="openLeave" />{{ __('New leave request') }}</x-ui.button>
+        <x-ui.button variant="secondary" size="sm" wire:click="openOvertime" loading="openOvertime" :disabled="$problem !== null" data-new-overtime><x-ui.icon name="clock" class="size-4" wire:loading.remove wire:target="openOvertime" />{{ __('New overtime request') }}</x-ui.button>
     </x-slot:actions>
 
     @if ($problem !== null)
         <x-ui.alert tone="warning" data-no-approval-path>{{ $problem }}</x-ui.alert>
     @endif
 
-    <x-ui.card :title="__('Annual leave balance')">
-        <div class="grid grid-cols-1 divide-y divide-slate-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-            @foreach ($periods as $slot)
-                <dl class="px-5 py-2" data-slot="{{ $loop->index }}">
-                    <x-ui.detail :label="$loop->first ? __('Current period') : __('Next period')">
-                        <x-ui.date :value="$slot->startsOn" /> – <x-ui.date :value="$slot->endsOn" />
-                        @if ($slot->isProjected())
-                            <x-ui.badge class="ml-1">{{ __('Projected') }}</x-ui.badge>
-                        @endif
-                    </x-ui.detail>
-                    <x-ui.detail :label="__('Entitlement')">{{ __(':count days', ['count' => $slot->entitlement]) }}</x-ui.detail>
-                    <x-ui.detail :label="__('Used')">{{ __(':count days', ['count' => $slot->used]) }}</x-ui.detail>
-                    <x-ui.detail :label="__('In pending requests')">{{ __(':count days', ['count' => $slot->pending]) }}</x-ui.detail>
-                    <x-ui.detail :label="__('Available')"><span data-available>{{ __(':count days', ['count' => $slot->available()]) }}</span></x-ui.detail>
-                </dl>
-            @endforeach
-        </div>
+    <x-ui.card :title="__('Annual leave balance')" icon="wallet" tone="green">
+        @include('livewire.requests.partials.balance-slots', ['periods' => $periods])
     </x-ui.card>
 
     <x-ui.card>
-        <div class="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-end sm:justify-between">
-            <div class="inline-flex self-start rounded-lg border border-slate-300 p-0.5" role="group" aria-label="{{ __('Request type') }}">
-                @foreach (['leave' => __('Leave'), 'overtime' => __('Overtime')] as $value => $label)
-                    <button type="button" wire:click="$set('type', '{{ $value }}')" aria-pressed="{{ $shownType === $value ? 'true' : 'false' }}" @class([
-                        'cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium',
-                        'bg-primary text-primary-foreground' => $shownType === $value,
-                        'text-slate-700 hover:bg-slate-100' => $shownType !== $value,
-                    ])>{{ $label }}</button>
-                @endforeach
+        <x-ui.toolbar>
+            {{-- Two columns of the toolbar grid, and its own width in the flex row: the options never overflow. --}}
+            <div class="flex items-end sm:col-span-2 xl:w-auto!">
+                <x-ui.segmented :label="__('Request type')" :options="['leave' => __('Leave'), 'overtime' => __('Overtime')]" :value="$shownType" property="type" />
             </div>
 
-            <div class="sm:w-56">
-                <x-ui.select :label="__('Status')" id="filter-status" wire:model.live="statusFilter"
-                    :options="collect(['' => __('All statuses')])->merge(collect($statuses)->mapWithKeys(fn ($option) => [$option->value => $option->label()]))->all()" />
-            </div>
-        </div>
+            <x-ui.select :label="__('Status')" id="filter-status" wire:model.live="statusFilter"
+                :options="collect(['' => __('All statuses')])->merge(collect($statuses)->mapWithKeys(fn ($option) => [$option->value => $option->label()]))->all()" />
+        </x-ui.toolbar>
 
-        <div wire:loading.class="opacity-60" wire:target="type,statusFilter,nextPage,previousPage">
+        <x-ui.table-skeleton target="type,statusFilter,gotoPage,nextPage,previousPage" :columns="5" :rows="4" />
+        <div wire:loading.delay.remove wire:target="type,statusFilter,gotoPage,nextPage,previousPage">
             @if ($requests->isEmpty())
-                <x-ui.empty-state :title="__('No requests found')" :description="__('Requests you submit appear here.')" icon="clipboard" />
+                <x-ui.empty-state :title="__('No requests found')" :description="__('Requests you submit appear here.')" :icon="$shownType === 'leave' ? 'calendar' : 'clock'">
+                    @if ($problem === null)
+                        @if ($shownType === 'leave')
+                            <x-ui.button size="sm" wire:click="openLeave" loading="openLeave"><x-ui.icon name="plus" class="size-4" wire:loading.remove wire:target="openLeave" />{{ __('New leave request') }}</x-ui.button>
+                        @else
+                            <x-ui.button size="sm" wire:click="openOvertime" loading="openOvertime"><x-ui.icon name="plus" class="size-4" wire:loading.remove wire:target="openOvertime" />{{ __('New overtime request') }}</x-ui.button>
+                        @endif
+                    @endif
+                </x-ui.empty-state>
             @elseif ($shownType === 'leave')
                 <x-ui.table :caption="__('Leave requests')">
                     <x-slot:head>
@@ -58,18 +45,23 @@
                             <th scope="col">{{ __('Working days') }}</th>
                             <th scope="col">{{ __('Status') }}</th>
                             <th scope="col">{{ __('Submitted') }}</th>
-                            <th scope="col">{{ __('Actions') }}</th>
+                            <th scope="col" class="w-px"><span class="sr-only">{{ __('Actions') }}</span></th>
                         </tr>
                     </x-slot:head>
 
                     @foreach ($requests as $row)
                         <tr wire:key="leave-{{ $row->id }}">
-                            <td class="font-medium text-slate-900">{{ $row->category->label() }}</td>
+                            <td>
+                                <span class="flex items-center gap-3">
+                                    <x-ui.icon-chip icon="calendar" size="sm" />
+                                    <span class="font-medium text-foreground">{{ $row->category->label() }}</span>
+                                </span>
+                            </td>
                             <td><x-ui.date :value="$row->starts_on" /> – <x-ui.date :value="$row->ends_on" /></td>
-                            <td>{{ $row->working_days }}</td>
-                            <td><x-ui.badge :tone="$row->status->tone()">{{ $row->status->label() }}</x-ui.badge></td>
+                            <td class="tabular-nums">{{ $row->working_days }}</td>
+                            <td><x-ui.badge :tone="$row->status->tone()" dot>{{ $row->status->label() }}</x-ui.badge></td>
                             <td><x-ui.datetime :value="$row->created_at" /></td>
-                            <td class="text-right"><x-ui.button variant="secondary" size="sm" :href="route('requests.show', ['type' => 'leave', 'id' => $row->id])">{{ __('View') }}</x-ui.button></td>
+                            <td class="text-right"><x-ui.button variant="secondary" size="sm" :href="route('requests.show', ['type' => 'leave', 'id' => $row->id])"><x-ui.icon name="eye" class="size-4" />{{ __('View') }}</x-ui.button></td>
                         </tr>
                     @endforeach
                 </x-ui.table>
@@ -82,33 +74,33 @@
                             <th scope="col">{{ __('Hours') }}</th>
                             <th scope="col">{{ __('Status') }}</th>
                             <th scope="col">{{ __('Submitted') }}</th>
-                            <th scope="col">{{ __('Actions') }}</th>
+                            <th scope="col" class="w-px"><span class="sr-only">{{ __('Actions') }}</span></th>
                         </tr>
                     </x-slot:head>
 
                     @foreach ($requests as $row)
                         <tr wire:key="overtime-{{ $row->id }}">
-                            <td class="font-medium text-slate-900"><x-ui.datetime :value="$row->start_at" /></td>
+                            <td>
+                                <span class="flex items-center gap-3">
+                                    <x-ui.icon-chip icon="clock" size="sm" tone="teal" />
+                                    <span class="font-medium text-foreground"><x-ui.datetime :value="$row->start_at" /></span>
+                                </span>
+                            </td>
                             <td><x-ui.datetime :value="$row->end_at" /></td>
-                            <td>{{ $row->hours }}</td>
-                            <td><x-ui.badge :tone="$row->status->tone()">{{ $row->status->label() }}</x-ui.badge></td>
+                            <td class="tabular-nums">{{ $row->hours }}</td>
+                            <td><x-ui.badge :tone="$row->status->tone()" dot>{{ $row->status->label() }}</x-ui.badge></td>
                             <td><x-ui.datetime :value="$row->created_at" /></td>
-                            <td class="text-right"><x-ui.button variant="secondary" size="sm" :href="route('requests.show', ['type' => 'overtime', 'id' => $row->id])">{{ __('View') }}</x-ui.button></td>
+                            <td class="text-right"><x-ui.button variant="secondary" size="sm" :href="route('requests.show', ['type' => 'overtime', 'id' => $row->id])"><x-ui.icon name="eye" class="size-4" />{{ __('View') }}</x-ui.button></td>
                         </tr>
                     @endforeach
                 </x-ui.table>
             @endif
         </div>
 
-        @if ($requests->hasPages())
-            <nav aria-label="{{ __('Pagination') }}" class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3.5">
-                <x-ui.button variant="secondary" size="sm" wire:click="previousPage" loading="previousPage" :disabled="$requests->onFirstPage()">{{ __('Previous') }}</x-ui.button>
-                <x-ui.button variant="secondary" size="sm" wire:click="nextPage" loading="nextPage" :disabled="! $requests->hasMorePages()">{{ __('Next') }}</x-ui.button>
-            </nav>
-        @endif
+        <x-ui.pagination :paginator="$requests" />
     </x-ui.card>
 
-    <x-ui.modal name="leave-form" icon="calendar" :title="__('New leave request')">
+    <x-ui.modal name="leave-form" icon="calendar" :title="__('New leave request')" class="sm:max-w-xl">
         <form id="leave-form-fields" class="space-y-4" wire:submit="submitLeave">
             @error('request')
                 <x-ui.alert tone="danger" data-request-error>{{ $message }}</x-ui.alert>
@@ -122,7 +114,7 @@
                 <x-ui.date-picker :label="__('Start date')" id="leave-starts-on" :min="today()->toDateString()" disable-weekends :disabled-dates="$holidays" wire:model="starts_on" />
                 <x-ui.date-picker :label="__('End date')" id="leave-ends-on" :min="today()->toDateString()" disable-weekends :disabled-dates="$holidays" wire:model="ends_on" />
             </div>
-            <p class="text-sm text-slate-600">{{ __('Only working days count: Monday to Friday, without holidays. The count is fixed when you submit.') }}</p>
+            <p class="flex items-start gap-2 text-sm text-muted-foreground"><x-ui.icon name="info" class="mt-0.5 size-4 shrink-0" /><span>{{ __('Only working days count: Monday to Friday, without holidays. The count is fixed when you submit.') }}</span></p>
 
             <x-ui.textarea :label="__('Reason')" id="leave-reason" maxlength="1000" wire:model="reason" :hint="__('10 to 1000 characters.')" />
 
@@ -135,7 +127,7 @@
         </x-slot:footer>
     </x-ui.modal>
 
-    <x-ui.modal name="overtime-form" icon="clock" :title="__('New overtime request')">
+    <x-ui.modal name="overtime-form" icon="clock" :title="__('New overtime request')" class="sm:max-w-xl">
         <form id="overtime-form-fields" class="space-y-4" wire:submit="submitOvertime">
             @error('request')
                 <x-ui.alert tone="danger" data-request-error>{{ $message }}</x-ui.alert>
@@ -145,7 +137,7 @@
                 <x-ui.date-hour :legend="__('Start')" id="overtime-start" date="start_date" hour="start_hour" :date-label="__('Start date')" :hour-label="__('Start time')" :min="today()->toDateString()" />
                 <x-ui.date-hour :legend="__('End')" id="overtime-end" date="end_date" hour="end_hour" :date-label="__('End date')" :hour-label="__('End time')" :min="today()->toDateString()" />
             </div>
-            <p class="text-sm text-slate-600">{{ __('Whole hours in WIB, at most :count hours. The end may be on the next day.', ['count' => $maxHours]) }}</p>
+            <p class="flex items-start gap-2 text-sm text-muted-foreground"><x-ui.icon name="info" class="mt-0.5 size-4 shrink-0" /><span>{{ __('Whole hours in WIB, at most :count hours. The end may be on the next day.', ['count' => $maxHours]) }}</span></p>
 
             <x-ui.textarea :label="__('Reason')" id="overtime-reason" maxlength="1000" wire:model="overtime_reason" :hint="__('10 to 1000 characters.')" />
 

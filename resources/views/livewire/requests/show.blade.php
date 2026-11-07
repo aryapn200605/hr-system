@@ -1,20 +1,24 @@
-<x-ui.page :title="$title">
-    <x-slot:subtitle>{{ __('Submitted') }} <x-ui.datetime :value="$record->created_at" /></x-slot:subtitle>
-    <x-slot:actions>
-        <x-ui.button variant="secondary" size="sm" :href="route('requests.index', $type === 'leave' ? [] : ['type' => 'overtime'])">{{ __('Back to my requests') }}</x-ui.button>
-        @if ($canCancel)
-            <x-ui.button variant="secondary" size="sm" class="text-red-800!" wire:click="openCancel" loading="openCancel" data-cancel-request>{{ __('Cancel request') }}</x-ui.button>
-        @endif
-    </x-slot:actions>
+<x-ui.page :title="$title" :icon="$type === 'leave' ? 'calendar' : 'clock'" :back="['href' => route('requests.index', $type === 'leave' ? [] : ['type' => 'overtime']), 'label' => __('Back to my requests')]">
+    <x-slot:subtitle>
+        <span class="flex flex-wrap items-center gap-2">
+            <x-ui.badge :tone="$record->status->tone()" dot>{{ $record->status->label() }}</x-ui.badge>
+            <span>{{ __('Submitted') }} <x-ui.datetime :value="$record->created_at" /></span>
+        </span>
+    </x-slot:subtitle>
+    @if ($canCancel)
+        <x-slot:actions>
+            <x-ui.button variant="secondary" size="sm" class="text-red-800!" wire:click="openCancel" loading="openCancel" data-cancel-request><x-ui.icon name="x-circle" class="size-4" wire:loading.remove wire:target="openCancel" />{{ __('Cancel request') }}</x-ui.button>
+        </x-slot:actions>
+    @endif
 
     @if ($notice !== '')
         <x-ui.alert tone="warning" data-notice>{{ $notice }}</x-ui.alert>
     @endif
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <x-ui.card :title="__('Details')">
-            <dl class="divide-y divide-slate-200 px-5 py-2">
-                <x-ui.detail :label="__('Status')"><x-ui.badge :tone="$record->status->tone()" data-status>{{ $record->status->label() }}</x-ui.badge></x-ui.detail>
+        <x-ui.card :title="__('Details')" icon="file-text">
+            <dl class="divide-y divide-border px-5 py-2">
+                <x-ui.detail :label="__('Status')"><x-ui.badge :tone="$record->status->tone()" dot data-status>{{ $record->status->label() }}</x-ui.badge></x-ui.detail>
 
                 @if ($record instanceof \App\Models\LeaveRequest)
                     <x-ui.detail :label="__('Category')">{{ $record->category->label() }}</x-ui.detail>
@@ -42,8 +46,10 @@
         </x-ui.card>
 
         <div class="space-y-6">
-            <x-ui.card :title="__('Reason')">
-                <p class="px-5 py-4 text-sm whitespace-pre-line wrap-anywhere text-slate-800">{{ $record->reason }}</p>
+            @include('livewire.requests.partials.progress', ['record' => $record])
+
+            <x-ui.card :title="__('Reason')" icon="list" tone="gray">
+                <p class="px-5 py-4 text-sm whitespace-pre-line wrap-anywhere text-foreground">{{ $record->reason }}</p>
             </x-ui.card>
 
             @if ($record->decided_at)
@@ -53,7 +59,7 @@
     </div>
 
     @if ($record instanceof \App\Models\LeaveRequest && $record->allocations->isNotEmpty())
-        <x-ui.card :title="__('Leave balance used per period')">
+        <x-ui.card :title="__('Leave balance used per period')" icon="wallet" tone="green">
             @include('livewire.requests.partials.allocations', ['record' => $record])
         </x-ui.card>
     @endif

@@ -17,7 +17,7 @@
     data-page
     data-width="{{ $width }}"
     {{ $attributes->class([
-        'relative isolate mx-auto w-full space-y-6 px-4 py-6 sm:px-6',
+        'relative mx-auto w-full space-y-6 px-4 py-6 sm:px-6 [&>:not([data-page-backdrop],.fixed)]:relative',
         match ($width) {
             'narrow' => 'max-w-lg',
             'full' => 'max-w-none',
@@ -25,8 +25,10 @@
         },
     ]) }}
 >
-    {{-- Decoration only: a dotted field that fades out downwards, clipped to the container. --}}
-    <div class="page-backdrop pointer-events-none absolute inset-x-0 top-0 -z-10 h-56 overflow-hidden" aria-hidden="true" data-page-backdrop></div>
+    {{-- Decoration only: a dotted field that fades out downwards, clipped to the container. It comes first and the
+         page's other children are positioned, so they paint over it. No stacking context here (no isolate or
+         z-index): the page's dialogs (fixed, z-50) must still cover the sidebar and the header. --}}
+    <div class="page-backdrop pointer-events-none absolute inset-x-0 top-0 h-56 overflow-hidden" aria-hidden="true" data-page-backdrop></div>
 
     @if ($title !== null && (string) $title !== '')
         <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between" data-page-header>

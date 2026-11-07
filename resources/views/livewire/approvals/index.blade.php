@@ -1,29 +1,23 @@
-<x-ui.page :title="__('Approvals')" :subtitle="__('Decide the leave and overtime requests that wait for you, oldest first.')">
+<x-ui.page :title="__('Approvals')" :subtitle="__('Decide the leave and overtime requests that wait for you, oldest first.')" icon="inbox">
 
     <x-ui.card>
-        <div class="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-end sm:justify-between">
-            <div class="inline-flex self-start rounded-lg border border-slate-300 p-0.5" role="group" aria-label="{{ __('List') }}">
-                @foreach (['waiting' => __('Waiting for me'), 'decided' => __('Decided by me')] as $value => $label)
-                    <button type="button" wire:click="$set('tab', '{{ $value }}')" aria-pressed="{{ $shownTab === $value ? 'true' : 'false' }}" data-tab="{{ $value }}" @class([
-                        'cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium',
-                        'bg-primary text-primary-foreground' => $shownTab === $value,
-                        'text-slate-700 hover:bg-slate-100' => $shownTab !== $value,
-                    ])>{{ $label }}</button>
-                @endforeach
+        <x-ui.toolbar>
+            {{-- Two columns of the toolbar grid, and its own width in the flex row: the options never overflow. --}}
+            <div class="flex items-end sm:col-span-2 xl:w-auto!">
+                <x-ui.segmented :label="__('List')" :options="['waiting' => __('Waiting for me'), 'decided' => __('Decided by me')]" :value="$shownTab" property="tab" data-attribute="tab" />
             </div>
 
-            <div class="sm:w-56">
-                <x-ui.select :label="__('Request type')" id="filter-type" multiple :placeholder="__('All types')" wire:model.live="type"
-                    :options="['leave' => __('Leave'), 'overtime' => __('Overtime')]" />
-            </div>
-        </div>
+            <x-ui.select :label="__('Request type')" id="filter-type" multiple :placeholder="__('All types')" wire:model.live="type"
+                :options="['leave' => __('Leave'), 'overtime' => __('Overtime')]" />
+        </x-ui.toolbar>
 
-        <div wire:loading.class="opacity-60" wire:target="tab,type,nextPage,previousPage">
+        <x-ui.table-skeleton target="tab,type,gotoPage,nextPage,previousPage" :columns="3" :rows="4" />
+        <div wire:loading.delay.remove wire:target="tab,type,gotoPage,nextPage,previousPage">
             @if ($rows->isEmpty())
                 @if ($shownTab === 'waiting')
                     <x-ui.empty-state :title="__('Nothing waits for you')" :description="__('Requests you may decide appear here.')" icon="inbox" />
                 @else
-                    <x-ui.empty-state :title="__('No decisions yet')" :description="__('Requests you approve or reject appear here.')" icon="inbox" />
+                    <x-ui.empty-state :title="__('No decisions yet')" :description="__('Requests you approve or reject appear here.')" icon="check-circle" />
                 @endif
             @else
                 <x-ui.table :caption="$shownTab === 'waiting' ? __('Requests waiting for me') : __('Requests decided by me')">
@@ -40,10 +34,18 @@
                         @php($isLeave = $row instanceof \App\Models\LeaveRequest)
                         <tr wire:key="{{ $row->routeType() }}-{{ $row->id }}" data-row="{{ $row->routeType() }}-{{ $row->id }}">
                             <td>
-                                <a href="{{ route('approvals.show', ['type' => $row->routeType(), 'id' => $row->id]) }}" class="font-medium text-primary underline underline-offset-2 hover:text-primary-hover" data-open>
-                                    {{ $row->user->name }}<span class="sr-only">: {{ $shownTab === 'waiting' ? __('Review') : __('View') }}</span>
-                                </a>
-                                <span class="block text-slate-600">{{ $isLeave ? $row->category->label() : __('Overtime') }}</span>
+                                <span class="flex items-center gap-3">
+                                    <x-ui.avatar :name="$row->user->name" class="bg-primary/10 text-primary-hover" />
+                                    <span class="min-w-0">
+                                        <a href="{{ route('approvals.show', ['type' => $row->routeType(), 'id' => $row->id]) }}" class="font-medium text-primary underline underline-offset-2 hover:text-primary-hover" data-open>
+                                            {{ $row->user->name }}<span class="sr-only">: {{ $shownTab === 'waiting' ? __('Review') : __('View') }}</span>
+                                        </a>
+                                        <span class="flex items-center gap-1.5 text-muted-foreground">
+                                            <x-ui.icon :name="$isLeave ? 'calendar' : 'clock'" class="size-3.5 shrink-0" />
+                                            {{ $isLeave ? $row->category->label() : __('Overtime') }}
+                                        </span>
+                                    </span>
+                                </span>
                             </td>
                             <td>
                                 @if ($isLeave)
@@ -51,14 +53,14 @@
                                 @else
                                     {{ $row->start_at->translatedFormat('j M Y, H:i') }}–{{ $row->end_at->translatedFormat('H:i T') }}
                                 @endif
-                                <span class="block text-slate-600">{{ $isLeave ? __(':count working days', ['count' => $row->working_days]) : __(':count hours', ['count' => $row->hours]) }}</span>
+                                <span class="block text-muted-foreground">{{ $isLeave ? __(':count working days', ['count' => $row->working_days]) : __(':count hours', ['count' => $row->hours]) }}</span>
                             </td>
                             @if ($shownTab === 'waiting')
                                 <td><x-ui.datetime :value="$row->created_at" /></td>
                             @else
                                 <td>
-                                    <x-ui.badge :tone="$row->status->tone()">{{ $row->status->label() }}</x-ui.badge>
-                                    <span class="block text-slate-600"><x-ui.datetime :value="$row->decided_at" /></span>
+                                    <x-ui.badge :tone="$row->status->tone()" dot>{{ $row->status->label() }}</x-ui.badge>
+                                    <span class="block text-muted-foreground"><x-ui.datetime :value="$row->decided_at" /></span>
                                 </td>
                             @endif
                         </tr>
@@ -67,11 +69,6 @@
             @endif
         </div>
 
-        @if ($rows->hasPages())
-            <nav aria-label="{{ __('Pagination') }}" class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3.5">
-                <x-ui.button variant="secondary" size="sm" wire:click="previousPage" loading="previousPage" :disabled="$rows->onFirstPage()">{{ __('Previous') }}</x-ui.button>
-                <x-ui.button variant="secondary" size="sm" wire:click="nextPage" loading="nextPage" :disabled="! $rows->hasMorePages()">{{ __('Next') }}</x-ui.button>
-            </nav>
-        @endif
+        <x-ui.pagination :paginator="$rows" />
     </x-ui.card>
 </x-ui.page>
